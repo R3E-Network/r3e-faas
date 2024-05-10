@@ -1,0 +1,13 @@
+# Copyright @ 2023 - 2024, R3E Network
+# All Rights Reserved
+
+[package]
+name = "r3e-core"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+r3e-proc-macros = { path = "../r3e-proc-macros"}
+
+v8  =  { version = "0.91.0" }

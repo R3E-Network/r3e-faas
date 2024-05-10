@@ -1,0 +1,16 @@
+# Copyright @ 2023 - 2024, R3E Network
+# All Rights Reserved
+
+[package]
+name = "r3e-proc-macros"
+version = "0.1.0"
+edition = "2021"
+
+
+[lib]
+proc-macro = true
+
+
+[dependencies]
+syn         = { version = "2" }
+quote       = { version = "1" }

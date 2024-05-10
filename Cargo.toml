@@ -1,0 +1,26 @@
+# Copyright @ 2023 - 2024, R3E Network
+# All Rights Reserved
+
+[workspace]
+resolver = "2"
+
+
+members = [
+    "r3e-core",
+    "r3e-event",
+    "r3e-proc-macros",
+    "r3e-runlog",
+    "r3e-runtime",
+    "r3e-scheduler",
+    "r3e-stock",
+    "r3e-store",
+    "r3e-worker",
+]
+
+
+[profile.release]
+lto = "fat"
+opt_level = 3
+codegen_units = 1
+
+# RUSTFLAGS="-C target-cpu=native"
