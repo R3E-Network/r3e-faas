@@ -10,4 +10,12 @@ edition = "2021"
 [dependencies]
 r3e-proc-macros = { path = "../r3e-proc-macros"}
 
-v8  =  { version = "0.91.0" }
+v8 = { version = "0.106.0", default-features = false }
+
+log          = { version = "0.4" }
+signal-hook  = { version = "0.3" }
+
+cfg-if       = { version = "1" }
+git-version  = { version = "0.3" }
+compile-time = { version = "0.2" }
+const_format = { version = "0.2"}

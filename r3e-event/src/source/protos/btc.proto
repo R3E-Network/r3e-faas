@@ -1,0 +1,33 @@
+// Copyright @ 2023 - 2024, R3E Network
+// All Rights Reserved
+
+syntax = "proto3";
+
+package events;
+
+message BtcBlock {
+    uint32 height = 1;
+    uint32 magic = 2;
+    uint32 size = 3;
+    BtcBlockHeader header = 4;
+    repeated BtcTx txs = 5;
+}
+
+message BtcBlockHeader {
+    uint32 version = 1;
+    string prev_block_hash = 2;
+    string merkle_root = 3;
+    uint64 time = 4;
+    uint32 bits = 5;
+    uint64 nonce = 6;
+}
+
+// TODO: Implement
+message BtcTx {
+    // string hash = 1;
+    // uint32 version = 2;
+    // uint32 lock_time = 3;
+    // uint32 size = 4;
+    // repeated BtcVin vin = 5;
+    // repeated BtcVout vout = 6;
+}

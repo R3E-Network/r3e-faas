@@ -8,3 +8,6 @@ edition = "2021"
 
 
 [dependencies]
+r3e-core    = { path = "../r3e-core" }
+
+thiserror   =  { version = "1" }

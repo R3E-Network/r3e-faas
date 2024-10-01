@@ -1,0 +1,39 @@
+// Copyright @ 2023 - 2024, R3E Network
+// All Rights Reserved
+
+syntax = "proto3";
+
+package events;
+
+import "btc.proto";
+import "neo.proto";
+
+message MockEvent {
+    string message = 1;
+}
+
+message List {
+    repeated Value values = 1;
+}
+
+message Map {
+    map<string, Value> values = 1;
+}
+
+message Value {
+    oneof value {
+        string         string  = 1;
+        int64          int64   = 2;
+        bool           bool    = 3;
+        List           list    = 4;
+        Map            map     = 5;
+    }
+}
+
+message Event {
+    oneof event {
+        MockEvent  mock = 1;
+        BtcBlock   btc_block = 2;
+        NeoBlock   neo_block = 3;
+    }
+}

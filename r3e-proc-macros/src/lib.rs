@@ -1,18 +1,15 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-
 use proc_macro::TokenStream;
 use quote::quote;
 
 mod jscall;
 
-
 #[proc_macro_attribute]
 pub fn jscall(_attr: TokenStream, _item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
-
 
 #[proc_macro_derive(BytesLike)]
 pub fn derive_bytes_like(input: TokenStream) -> TokenStream {

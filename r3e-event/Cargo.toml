@@ -8,3 +8,25 @@ edition = "2021"
 
 
 [dependencies]
+r3e-core    = { path = "../r3e-core" }
+
+thiserror   = { version = "1" }
+serde       = { version = "1", features = ["derive"] }
+
+tokio       =  { version = "1", features = ["full"]}
+async-trait = { version = "0" }
+
+prost       = { version = "0.13" }
+tonic       = { version = "0.12" }
+
+
+[dev-dependencies]
+deno_core   = { version = "0.311" }
+
+serde_json  = { version = "1" }
+serde_v8    = { version = "0" }
+v8          = { version = "0", default-features = false }
+
+[build-dependencies]
+prost-build = { version = "0.13" }
+tonic-build = { version = "0.12" }

@@ -1,0 +1,39 @@
+// Copyright @ 2023 - 2024, R3E Network
+// All Rights Reserved
+
+syntax = "proto3";
+
+package service;
+
+import "events.proto";
+
+message AcquireTaskInput {
+    uint64 uid = 1;
+    uint64 fid_hint = 2;
+}
+
+message AcquireTaskOutput {
+    uint64 uid = 1;
+    uint64 fid = 2;
+    events.Event event = 3;
+}
+
+message AcquireFuncInput {
+    uint64 uid = 1;
+    uint64 fid = 2;
+}
+
+message Func {
+    uint32 version = 1;
+    string code    = 2;
+}
+
+message AcquireFuncOutput {
+    Func func = 1;
+}
+
+service TaskSource {
+    rpc AcquireTask(AcquireTaskInput) returns (AcquireTaskOutput) {}
+
+    rpc AcquireFunc(AcquireFuncInput) returns (AcquireFuncOutput) {}
+}

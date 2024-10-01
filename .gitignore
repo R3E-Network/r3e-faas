@@ -1,4 +1,9 @@
 /target
 **/target/
 **/Cargo.lock
-.idea/
+/.idea/
+/.vscode/
+/r3e-js/
+/log/
+/r3e/r3e-faas
+**/.DS_Store

@@ -8,3 +8,25 @@ edition = "2021"
 
 
 [dependencies]
+r3e-core  = { path = "../r3e-core" }
+r3e-deno  = { path = "../r3e-deno" }
+r3e-event = { path = "../r3e-event" }
+
+tokio        =  { version = "1", features = ["full"]}
+
+serde        = { version = "1", features = ["derive"] }
+duration-str = { version = "0.11", default-features = false, features = ["serde"] }
+
+thiserror   = { version = "1" }
+num_cpus    = { version = "1" }
+lazy_static = { version = "1" }
+
+libc         = { version = "0.2", default-features = false }
+errno        = { version = "0.3" }
+signal-hook  = { version = "0.3" }
+
+log       = { version = "0.4" }
+lru       = { version = "0.12" }
+
+[dev-dependencies]
+serde_yaml = { version = "0.9" }

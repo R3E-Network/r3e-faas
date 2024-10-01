@@ -1,0 +1,29 @@
+# Copyright @ 2023 - 2024, R3E Network
+# All Rights Reserved
+
+[package]
+name = "r3e-deno"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+r3e-core    = { path = "../r3e-core" }
+r3e-event   = { path = "../r3e-event" }
+
+deno_core   =  { version = "0.311" }
+v8          =  { version = "0", default-features = false }
+
+serde       = { version = "1" }
+serde_v8    = { version = "0" }
+
+tokio       =  { version = "1", features = ["full"]}
+futures     =  { version = "0.3" }
+
+anyhow      =  { version = "1" }
+thiserror   =  { version = "1" }
+
+lazy_static =  { version = "1" }
+
+[dev-dependencies]
+

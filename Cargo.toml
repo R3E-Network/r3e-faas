@@ -7,7 +7,9 @@ resolver = "2"
 
 members = [
     "r3e-core",
+    "r3e-deno",
     "r3e-event",
+    # "r3e-js",
     "r3e-proc-macros",
     "r3e-runlog",
     "r3e-runtime",
@@ -19,8 +21,8 @@ members = [
 
 
 [profile.release]
-lto = "fat"
-opt_level = 3
-codegen_units = 1
+lto           = "fat"
+opt-level     = 3
+codegen-units = 1
 
-# RUSTFLAGS="-C target-cpu=native"
+# RUSTFLAGS = "-C target-cpu=native"

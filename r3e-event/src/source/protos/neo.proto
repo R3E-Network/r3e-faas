@@ -1,0 +1,119 @@
+// Copyright @ 2023 - 2024, R3E Network
+// All Rights Reserved
+
+syntax = "proto3";
+
+package events;
+
+message NeoBlock {
+    NeoBlockHeader header = 1;
+    repeated NeoTx txs = 2;
+}
+
+message NeoBlockHeader {
+    string hash = 1;
+    uint32 version = 2;
+    string prev_block_hash = 3;
+    string merkle_root = 4;
+    uint64 time = 5;
+    uint64 nonce = 6;
+    uint32 height = 7;
+    uint32 primary = 8;
+    string next_consensus = 9;
+    repeated NeoWitness witnesses = 10;
+}
+
+message NeoWitness {
+    string invocation_script = 1;
+    string verification_script = 2;
+}
+
+message NeoTx {
+    string hash = 1;
+    uint32 size = 2;
+    uint32 version = 3;
+    uint32 nonce = 4;
+    uint64 sysfee = 5;
+    uint64 netfee = 6;
+    uint32 valid_until_block = 7;
+    repeated NeoSigner signers = 8;
+    repeated NeoTxAttr attributes = 9;
+    string script = 10;
+    repeated NeoWitness witnesses = 11;
+}
+
+message NeoSigner {
+    string account = 1;
+    uint32 scopes = 2;
+    repeated string allowed_contract = 3;
+    repeated string allowed_groups = 4;
+    repeated NeoWitnessRule rules = 5;
+}
+
+message NeoWitnessRule {
+    NeoWitnessAction action = 1;
+    NeoWitnessCondition condition = 2;
+}
+
+enum NeoWitnessAction {
+    DENY = 0;
+    ALLOW = 1;
+}
+
+message NeoWitnessCondition {
+    oneof condition {
+        bool boolean = 1;
+        string not = 2;
+        AndCondition and = 3;
+        OrCondition or = 4;
+        string script_hash = 5;
+        string group = 6;
+        bool called_by_entry = 7;
+        string called_by_contract = 8;
+        string called_by_group = 9;
+    }
+}
+
+message AndCondition {
+    repeated NeoWitnessCondition expressions = 1;
+}
+
+message OrCondition {
+    repeated NeoWitnessCondition expressions = 1;
+}
+
+message NeoTxAttr {
+    oneof attr {
+        bool high_priority = 1;
+        NeoOracleResponse oracle_response = 2;
+        NeoNotValidBefore not_valid_before = 3;
+        NeoConflicts conflicts = 4;
+    }
+}
+
+enum NeoOracleCode {
+    SUCCESS = 0;
+    PROTOCOL_NOT_SUPPORTED = 16;
+    CONSENSUS_UNREACHABLE = 18;
+    NOT_FOUND = 20;
+    TIMEOUT = 22;
+    FORBIDDEN = 24;
+    RESPONSE_TOO_LARGE = 26;
+    INSUFFICIENT_FUNDS = 28;
+    CONTENT_TYPE_NOT_SUPPORTED = 31;
+    ERROR = 255;
+}
+
+message NeoOracleResponse {
+    uint64 id = 1;
+    NeoOracleCode code = 2;
+    string result = 3;
+}
+
+message NeoNotValidBefore {
+    uint64 height = 1;
+}
+
+message NeoConflicts {
+    string hash = 1;
+}
