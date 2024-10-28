@@ -24,7 +24,7 @@ message AcquireFuncInput {
 }
 
 message Func {
-    uint32 version = 1;
+    uint64 version = 1;
     string code    = 2;
 }
 

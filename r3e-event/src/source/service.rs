@@ -28,8 +28,8 @@ pub struct AcquireFuncInput {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Func {
-    #[prost(uint32, tag = "1")]
-    pub version: u32,
+    #[prost(uint64, tag = "1")]
+    pub version: u64,
     #[prost(string, tag = "2")]
     pub code: ::prost::alloc::string::String,
 }

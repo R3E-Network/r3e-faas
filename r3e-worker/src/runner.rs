@@ -21,8 +21,8 @@ pub struct Runner {
 }
 
 struct RunContext {
-    running: bool,
     module: usize,
+    version: u64,
     runtime: JsRuntime,
 }
 
@@ -48,9 +48,11 @@ impl Runner {
         let uid = self.uid;
         let max_runtimes = NonZero::new(self.max_runtimes as usize)
             .unwrap_or(unsafe { NonZero::new_unchecked(16) });
+
+        let mut fid = 0;
         let mut runtimes = LruCache::<u64, RunContext>::new(max_runtimes);
         while !stop.stopped() {
-            let task = match self.tasks.acquire_task(uid, 0).await {
+            let task = match self.tasks.acquire_task(uid, fid).await {
                 Ok(task) => task,
                 Err(err) => {
                     log::error!("runner: {} acquire task failed: {}", uid, err);
@@ -59,18 +61,14 @@ impl Runner {
             };
             log::info!("runner: {} acquire task for {}", uid, task.fid);
 
-            let fid = task.fid;
+            fid = task.fid;
             let run_cx = match runtimes.get_mut(&fid) {
                 Some(run_cx) => run_cx,
-                None => match self.load_fn(fid).await {
-                    Ok(run_cx) => runtimes.get_or_insert_mut(fid, || run_cx),
-                    Err(err) => {
-                        log::error!("runner: {} load fn failed: {}", uid, err);
-                        continue;
-                    }
+                None => match self.load_runtime(fid, &mut runtimes).await {
+                    Ok(run_cx) => run_cx,
+                    Err(_err) => continue,
                 },
             };
-            run_cx.running = true;
 
             let start = Instant::now();
             if let Err(err) = self.run_task(run_cx, task).await {
@@ -102,6 +100,27 @@ impl Runner {
         Ok(())
     }
 
+    async fn load_runtime<'a>(
+        &mut self,
+        fid: u64,
+        runtimes: &'a mut LruCache<u64, RunContext>,
+    ) -> Result<&'a mut RunContext, ExecError> {
+        // if let Some(run_cx) = runtimes.get_mut(&fid) {
+        //     return Ok(run_cx);
+        // }
+
+        let run_cx = match self.load_fn(fid).await {
+            Ok(run_cx) => run_cx,
+            Err(err) => {
+                log::error!("runner: {} load fn failed: {}", self.uid, err);
+                return Err(err);
+            }
+        };
+
+        let run_cx = runtimes.get_or_insert_mut(fid, || run_cx);
+        Ok(run_cx)
+    }
+
     async fn load_fn(&mut self, fid: u64) -> Result<RunContext, ExecError> {
         let mut runtime = JsRuntime::new(RuntimeConfig::default());
         let fn_code = self
@@ -116,8 +135,8 @@ impl Runner {
         let _ = runtime.eval_module(module).await?;
 
         Ok(RunContext {
-            running: false,
             module,
+            version: fn_code.version,
             runtime,
         })
     }
