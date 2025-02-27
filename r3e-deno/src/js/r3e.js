@@ -17,6 +17,7 @@ import {
 
 import { Neo } from "./neo.js";
 import { Oracle } from "./oracle.js";
+import { TEE } from "./tee.js";
 
 globalThis.setImmediate = setImmediate;
 globalThis.setTimeout = setTimeout;
@@ -34,4 +35,5 @@ Object.assign(globalThis.r3e, {
     base64Decode,
     Neo,
     Oracle,
+    TEE,
 });
