@@ -2,10 +2,13 @@
  * IoT Data Source for Neo N3 Custom Oracle Service
  * 
  * This module provides functions for fetching IoT device data from various sources.
+ * 
+ * Note: Before using this module, you need to install the mqtt package:
+ * npm install mqtt
  */
 
 // Import required modules
-const mqtt = require('mqtt');
+// const mqtt = require('mqtt'); // Uncomment this line after installing mqtt
 
 /**
  * Fetch IoT data from MQTT broker

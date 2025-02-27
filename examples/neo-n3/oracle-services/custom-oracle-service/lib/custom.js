@@ -2,10 +2,13 @@
  * Custom Data Source for Neo N3 Custom Oracle Service
  * 
  * This module provides functions for fetching data from custom sources.
+ * 
+ * Note: Before using this module, you need to install the axios package:
+ * npm install axios
  */
 
 // Import required modules
-const axios = require('axios');
+// const axios = require('axios'); // Uncomment this line after installing axios
 
 /**
  * Fetch data from a custom HTTP API

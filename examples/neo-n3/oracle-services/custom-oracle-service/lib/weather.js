@@ -2,10 +2,13 @@
  * Weather Data Source for Neo N3 Custom Oracle Service
  * 
  * This module provides functions for fetching weather data from various sources.
+ * 
+ * Note: Before using this module, you need to install the axios package:
+ * npm install axios
  */
 
 // Import required modules
-const axios = require('axios');
+// const axios = require('axios'); // Uncomment this line after installing axios
 
 /**
  * Fetch weather data from OpenWeatherMap API
