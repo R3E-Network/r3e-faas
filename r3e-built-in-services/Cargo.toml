@@ -1,0 +1,27 @@
+[package]
+name = "r3e-built-in-services"
+version = "0.1.0"
+edition = "2021"
+authors = ["R3E Network"]
+description = "Built-in services for r3e-faas platform"
+license = "MIT"
+
+[dependencies]
+r3e-core = { path = "../r3e-core" }
+r3e-event = { path = "../r3e-event" }
+r3e-deno = { path = "../r3e-deno" }
+r3e-neo-services = { path = "../r3e-neo-services" }
+r3e-oracle = { path = "../r3e-oracle" }
+r3e-tee = { path = "../r3e-tee" }
+
+# Dependencies
+NeoRust = { path = "../../NeoRust" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = "0.4"
+log = "0.4"
+hex = "0.4"

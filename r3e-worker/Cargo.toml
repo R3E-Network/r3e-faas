@@ -11,6 +11,7 @@ edition = "2021"
 r3e-core  = { path = "../r3e-core" }
 r3e-deno  = { path = "../r3e-deno" }
 r3e-event = { path = "../r3e-event" }
+r3e-built-in-services = { path = "../r3e-built-in-services" }
 
 tokio        =  { version = "1", features = ["full"]}
 
@@ -27,6 +28,7 @@ signal-hook  = { version = "0.3" }
 
 log       = { version = "0.4" }
 lru       = { version = "0.12" }
+uuid      = { version = "1.0", features = ["v4", "serde"] }
 
 [dev-dependencies]
 serde_yaml = { version = "0.9" }
