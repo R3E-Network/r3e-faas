@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 
 // Import r3e-event types with explicit namespace
 use crate::source::{*, events::{NeoBlock, NeoBlockHeader, NeoTx}};
+use crate::Trigger;
 
 pub struct NeoTaskSource {
     sleep: Duration,
@@ -23,6 +24,8 @@ pub struct NeoTaskSource {
     count: u64,
     client: Arc<Mutex<Option<RpcClient<HttpProvider>>>>,
     rpc_url: String,
+    // Track the current trigger type to rotate between different event types
+    current_trigger: crate::Trigger,
 }
 
 impl NeoTaskSource {
@@ -34,6 +37,8 @@ impl NeoTaskSource {
             client: Arc::new(Mutex::new(None)),
             // Default to Neo N3 TestNet
             rpc_url: "https://testnet1.neo.org:443".to_string(),
+            // Start with NeoNewBlock trigger
+            current_trigger: crate::Trigger::NeoNewBlock,
         }
     }
     
@@ -62,6 +67,7 @@ impl NeoTaskSource {
         Ok(Arc::new(client))
     }
     
+    // Fetch the latest Neo block
     async fn fetch_latest_block(&self) -> Result<NeoBlock, Box<dyn std::error::Error + Send + Sync>> {
         let client = self.ensure_client().await?;
         
@@ -103,21 +109,7 @@ impl NeoTaskSource {
         // Convert transactions if available
         let txs = if let Some(transactions) = block.transactions {
             transactions.into_iter().map(|tx| {
-                NeoTx {
-                    hash: tx.hash.to_string(),
-                    size: tx.size as u32,
-                    version: tx.version as u32,
-                    nonce: tx.nonce as u32,
-                    // Map fields according to r3e-event NeoTx structure
-                    sysfee: tx.sys_fee.parse::<u64>().unwrap_or(0),
-                    netfee: tx.net_fee.parse::<u64>().unwrap_or(0),
-                    // Required fields with default values
-                    script: tx.script.clone(),
-                    signers: vec![],
-                    attributes: vec![],
-                    witnesses: vec![],
-                    valid_until_block: tx.valid_until_block as u32,
-                }
+                self.convert_transaction(tx)
             }).collect()
         } else {
             vec![]
@@ -127,6 +119,80 @@ impl NeoTaskSource {
             header,
             txs,
         })
+    }
+    
+    // Fetch a specific transaction by hash
+    async fn fetch_transaction(&self, tx_hash: &str) -> Result<NeoTx, Box<dyn std::error::Error + Send + Sync>> {
+        let client = self.ensure_client().await?;
+        
+        // Parse the transaction hash to H256
+        let hash = tx_hash.parse().map_err(|e| {
+            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
+        })?;
+        
+        // Get the transaction details
+        // Note: We can't directly get the transaction object, so we'll create a mock one
+        // In a real implementation, we would parse the raw transaction string
+        let _tx_raw = client.get_raw_transaction(hash).await.map_err(|e| {
+            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
+        })?;
+        
+        // Create a mock transaction for now
+        // In a real implementation, we would parse the raw transaction
+        Ok(NeoTx {
+            hash: tx_hash.to_string(),
+            size: 100,
+            version: 0,
+            nonce: 0,
+            sysfee: 0,
+            netfee: 0,
+            valid_until_block: 0,
+            script: "mock_script".to_string(),
+            signers: vec![],
+            attributes: vec![],
+            witnesses: vec![],
+        })
+    }
+    
+    // Fetch application logs for a transaction
+    async fn fetch_application_log(&self, tx_hash: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let client = self.ensure_client().await?;
+        
+        // Parse the transaction hash to H256
+        let hash = tx_hash.parse().map_err(|e| {
+            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
+        })?;
+        
+        // Get the application log
+        let app_log = client.get_application_log(hash).await.map_err(|e| {
+            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
+        })?;
+        
+        // Convert to JSON string
+        let app_log_json = serde_json::to_string(&app_log).map_err(|e| {
+            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
+        })?;
+        
+        Ok(app_log_json)
+    }
+    
+    // Helper method to convert a NeoRust transaction to r3e-event NeoTx
+    fn convert_transaction(&self, tx: NeoRust::neo_protocol::RTransaction) -> NeoTx {
+        NeoTx {
+            hash: tx.hash.to_string(),
+            size: tx.size as u32,
+            version: tx.version as u32,
+            nonce: tx.nonce as u32,
+            // Map fields according to r3e-event NeoTx structure
+            sysfee: tx.sys_fee.parse::<u64>().unwrap_or(0),
+            netfee: tx.net_fee.parse::<u64>().unwrap_or(0),
+            // Required fields with default values
+            script: tx.script.clone(),
+            signers: vec![],
+            attributes: vec![],
+            witnesses: vec![],
+            valid_until_block: tx.valid_until_block as u32,
+        }
     }
 }
 
@@ -138,34 +204,152 @@ impl TaskSource for NeoTaskSource {
         self.count += 1;
         let fid = 1 + (self.count & 1);
         
-        // Get Neo block data from NeoRust SDK
-        let neo_block = match self.fetch_latest_block().await {
-            Ok(block) => block,
-            Err(e) => {
-                // Log the error
-                eprintln!("Error fetching Neo block: {:?}", e);
+        // Rotate through different trigger types
+        let event = match self.current_trigger {
+            Trigger::NeoNewBlock => {
+                // Get Neo block data from NeoRust SDK
+                let neo_block = match self.fetch_latest_block().await {
+                    Ok(block) => block,
+                    Err(e) => {
+                        // Log the error
+                        eprintln!("Error fetching Neo block: {:?}", e);
+                        
+                        // Fallback to mock data if RPC fails
+                        NeoBlock {
+                            header: Some(NeoBlockHeader {
+                                hash: format!("neo_block_hash_{}", self.count),
+                                version: 0,
+                                prev_block_hash: "previous_block_hash".to_string(),
+                                merkle_root: "merkle_root".to_string(),
+                                time: 0,
+                                nonce: 0,
+                                height: self.count as u32,
+                                primary: 0,
+                                next_consensus: "next_consensus".to_string(),
+                                witnesses: vec![],
+                            }),
+                            txs: vec![],
+                        }
+                    }
+                };
                 
-                // Fallback to mock data if RPC fails
-                NeoBlock {
-                    header: Some(NeoBlockHeader {
-                        hash: format!("neo_block_hash_{}", self.count),
+                // Update trigger for next time
+                self.current_trigger = Trigger::NeoNewTx;
+                
+                // Create the event with the correct type
+                event::Event::NeoBlock(neo_block)
+            },
+            Trigger::NeoNewTx => {
+                // Get Neo block data to extract a transaction
+                let neo_block = match self.fetch_latest_block().await {
+                    Ok(block) => block,
+                    Err(e) => {
+                        eprintln!("Error fetching Neo block for transaction: {:?}", e);
+                        // Fallback to empty block
+                        NeoBlock {
+                            header: None,
+                            txs: vec![],
+                        }
+                    }
+                };
+                
+                // Extract the first transaction if available
+                let tx = if !neo_block.txs.is_empty() {
+                    neo_block.txs[0].clone()
+                } else {
+                    // Fallback to mock transaction
+                    NeoTx {
+                        hash: format!("neo_tx_hash_{}", self.count),
+                        size: 100,
                         version: 0,
-                        prev_block_hash: "previous_block_hash".to_string(),
-                        merkle_root: "merkle_root".to_string(),
-                        time: 0,
                         nonce: 0,
-                        height: self.count as u32,
-                        primary: 0,
-                        next_consensus: "next_consensus".to_string(),
+                        sysfee: 0,
+                        netfee: 0,
+                        valid_until_block: 0,
+                        script: "mock_script".to_string(),
+                        signers: vec![],
+                        attributes: vec![],
                         witnesses: vec![],
-                    }),
-                    txs: vec![],
-                }
+                    }
+                };
+                
+                // Update trigger for next time
+                self.current_trigger = Trigger::NeoContractNotification;
+                
+                // Create the event with the transaction
+                event::Event::NeoBlock(NeoBlock {
+                    header: None,
+                    txs: vec![tx],
+                })
+            },
+            Trigger::NeoContractNotification | Trigger::NeoApplicationLog => {
+                // For contract notifications and application logs, we need to get a transaction first
+                let neo_block = match self.fetch_latest_block().await {
+                    Ok(block) => block,
+                    Err(e) => {
+                        eprintln!("Error fetching Neo block for application log: {:?}", e);
+                        // Fallback to empty block
+                        NeoBlock {
+                            header: None,
+                            txs: vec![],
+                        }
+                    }
+                };
+                
+                // Extract a transaction hash if available
+                let tx_hash = if !neo_block.txs.is_empty() {
+                    neo_block.txs[0].hash.clone()
+                } else {
+                    format!("mock_tx_hash_{}", self.count)
+                };
+                
+                // Try to get application log for the transaction
+                let _app_log = match self.fetch_application_log(&tx_hash).await {
+                    Ok(log) => log,
+                    Err(e) => {
+                        eprintln!("Error fetching application log: {:?}", e);
+                        "{}".to_string() // Empty JSON object as fallback
+                    }
+                };
+                
+                // Update trigger for next time
+                self.current_trigger = Trigger::NeoNewBlock;
+                
+                // For now, return the block as the event
+                // In a real implementation, we would parse the application log and create a specific event type
+                event::Event::NeoBlock(neo_block)
+            },
+            _ => {
+                // For any other trigger type, default to NeoNewBlock
+                self.current_trigger = Trigger::NeoNewBlock;
+                
+                // Get Neo block data
+                let neo_block = match self.fetch_latest_block().await {
+                    Ok(block) => block,
+                    Err(e) => {
+                        eprintln!("Error fetching Neo block: {:?}", e);
+                        // Fallback to mock block
+                        NeoBlock {
+                            header: Some(NeoBlockHeader {
+                                hash: format!("neo_block_hash_{}", self.count),
+                                version: 0,
+                                prev_block_hash: "previous_block_hash".to_string(),
+                                merkle_root: "merkle_root".to_string(),
+                                time: 0,
+                                nonce: 0,
+                                height: self.count as u32,
+                                primary: 0,
+                                next_consensus: "next_consensus".to_string(),
+                                witnesses: vec![],
+                            }),
+                            txs: vec![],
+                        }
+                    }
+                };
+                
+                event::Event::NeoBlock(neo_block)
             }
         };
-        
-        // Create the event with the correct type
-        let event = event::Event::NeoBlock(neo_block);
 
         Ok(Task::new(self.uid, fid, event))
     }
@@ -179,19 +363,52 @@ impl TaskSource for NeoTaskSource {
                 console.log("Neo event handler:", event);
                 await delay(2100);
                 
-                // Access Neo block data
+                // Determine the event type based on the data structure
                 if (event.header) {{
-                    console.log("Neo block height:", event.header.height);
-                    console.log("Neo block hash:", event.header.hash);
-                    console.log("Neo block time:", event.header.time);
-                }}
-                
-                // Process transactions if available
-                if (event.txs && event.txs.length > 0) {{
-                    console.log("Neo transactions count:", event.txs.length);
-                    for (let i = 0; i < Math.min(event.txs.length, 5); i++) {{
-                        console.log(`Transaction ${{i}} hash:`, event.txs[i].hash);
+                    // This is a Neo block event
+                    console.log("Neo block event detected");
+                    console.log("Block height:", event.header.height);
+                    console.log("Block hash:", event.header.hash);
+                    console.log("Block time:", event.header.time);
+                    
+                    // Process transactions if available
+                    if (event.txs && event.txs.length > 0) {{
+                        console.log("Transactions count:", event.txs.length);
+                        for (let i = 0; i < Math.min(event.txs.length, 5); i++) {{
+                            console.log(`Transaction ${{i}} hash:`, event.txs[i].hash);
+                        }}
                     }}
+                }} else if (event.txs && event.txs.length === 1) {{
+                    // This is a Neo transaction event
+                    console.log("Neo transaction event detected");
+                    const tx = event.txs[0];
+                    console.log("Transaction hash:", tx.hash);
+                    console.log("Transaction size:", tx.size);
+                    console.log("Transaction version:", tx.version);
+                    console.log("Transaction script:", tx.script);
+                    
+                    // Process transaction details
+                    console.log("System fee:", tx.sysfee);
+                    console.log("Network fee:", tx.netfee);
+                    console.log("Valid until block:", tx.valid_until_block);
+                }} else if (event.applicationLog) {{
+                    // This is a Neo application log event
+                    console.log("Neo application log event detected");
+                    console.log("Application log:", event.applicationLog);
+                    
+                    // Process notifications if available
+                    if (event.applicationLog.notifications) {{
+                        console.log("Notifications count:", event.applicationLog.notifications.length);
+                        for (let i = 0; i < Math.min(event.applicationLog.notifications.length, 5); i++) {{
+                            const notification = event.applicationLog.notifications[i];
+                            console.log(`Notification ${{i}} contract:`, notification.contract);
+                            console.log(`Notification ${{i}} event name:`, notification.eventName);
+                            console.log(`Notification ${{i}} state:`, notification.state);
+                        }}
+                    }}
+                }} else {{
+                    // Unknown event type
+                    console.log("Unknown Neo event type:", event);
                 }}
             }}"#
         );
