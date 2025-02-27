@@ -12,6 +12,8 @@ use r3e_event::source::{MockTaskSource, TaskSource};
 pub enum EventSource {
     #[serde(rename = "mock")]
     Mock,
+    #[serde(rename = "neo")]
+    Neo,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +40,7 @@ impl TaskSourceBuilder {
     pub fn build(&self) -> Box<dyn TaskSource> {
         match self.config.source {
             EventSource::Mock => Box::new(MockTaskSource::new(Duration::from_secs(2), 1)),
+            EventSource::Neo => Box::new(NeoTaskSource::new(Duration::from_secs(2), 1)),
         }
     }
 }

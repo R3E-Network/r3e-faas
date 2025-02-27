@@ -16,7 +16,7 @@ pub enum Trigger {
 pub enum Source {
     Bitcoin,
     // Ethereum,
-    // Neo,
+    Neo,
 }
 
 // A function input is a pair of Context and Event

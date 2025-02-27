@@ -4,13 +4,14 @@
 pub mod events;
 pub mod events_ext;
 pub mod mock;
+pub mod neo;
 pub mod service;
 
 #[cfg(test)]
 mod events_test;
 
 #[allow(unused_imports)]
-pub use {events::*, events_ext::*, mock::*, service::*};
+pub use {events::*, events_ext::*, mock::*, neo::*, service::*};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TaskError {
