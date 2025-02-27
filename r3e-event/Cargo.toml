@@ -19,6 +19,11 @@ async-trait = { version = "0" }
 prost       = { version = "0.13" }
 tonic       = { version = "0.12" }
 
+# Neo N3 SDK
+NeoRust     = { path = "../../NeoRust" }
+url         = { version = "2" }
+primitive-types = { version = "0.12" }
+
 
 [dev-dependencies]
 deno_core   = { version = "0.311" }
