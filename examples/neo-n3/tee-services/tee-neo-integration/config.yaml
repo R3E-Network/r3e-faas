@@ -1,0 +1,367 @@
+# Neo N3 TEE Integration Configuration
+
+# Function metadata
+name: neo-n3-tee-integration
+description: Example function that integrates TEEs with Neo N3 blockchain applications
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request or blockchain events
+  type: multi
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/tee/neo-integration"
+      methods: ["GET", "POST", "PUT", "DELETE"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+    
+    # Enable Neo N3 blockchain event triggers
+    neo:
+      enabled: true
+      # Neo N3 node RPC URL
+      rpc_url: "http://localhost:10332"
+      # Events to listen for
+      events:
+        - type: "block"
+          enabled: true
+        - type: "transaction"
+          enabled: true
+        - type: "notification"
+          enabled: true
+          contract_hash: ""  # Optional: specific contract to monitor
+
+# TEE configuration
+tee:
+  # TEE integration configuration
+  neo_integration:
+    # Enable TEE integration
+    enabled: true
+    
+    # TEE provider configuration
+    provider:
+      # TEE provider types: 'sgx', 'sev', 'trustzone', or 'simulation'
+      types:
+        - name: "sgx"
+          enabled: true
+          description: "Intel Software Guard Extensions"
+          
+        - name: "sev"
+          enabled: true
+          description: "AMD Secure Encrypted Virtualization"
+          
+        - name: "trustzone"
+          enabled: true
+          description: "ARM TrustZone"
+          
+        - name: "simulation"
+          enabled: true
+          description: "Simulation mode for testing"
+      
+      # Provider-specific configuration
+      config:
+        # Intel SGX configuration
+        sgx:
+          # Enclave configuration
+          enclave:
+            # Path to the enclave shared object
+            so_path: ""
+            # Enclave configuration file
+            config_path: ""
+            # Debug mode (should be false in production)
+            debug: false
+        
+        # AMD SEV configuration
+        sev:
+          # SEV firmware version
+          firmware_version: ""
+          # SEV-SNP support
+          snp_enabled: true
+        
+        # ARM TrustZone configuration
+        trustzone:
+          # Trusted Application ID
+          ta_id: ""
+          # Trusted OS version
+          trusted_os_version: ""
+        
+        # Simulation configuration (for testing without actual TEE hardware)
+        simulation:
+          # Simulate specific TEE types
+          simulate_types: ["sgx", "sev", "trustzone"]
+    
+    # Neo N3 integration configuration
+    neo:
+      # Neo N3 network to use
+      network: "testnet"
+      
+      # Neo N3 node RPC URL
+      rpc_url: "http://localhost:10332"
+      
+      # Smart contract integration
+      contracts:
+        # TEE verifier contract
+        verifier:
+          # Contract hash
+          hash: ""
+          # Contract operations
+          operations:
+            - name: "verifyAttestation"
+              enabled: true
+            - name: "verifyExecutionProof"
+              enabled: true
+            - name: "recordAttestationResult"
+              enabled: true
+        
+        # TEE oracle contract
+        oracle:
+          # Contract hash
+          hash: ""
+          # Contract operations
+          operations:
+            - name: "updateOracleData"
+              enabled: true
+            - name: "getOracleData"
+              enabled: true
+        
+        # TEE computation verifier contract
+        computation:
+          # Contract hash
+          hash: ""
+          # Contract operations
+          operations:
+            - name: "verifyComputation"
+              enabled: true
+            - name: "recordComputationResult"
+              enabled: true
+    
+    # Integration features
+    features:
+      # Secure smart contract execution
+      secure_contract_execution:
+        enabled: true
+        # Contract execution modes
+        modes:
+          - name: "full"
+            enabled: true
+            description: "Execute the entire contract in the TEE"
+          - name: "partial"
+            enabled: true
+            description: "Execute sensitive parts of the contract in the TEE"
+        # Execution verification
+        verification:
+          enabled: true
+          # Verification methods
+          methods:
+            - name: "attestation"
+              enabled: true
+            - name: "execution_proof"
+              enabled: true
+      
+      # Verifiable off-chain computation
+      verifiable_computation:
+        enabled: true
+        # Computation types
+        types:
+          - name: "deterministic"
+            enabled: true
+            description: "Computations with deterministic results"
+          - name: "probabilistic"
+            enabled: true
+            description: "Computations with probabilistic results"
+        # Proof generation
+        proof_generation:
+          enabled: true
+          # Proof types
+          types:
+            - name: "attestation"
+              enabled: true
+            - name: "zkp"
+              enabled: true
+              description: "Zero-knowledge proofs"
+      
+      # Secure key management
+      secure_key_management:
+        enabled: true
+        # Key types
+        types:
+          - name: "wallet"
+            enabled: true
+            description: "Neo N3 wallet keys"
+          - name: "oracle"
+            enabled: true
+            description: "Oracle signing keys"
+          - name: "encryption"
+            enabled: true
+            description: "Data encryption keys"
+        # Key operations
+        operations:
+          - name: "generate"
+            enabled: true
+          - name: "store"
+            enabled: true
+          - name: "retrieve"
+            enabled: true
+          - name: "sign"
+            enabled: true
+          - name: "encrypt"
+            enabled: true
+          - name: "decrypt"
+            enabled: true
+      
+      # TEE-based oracle
+      tee_oracle:
+        enabled: true
+        # Oracle data sources
+        sources:
+          - name: "http"
+            enabled: true
+            description: "HTTP/HTTPS data sources"
+          - name: "websocket"
+            enabled: true
+            description: "WebSocket data sources"
+          - name: "database"
+            enabled: true
+            description: "Database data sources"
+        # Oracle data types
+        data_types:
+          - name: "price"
+            enabled: true
+            description: "Price feed data"
+          - name: "weather"
+            enabled: true
+            description: "Weather data"
+          - name: "sports"
+            enabled: true
+            description: "Sports data"
+          - name: "random"
+            enabled: true
+            description: "Random number generation"
+        # Oracle verification
+        verification:
+          enabled: true
+          # Verification methods
+          methods:
+            - name: "attestation"
+              enabled: true
+            - name: "multi_source"
+              enabled: true
+              description: "Verification using multiple data sources"
+      
+      # Blockchain-based attestation
+      blockchain_attestation:
+        enabled: true
+        # Attestation types
+        types:
+          - name: "enclave"
+            enabled: true
+            description: "Attestation of the TEE enclave"
+          - name: "data"
+            enabled: true
+            description: "Attestation of data processed in the TEE"
+          - name: "computation"
+            enabled: true
+            description: "Attestation of computations performed in the TEE"
+        # Attestation storage
+        storage:
+          - name: "contract"
+            enabled: true
+            description: "Store attestation in a smart contract"
+          - name: "event"
+            enabled: true
+            description: "Emit attestation as a blockchain event"
+    
+    # Security configuration
+    security:
+      # Attestation verification
+      attestation:
+        enabled: true
+        # Attestation freshness
+        freshness:
+          enabled: true
+          # Maximum age of attestation in seconds
+          max_age: 3600
+      
+      # Secure communication
+      communication:
+        enabled: true
+        # Communication channels
+        channels:
+          - name: "tls"
+            enabled: true
+            description: "TLS channel with attestation"
+          - name: "custom"
+            enabled: true
+            description: "Custom secure channel protocol"
+      
+      # Access control
+      access_control:
+        enabled: true
+        # Access control methods
+        methods:
+          - name: "blockchain_identity"
+            enabled: true
+            description: "Access control based on blockchain identity"
+          - name: "api_key"
+            enabled: true
+            description: "Access control based on API keys"
+          - name: "jwt"
+            enabled: true
+            description: "Access control based on JWT tokens"
+    
+    # Monitoring and auditing configuration
+    monitoring:
+      # Enable monitoring
+      enabled: true
+      
+      # Log all operations
+      log_operations: true
+      
+      # Log level for operations
+      log_level: "info"
+      
+      # Audit trail configuration
+      audit:
+        # Enable audit trail
+        enabled: true
+        
+        # Audit storage type: 'memory', 'store', or 'blockchain'
+        storage: "blockchain"
+        
+        # Retention period in days
+        retention: 365
+        
+        # Audit events to record
+        events:
+          - "contract_execution"
+          - "computation_verification"
+          - "key_operation"
+          - "oracle_update"
+          - "attestation_verification"
+
+# Resource limits
+resources:
+  memory: 512MB
+  timeout: 120s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

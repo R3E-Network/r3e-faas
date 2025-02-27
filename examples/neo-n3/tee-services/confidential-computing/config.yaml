@@ -1,0 +1,346 @@
+# Neo N3 Confidential Computing Configuration
+
+# Function metadata
+name: neo-n3-confidential-computing
+description: Example function that implements confidential computing using TEE in Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request
+  type: request
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/tee/confidential-computing"
+      methods: ["GET", "POST", "PUT", "DELETE"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+
+# TEE configuration
+tee:
+  # Confidential computing configuration
+  confidential_computing:
+    # Enable confidential computing
+    enabled: true
+    
+    # TEE provider configuration
+    provider:
+      # TEE provider type: 'sgx', 'sev', 'trustzone', or 'simulation'
+      type: "sgx"
+      
+      # Provider-specific configuration
+      config:
+        # Intel SGX configuration
+        sgx:
+          # EPID or DCAP attestation
+          attestation_type: "dcap"
+          # Enclave measurement (MRENCLAVE) for verification
+          mrenclave: ""
+          # Enclave signer measurement (MRSIGNER) for verification
+          mrsigner: ""
+          # Product ID for verification
+          product_id: 1
+          # Security version number for verification
+          security_version: 1
+          # Allow debug mode (should be false in production)
+          allow_debug: false
+        
+        # AMD SEV configuration
+        sev:
+          # Attestation URL
+          attestation_url: "https://kdsintf.amd.com"
+          # AMD root key for verification
+          amd_root_key: ""
+        
+        # ARM TrustZone configuration
+        trustzone:
+          # Trusted Application ID
+          ta_id: "34567890-abcd-ef01-2345-6789abcdef01"
+          # Trusted Application verification key
+          ta_verification_key: ""
+        
+        # Simulation configuration (for testing without actual TEE hardware)
+        simulation:
+          # Simulate attestation failures
+          simulate_failures: false
+          # Failure rate (0.0 - 1.0)
+          failure_rate: 0.0
+    
+    # Confidential computing algorithms
+    algorithms:
+      # Privacy-preserving analytics
+      privacy_preserving_analytics:
+        enabled: true
+        # Differential privacy configuration
+        differential_privacy:
+          enabled: true
+          # Epsilon value for differential privacy (lower = more privacy)
+          epsilon: 0.1
+          # Delta value for differential privacy
+          delta: 0.00001
+          # Sensitivity of the queries
+          sensitivity: 1.0
+          # Noise mechanism: 'laplace' or 'gaussian'
+          noise_mechanism: "laplace"
+      
+      # Secure multi-party computation
+      secure_multi_party_computation:
+        enabled: true
+        # Protocols
+        protocols:
+          - name: "garbled-circuit"
+            enabled: true
+            description: "Yao's Garbled Circuit protocol"
+          - name: "secret-sharing"
+            enabled: true
+            description: "Shamir's Secret Sharing protocol"
+          - name: "homomorphic-encryption"
+            enabled: true
+            description: "Partially Homomorphic Encryption"
+      
+      # Homomorphic encryption
+      homomorphic_encryption:
+        enabled: true
+        # Schemes
+        schemes:
+          - name: "paillier"
+            enabled: true
+            description: "Paillier cryptosystem (additive homomorphic)"
+          - name: "elgamal"
+            enabled: true
+            description: "ElGamal cryptosystem (multiplicative homomorphic)"
+          - name: "ckks"
+            enabled: false
+            description: "CKKS scheme (approximate arithmetic)"
+      
+      # Zero-knowledge proofs
+      zero_knowledge_proofs:
+        enabled: true
+        # Proof systems
+        proof_systems:
+          - name: "snark"
+            enabled: true
+            description: "Succinct Non-interactive ARguments of Knowledge"
+          - name: "stark"
+            enabled: false
+            description: "Scalable Transparent ARguments of Knowledge"
+          - name: "bulletproofs"
+            enabled: true
+            description: "Bulletproofs (range proofs)"
+    
+    # Data processing configuration
+    data_processing:
+      # Input data encryption
+      input_encryption:
+        enabled: true
+        # Encryption algorithm
+        algorithm: "AES-256-GCM"
+        # Key derivation function
+        kdf: "PBKDF2"
+      
+      # Output data encryption
+      output_encryption:
+        enabled: true
+        # Encryption algorithm
+        algorithm: "AES-256-GCM"
+        # Key derivation function
+        kdf: "PBKDF2"
+      
+      # Data minimization
+      data_minimization:
+        enabled: true
+        # Techniques
+        techniques:
+          - name: "filtering"
+            enabled: true
+            description: "Remove unnecessary fields"
+          - name: "aggregation"
+            enabled: true
+            description: "Aggregate data to reduce granularity"
+          - name: "tokenization"
+            enabled: true
+            description: "Replace sensitive data with tokens"
+    
+    # Access control configuration
+    access_control:
+      # Enable access control
+      enabled: true
+      
+      # Authentication methods
+      authentication:
+        # API key authentication
+        api_key:
+          enabled: true
+          header: "X-API-Key"
+        
+        # JWT authentication
+        jwt:
+          enabled: true
+          header: "Authorization"
+          prefix: "Bearer "
+          issuer: "neo-n3-tee"
+          audience: "neo-n3-clients"
+        
+        # Neo N3 blockchain authentication
+        blockchain:
+          enabled: true
+          # Verify signatures from Neo N3 addresses
+          verify_signature: true
+      
+      # Authorization configuration
+      authorization:
+        # Role-based access control
+        rbac:
+          enabled: true
+          roles:
+            - name: "admin"
+              permissions: ["create", "read", "update", "delete", "compute"]
+            
+            - name: "data-provider"
+              permissions: ["create", "read", "update"]
+            
+            - name: "compute-provider"
+              permissions: ["read", "compute"]
+            
+            - name: "result-consumer"
+              permissions: ["read"]
+        
+        # User role assignments
+        users:
+          - id: "admin"
+            roles: ["admin"]
+          
+          - id: "data-provider"
+            roles: ["data-provider"]
+          
+          - id: "compute-provider"
+            roles: ["compute-provider"]
+          
+          - id: "result-consumer"
+            roles: ["result-consumer"]
+    
+    # Monitoring and auditing configuration
+    monitoring:
+      # Enable monitoring
+      enabled: true
+      
+      # Log all operations
+      log_operations: true
+      
+      # Log level for operations
+      log_level: "info"
+      
+      # Audit trail configuration
+      audit:
+        # Enable audit trail
+        enabled: true
+        
+        # Audit storage type: 'memory', 'store', or 'blockchain'
+        storage: "store"
+        
+        # Retention period in days
+        retention: 365
+        
+        # Audit events to record
+        events:
+          - "data_submission"
+          - "computation_start"
+          - "computation_complete"
+          - "result_access"
+          - "policy_violation"
+          - "authentication_failure"
+          - "authorization_failure"
+    
+    # Neo N3 blockchain integration
+    blockchain:
+      # Enable blockchain integration
+      enabled: true
+      
+      # Neo N3 network to use
+      network: "testnet"
+      
+      # Store computation proofs on blockchain
+      store_proofs: true
+      
+      # Store audit logs on blockchain
+      store_audit_logs: false
+      
+      # Smart contract for confidential computing
+      contract_hash: ""
+    
+    # Use cases
+    use_cases:
+      # Privacy-preserving analytics
+      privacy_preserving_analytics:
+        enabled: true
+        # Example analytics functions
+        functions:
+          - name: "count"
+            enabled: true
+            description: "Count records with differential privacy"
+          - name: "sum"
+            enabled: true
+            description: "Sum values with differential privacy"
+          - name: "average"
+            enabled: true
+            description: "Calculate average with differential privacy"
+          - name: "histogram"
+            enabled: true
+            description: "Create histogram with differential privacy"
+      
+      # Secure data sharing
+      secure_data_sharing:
+        enabled: true
+        # Data sharing methods
+        methods:
+          - name: "encrypted-data-exchange"
+            enabled: true
+            description: "Exchange encrypted data between parties"
+          - name: "compute-on-encrypted-data"
+            enabled: true
+            description: "Perform computation on encrypted data"
+          - name: "secure-aggregation"
+            enabled: true
+            description: "Securely aggregate data from multiple sources"
+      
+      # Confidential smart contracts
+      confidential_smart_contracts:
+        enabled: true
+        # Contract types
+        types:
+          - name: "private-state"
+            enabled: true
+            description: "Smart contracts with private state"
+          - name: "private-inputs"
+            enabled: true
+            description: "Smart contracts with private inputs"
+          - name: "private-computation"
+            enabled: true
+            description: "Smart contracts with private computation"
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 60s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

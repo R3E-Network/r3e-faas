@@ -1,0 +1,126 @@
+# Neo N3 Custom Event Filter Configuration
+
+# Function metadata
+name: neo-n3-custom-event-filter
+description: Example function that demonstrates custom event filtering for Neo N3 blockchain events
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can handle multiple event types
+  type: neo_multi_event
+  config:
+    # Neo N3 network to monitor (mainnet, testnet, or custom)
+    network: testnet
+    
+    # Optional: RPC node URL (if not using the default for the selected network)
+    # rpc_url: https://testnet1.neo.coz.io:443
+    
+    # Event types to monitor
+    event_types:
+      - block
+      - transaction
+      - notification
+    
+    # Custom filter definitions
+    filters:
+      # Block filters
+      block:
+        # Filter blocks by index range
+        - type: range
+          field: index
+          min: 1000000
+          max: 2000000
+        
+        # Filter blocks by size
+        - type: range
+          field: size
+          min: 500
+          max: 10000
+        
+        # Filter blocks by transaction count
+        - type: value
+          field: tx.length
+          operator: ">"
+          value: 0
+      
+      # Transaction filters
+      transaction:
+        # Filter transactions by type
+        - type: value
+          field: type
+          operator: "in"
+          value: ["InvocationTransaction", "ClaimTransaction"]
+        
+        # Filter transactions by size
+        - type: range
+          field: size
+          min: 100
+          max: 10000
+        
+        # Filter transactions by script content (for InvocationTransactions)
+        - type: pattern
+          field: script
+          pattern: "transfer|mint|burn"
+          apply_if:
+            field: type
+            operator: "=="
+            value: "InvocationTransaction"
+      
+      # Notification filters
+      notification:
+        # Filter notifications by contract hash
+        - type: value
+          field: contract
+          operator: "in"
+          value: 
+            - "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5"  # NEO token
+            - "0xd2a4cff31913016155e38e474a2c06d08be276cf"  # GAS token
+        
+        # Filter notifications by event name
+        - type: value
+          field: eventname
+          operator: "in"
+          value: ["Transfer", "Mint", "Burn"]
+        
+        # Complex filter for high-value transfers
+        - type: compound
+          operator: "and"
+          conditions:
+            - type: value
+              field: eventname
+              operator: "=="
+              value: "Transfer"
+            - type: script
+              code: |
+                // Check if this is a high-value transfer (> 100 tokens)
+                if (Array.isArray(event.state) && event.state.length >= 3) {
+                  const amount = parseFloat(event.state[2].value) / 100000000;
+                  return amount > 100;
+                }
+                return false;
+    
+    # Optional: Process events in batches (useful for catching up)
+    # batch_size: 10
+    
+    # Optional: Set to true to process all historical events
+    # process_historical: false
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

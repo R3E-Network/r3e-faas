@@ -1,0 +1,168 @@
+# Neo N3 Custom Oracle Service Configuration
+
+# Function metadata
+name: neo-n3-custom-oracle-service
+description: Example function that implements a custom oracle service for Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a schedule or by a direct request
+  type: multi_trigger
+  config:
+    # Schedule trigger (for regular data updates)
+    schedule:
+      # Update data every 15 minutes
+      cron: "*/15 * * * *"
+      
+      # Optional: Specify timezone (default is UTC)
+      timezone: "UTC"
+    
+    # Request trigger (for on-demand data requests)
+    request:
+      # Enable HTTP endpoint for direct requests
+      http:
+        enabled: true
+        path: "/oracle/custom"
+        methods: ["GET", "POST"]
+        
+        # Optional: Enable authentication for requests
+        auth:
+          enabled: true
+          type: "api_key"
+    
+    # Neo N3 smart contract trigger (for on-chain data requests)
+    neo_contract:
+      # Neo N3 network to monitor (mainnet, testnet, or custom)
+      network: testnet
+      
+      # Optional: RPC node URL (if not using the default for the selected network)
+      # rpc_url: https://testnet1.neo.coz.io:443
+      
+      # Contract hash that can request data
+      contract_hash: "0x1234567890abcdef1234567890abcdef12345678"
+      
+      # Method name that requests data
+      method_name: "requestCustomData"
+
+# Oracle service configuration
+oracle:
+  # Custom data sources
+  sources:
+    # Weather data source
+    - name: "weather"
+      enabled: true
+      type: "api"
+      config:
+        url: "https://api.openweathermap.org/data/2.5/weather"
+        auth_type: "api_key"
+        auth_param: "appid"
+        rate_limit: 60  # requests per hour
+      
+    # Sports data source
+    - name: "sports"
+      enabled: true
+      type: "api"
+      config:
+        url: "https://api.sportsdata.io/v3/nba/scores/json/Games"
+        auth_type: "api_key"
+        auth_header: "Ocp-Apim-Subscription-Key"
+        rate_limit: 100  # requests per hour
+      
+    # Social media sentiment data source
+    - name: "social"
+      enabled: true
+      type: "api"
+      config:
+        url: "https://api.twitter.com/2/tweets/search/recent"
+        auth_type: "oauth2"
+        rate_limit: 300  # requests per 15 minutes
+      
+    # IoT data source
+    - name: "iot"
+      enabled: true
+      type: "mqtt"
+      config:
+        broker: "mqtt://broker.hivemq.com"
+        topics:
+          - "sensors/temperature"
+          - "sensors/humidity"
+          - "sensors/pressure"
+        qos: 1
+      
+    # Custom API endpoint
+    - name: "custom"
+      enabled: true
+      type: "api"
+      config:
+        url: "https://api.example.com/custom-data"
+        auth_type: "basic"
+        rate_limit: 1000  # requests per day
+  
+  # Data processing configuration
+  processing:
+    # Cache settings
+    cache:
+      enabled: true
+      ttl: 300  # seconds
+    
+    # Validation settings
+    validation:
+      enabled: true
+      rules:
+        - field: "temperature"
+          type: "number"
+          min: -100
+          max: 100
+        
+        - field: "humidity"
+          type: "number"
+          min: 0
+          max: 100
+        
+        - field: "pressure"
+          type: "number"
+          min: 800
+          max: 1200
+    
+    # Transformation settings
+    transformation:
+      enabled: true
+      conversions:
+        - from: "fahrenheit"
+          to: "celsius"
+          formula: "(value - 32) * 5/9"
+        
+        - from: "mph"
+          to: "kph"
+          formula: "value * 1.60934"
+  
+  # Security settings
+  security:
+    # Sign data with the oracle's private key
+    sign_data: true
+    
+    # Maximum age of data (in seconds) before it's considered stale
+    max_age: 900
+    
+    # Rate limiting (requests per minute per client)
+    rate_limit: 10
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 60s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

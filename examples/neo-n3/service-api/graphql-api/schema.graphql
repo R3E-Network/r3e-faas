@@ -1,0 +1,455 @@
+# Neo N3 FaaS Platform GraphQL Schema
+
+"""
+Service represents a registered service in the Neo N3 FaaS platform.
+"""
+type Service {
+  id: ID!
+  name: String!
+  description: String
+  version: String!
+  functions: [Function!]!
+  dependencies: [Dependency!]!
+  permissions: Permissions
+  resources: Resources
+  environment: [EnvironmentVariable!]!
+  storage: Storage
+  createdAt: String!
+  updatedAt: String!
+  owner: User
+}
+
+"""
+Function represents a registered function in a service.
+"""
+type Function {
+  id: ID!
+  name: String!
+  description: String
+  handler: String!
+  trigger: Trigger!
+  service: Service!
+  executions: [Execution!]!
+  logs: [LogEntry!]!
+  metrics: Metrics
+  createdAt: String!
+  updatedAt: String!
+}
+
+"""
+Trigger represents a trigger configuration for a function.
+"""
+interface Trigger {
+  type: String!
+}
+
+"""
+HttpTrigger represents an HTTP trigger configuration.
+"""
+type HttpTrigger implements Trigger {
+  type: String!
+  path: String!
+  methods: [String!]!
+  cors: CorsConfig
+}
+
+"""
+EventTrigger represents an event trigger configuration.
+"""
+type EventTrigger implements Trigger {
+  type: String!
+  source: String!
+  event: String!
+  filter: String
+}
+
+"""
+ScheduleTrigger represents a schedule trigger configuration.
+"""
+type ScheduleTrigger implements Trigger {
+  type: String!
+  cron: String!
+  timezone: String
+}
+
+"""
+CorsConfig represents CORS configuration for an HTTP trigger.
+"""
+type CorsConfig {
+  enabled: Boolean!
+  allowedOrigins: [String!]!
+  allowedMethods: [String!]!
+  allowedHeaders: [String!]!
+  maxAge: Int
+}
+
+"""
+Dependency represents a dependency of a service.
+"""
+type Dependency {
+  name: String!
+  version: String!
+}
+
+"""
+Permissions represents the permissions configuration for a service.
+"""
+type Permissions {
+  invoke: [Permission!]!
+  manage: [Permission!]!
+}
+
+"""
+Permission represents a permission entry.
+"""
+type Permission {
+  type: String!
+  id: String!
+}
+
+"""
+Resources represents the resource limits for a service.
+"""
+type Resources {
+  memory: String!
+  timeout: String!
+}
+
+"""
+EnvironmentVariable represents an environment variable for a service.
+"""
+type EnvironmentVariable {
+  name: String!
+  value: String!
+}
+
+"""
+Storage represents the storage configuration for a service.
+"""
+type Storage {
+  enabled: Boolean!
+  retentionDays: Int
+}
+
+"""
+User represents a user in the Neo N3 FaaS platform.
+"""
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  roles: [String!]!
+  services: [Service!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+"""
+Execution represents an execution of a function.
+"""
+type Execution {
+  id: ID!
+  function: Function!
+  status: String!
+  startTime: String!
+  endTime: String
+  duration: Int
+  request: String
+  response: String
+  error: String
+}
+
+"""
+LogEntry represents a log entry from a function execution.
+"""
+type LogEntry {
+  id: ID!
+  function: Function!
+  execution: Execution
+  timestamp: String!
+  level: String!
+  message: String!
+}
+
+"""
+Metrics represents metrics for a function.
+"""
+type Metrics {
+  invocations: InvocationMetrics!
+  resources: ResourceMetrics!
+}
+
+"""
+InvocationMetrics represents invocation metrics for a function.
+"""
+type InvocationMetrics {
+  total: Int!
+  success: Int!
+  failed: Int!
+  avgDuration: Float!
+}
+
+"""
+ResourceMetrics represents resource usage metrics for a function.
+"""
+type ResourceMetrics {
+  memory: MemoryMetrics!
+  cpu: CpuMetrics!
+}
+
+"""
+MemoryMetrics represents memory usage metrics for a function.
+"""
+type MemoryMetrics {
+  avg: Float!
+  peak: Float!
+}
+
+"""
+CpuMetrics represents CPU usage metrics for a function.
+"""
+type CpuMetrics {
+  avg: Float!
+  peak: Float!
+}
+
+"""
+InvocationResult represents the result of a function invocation.
+"""
+type InvocationResult {
+  execution: Execution!
+  statusCode: Int!
+  headers: String
+  body: String
+}
+
+# Input Types
+
+"""
+CreateServiceInput represents the input for creating a service.
+"""
+input CreateServiceInput {
+  name: String!
+  description: String
+  version: String!
+  functions: [CreateFunctionInput!]!
+  dependencies: [DependencyInput!]
+  permissions: PermissionsInput
+  resources: ResourcesInput
+  environment: [EnvironmentVariableInput!]
+  storage: StorageInput
+}
+
+"""
+UpdateServiceInput represents the input for updating a service.
+"""
+input UpdateServiceInput {
+  name: String
+  description: String
+  version: String
+  functions: [UpdateFunctionInput!]
+  dependencies: [DependencyInput!]
+  permissions: PermissionsInput
+  resources: ResourcesInput
+  environment: [EnvironmentVariableInput!]
+  storage: StorageInput
+}
+
+"""
+CreateFunctionInput represents the input for creating a function.
+"""
+input CreateFunctionInput {
+  name: String!
+  description: String
+  handler: String!
+  trigger: TriggerInput!
+}
+
+"""
+UpdateFunctionInput represents the input for updating a function.
+"""
+input UpdateFunctionInput {
+  name: String!
+  description: String
+  handler: String
+  trigger: TriggerInput
+}
+
+"""
+TriggerInput represents the input for a trigger configuration.
+"""
+input TriggerInput {
+  type: String!
+  http: HttpTriggerInput
+  event: EventTriggerInput
+  schedule: ScheduleTriggerInput
+}
+
+"""
+HttpTriggerInput represents the input for an HTTP trigger configuration.
+"""
+input HttpTriggerInput {
+  path: String!
+  methods: [String!]!
+  cors: CorsConfigInput
+}
+
+"""
+EventTriggerInput represents the input for an event trigger configuration.
+"""
+input EventTriggerInput {
+  source: String!
+  event: String!
+  filter: String
+}
+
+"""
+ScheduleTriggerInput represents the input for a schedule trigger configuration.
+"""
+input ScheduleTriggerInput {
+  cron: String!
+  timezone: String
+}
+
+"""
+CorsConfigInput represents the input for CORS configuration.
+"""
+input CorsConfigInput {
+  enabled: Boolean!
+  allowedOrigins: [String!]!
+  allowedMethods: [String!]!
+  allowedHeaders: [String!]!
+  maxAge: Int
+}
+
+"""
+DependencyInput represents the input for a dependency.
+"""
+input DependencyInput {
+  name: String!
+  version: String!
+}
+
+"""
+PermissionsInput represents the input for permissions configuration.
+"""
+input PermissionsInput {
+  invoke: [PermissionInput!]!
+  manage: [PermissionInput!]!
+}
+
+"""
+PermissionInput represents the input for a permission entry.
+"""
+input PermissionInput {
+  type: String!
+  id: String!
+}
+
+"""
+ResourcesInput represents the input for resource limits.
+"""
+input ResourcesInput {
+  memory: String!
+  timeout: String!
+}
+
+"""
+EnvironmentVariableInput represents the input for an environment variable.
+"""
+input EnvironmentVariableInput {
+  name: String!
+  value: String!
+}
+
+"""
+StorageInput represents the input for storage configuration.
+"""
+input StorageInput {
+  enabled: Boolean!
+  retentionDays: Int
+}
+
+"""
+InvokeFunctionInput represents the input for invoking a function.
+"""
+input InvokeFunctionInput {
+  method: String
+  path: String
+  headers: String
+  body: String
+}
+
+# Queries
+
+type Query {
+  # Services
+  services: [Service!]!
+  service(id: ID!): Service
+
+  # Functions
+  functions: [Function!]!
+  function(id: ID!): Function
+
+  # Executions
+  executions(limit: Int): [Execution!]!
+  execution(id: ID!): Execution
+
+  # Logs
+  logs(functionId: ID, limit: Int): [LogEntry!]!
+
+  # Users
+  me: User
+  users: [User!]!
+  user(id: ID!): User
+}
+
+# Mutations
+
+type Mutation {
+  # Services
+  createService(input: CreateServiceInput!): Service!
+  updateService(id: ID!, input: UpdateServiceInput!): Service!
+  deleteService(id: ID!): Boolean!
+
+  # Functions
+  createFunction(serviceId: ID!, input: CreateFunctionInput!): Function!
+  updateFunction(id: ID!, input: UpdateFunctionInput!): Function!
+  deleteFunction(id: ID!): Boolean!
+
+  # Invocations
+  invokeFunction(id: ID!, input: InvokeFunctionInput!): InvocationResult!
+
+  # Authentication
+  login(username: String!, password: String!): AuthResult!
+  refreshToken(token: String!): AuthResult!
+  logout: Boolean!
+}
+
+# Subscriptions
+
+type Subscription {
+  # Real-time events
+  serviceCreated: Service!
+  serviceUpdated: Service!
+  serviceDeleted: ID!
+  
+  functionCreated: Function!
+  functionUpdated: Function!
+  functionDeleted: ID!
+  
+  functionInvoked: Execution!
+  logEntryAdded(functionId: ID): LogEntry!
+}
+
+# Authentication
+
+"""
+AuthResult represents the result of an authentication operation.
+"""
+type AuthResult {
+  token: String!
+  refreshToken: String!
+  user: User!
+  expiresIn: Int!
+}

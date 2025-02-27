@@ -1,0 +1,452 @@
+# Neo N3 Secure Multi-Party Computation Configuration
+
+# Function metadata
+name: neo-n3-secure-multi-party-computation
+description: Example function that implements secure multi-party computation using TEE in Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request
+  type: request
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/tee/secure-multi-party-computation"
+      methods: ["GET", "POST", "PUT", "DELETE"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+
+# TEE configuration
+tee:
+  # Secure multi-party computation configuration
+  secure_multi_party_computation:
+    # Enable secure multi-party computation
+    enabled: true
+    
+    # TEE provider configuration
+    provider:
+      # TEE provider type: 'sgx', 'sev', 'trustzone', or 'simulation'
+      type: "sgx"
+      
+      # Provider-specific configuration
+      config:
+        # Intel SGX configuration
+        sgx:
+          # EPID or DCAP attestation
+          attestation_type: "dcap"
+          # Enclave measurement (MRENCLAVE) for verification
+          mrenclave: ""
+          # Enclave signer measurement (MRSIGNER) for verification
+          mrsigner: ""
+          # Product ID for verification
+          product_id: 1
+          # Security version number for verification
+          security_version: 1
+          # Allow debug mode (should be false in production)
+          allow_debug: false
+        
+        # AMD SEV configuration
+        sev:
+          # Attestation URL
+          attestation_url: "https://kdsintf.amd.com"
+          # AMD root key for verification
+          amd_root_key: ""
+        
+        # ARM TrustZone configuration
+        trustzone:
+          # Trusted Application ID
+          ta_id: "45678901-abcd-ef01-2345-6789abcdef01"
+          # Trusted Application verification key
+          ta_verification_key: ""
+        
+        # Simulation configuration (for testing without actual TEE hardware)
+        simulation:
+          # Simulate attestation failures
+          simulate_failures: false
+          # Failure rate (0.0 - 1.0)
+          failure_rate: 0.0
+    
+    # MPC protocols configuration
+    protocols:
+      # Garbled circuit protocol
+      garbled_circuit:
+        enabled: true
+        # Circuit types
+        circuit_types:
+          - name: "boolean"
+            enabled: true
+            description: "Boolean circuits for logical operations"
+          - name: "arithmetic"
+            enabled: true
+            description: "Arithmetic circuits for numerical operations"
+        # Optimizations
+        optimizations:
+          - name: "half-gates"
+            enabled: true
+            description: "Half-gates technique for reducing communication"
+          - name: "free-xor"
+            enabled: true
+            description: "Free XOR technique for reducing computation"
+      
+      # Secret sharing protocol
+      secret_sharing:
+        enabled: true
+        # Sharing schemes
+        schemes:
+          - name: "shamir"
+            enabled: true
+            description: "Shamir's Secret Sharing"
+            threshold: 3
+            total_shares: 5
+          - name: "additive"
+            enabled: true
+            description: "Additive Secret Sharing"
+          - name: "replicated"
+            enabled: true
+            description: "Replicated Secret Sharing"
+        # Operations
+        operations:
+          - name: "addition"
+            enabled: true
+          - name: "multiplication"
+            enabled: true
+          - name: "comparison"
+            enabled: true
+      
+      # Homomorphic encryption protocol
+      homomorphic_encryption:
+        enabled: true
+        # Schemes
+        schemes:
+          - name: "paillier"
+            enabled: true
+            description: "Paillier cryptosystem (additive homomorphic)"
+          - name: "elgamal"
+            enabled: true
+            description: "ElGamal cryptosystem (multiplicative homomorphic)"
+          - name: "ckks"
+            enabled: false
+            description: "CKKS scheme (approximate arithmetic)"
+        # Operations
+        operations:
+          - name: "addition"
+            enabled: true
+          - name: "multiplication"
+            enabled: true
+          - name: "scalar-multiplication"
+            enabled: true
+    
+    # Use cases configuration
+    use_cases:
+      # Private set intersection
+      private_set_intersection:
+        enabled: true
+        # Protocols
+        protocols:
+          - name: "garbled-circuit"
+            enabled: true
+          - name: "diffie-hellman"
+            enabled: true
+          - name: "bloom-filter"
+            enabled: true
+        # Optimizations
+        optimizations:
+          - name: "hashing"
+            enabled: true
+          - name: "cuckoo-hashing"
+            enabled: true
+          - name: "batching"
+            enabled: true
+      
+      # Secure aggregation
+      secure_aggregation:
+        enabled: true
+        # Protocols
+        protocols:
+          - name: "secret-sharing"
+            enabled: true
+          - name: "homomorphic-encryption"
+            enabled: true
+        # Aggregation functions
+        functions:
+          - name: "sum"
+            enabled: true
+          - name: "average"
+            enabled: true
+          - name: "min"
+            enabled: true
+          - name: "max"
+            enabled: true
+          - name: "median"
+            enabled: true
+          - name: "count"
+            enabled: true
+      
+      # Secure machine learning
+      secure_machine_learning:
+        enabled: true
+        # Algorithms
+        algorithms:
+          - name: "linear-regression"
+            enabled: true
+          - name: "logistic-regression"
+            enabled: true
+          - name: "decision-tree"
+            enabled: true
+          - name: "neural-network"
+            enabled: false
+        # Training methods
+        training_methods:
+          - name: "gradient-descent"
+            enabled: true
+          - name: "federated-learning"
+            enabled: true
+    
+    # Party management configuration
+    party_management:
+      # Maximum number of parties
+      max_parties: 10
+      
+      # Party authentication
+      authentication:
+        # API key authentication
+        api_key:
+          enabled: true
+          header: "X-API-Key"
+        
+        # JWT authentication
+        jwt:
+          enabled: true
+          header: "Authorization"
+          prefix: "Bearer "
+          issuer: "neo-n3-tee"
+          audience: "neo-n3-clients"
+        
+        # Neo N3 blockchain authentication
+        blockchain:
+          enabled: true
+          # Verify signatures from Neo N3 addresses
+          verify_signature: true
+      
+      # Party roles
+      roles:
+        - name: "coordinator"
+          description: "Coordinates the MPC protocol"
+          max_count: 1
+        
+        - name: "participant"
+          description: "Participates in the MPC protocol"
+          max_count: 10
+        
+        - name: "verifier"
+          description: "Verifies the MPC protocol"
+          max_count: 3
+      
+      # Party communication
+      communication:
+        # Communication channels
+        channels:
+          - name: "direct"
+            enabled: true
+            description: "Direct communication between parties"
+          
+          - name: "blockchain"
+            enabled: true
+            description: "Communication through the blockchain"
+          
+          - name: "tee"
+            enabled: true
+            description: "Communication through the TEE"
+        
+        # Communication security
+        security:
+          # Encryption
+          encryption:
+            enabled: true
+            algorithm: "AES-256-GCM"
+          
+          # Authentication
+          authentication:
+            enabled: true
+            algorithm: "HMAC-SHA256"
+          
+          # Forward secrecy
+          forward_secrecy:
+            enabled: true
+            protocol: "ECDHE"
+    
+    # Computation configuration
+    computation:
+      # Computation modes
+      modes:
+        - name: "synchronous"
+          enabled: true
+          description: "All parties participate simultaneously"
+        
+        - name: "asynchronous"
+          enabled: true
+          description: "Parties can participate at different times"
+        
+        - name: "threshold"
+          enabled: true
+          description: "Computation proceeds when a threshold of parties have participated"
+          threshold: 3
+      
+      # Computation phases
+      phases:
+        - name: "setup"
+          enabled: true
+          description: "Setup phase for the MPC protocol"
+        
+        - name: "input"
+          enabled: true
+          description: "Input phase for the MPC protocol"
+        
+        - name: "computation"
+          enabled: true
+          description: "Computation phase for the MPC protocol"
+        
+        - name: "output"
+          enabled: true
+          description: "Output phase for the MPC protocol"
+      
+      # Computation timeout
+      timeout:
+        # Enable timeout
+        enabled: true
+        
+        # Timeout in seconds
+        seconds: 300
+        
+        # Action on timeout
+        action: "abort"
+    
+    # Security configuration
+    security:
+      # Input validation
+      input_validation:
+        enabled: true
+        # Validation rules
+        rules:
+          - name: "type-checking"
+            enabled: true
+          - name: "range-checking"
+            enabled: true
+          - name: "format-checking"
+            enabled: true
+      
+      # Output validation
+      output_validation:
+        enabled: true
+        # Validation rules
+        rules:
+          - name: "type-checking"
+            enabled: true
+          - name: "range-checking"
+            enabled: true
+          - name: "format-checking"
+            enabled: true
+      
+      # Fairness
+      fairness:
+        enabled: true
+        # Fairness mechanisms
+        mechanisms:
+          - name: "commit-reveal"
+            enabled: true
+          - name: "gradual-release"
+            enabled: true
+          - name: "timed-release"
+            enabled: true
+      
+      # Privacy
+      privacy:
+        enabled: true
+        # Privacy mechanisms
+        mechanisms:
+          - name: "differential-privacy"
+            enabled: true
+            epsilon: 0.1
+          - name: "k-anonymity"
+            enabled: true
+            k: 5
+          - name: "t-closeness"
+            enabled: true
+            t: 0.2
+    
+    # Monitoring and auditing configuration
+    monitoring:
+      # Enable monitoring
+      enabled: true
+      
+      # Log all operations
+      log_operations: true
+      
+      # Log level for operations
+      log_level: "info"
+      
+      # Audit trail configuration
+      audit:
+        # Enable audit trail
+        enabled: true
+        
+        # Audit storage type: 'memory', 'store', or 'blockchain'
+        storage: "store"
+        
+        # Retention period in days
+        retention: 365
+        
+        # Audit events to record
+        events:
+          - "party_joined"
+          - "party_left"
+          - "computation_started"
+          - "computation_completed"
+          - "computation_aborted"
+          - "input_submitted"
+          - "output_generated"
+          - "error_occurred"
+    
+    # Neo N3 blockchain integration
+    blockchain:
+      # Enable blockchain integration
+      enabled: true
+      
+      # Neo N3 network to use
+      network: "testnet"
+      
+      # Store computation results on blockchain
+      store_results: true
+      
+      # Store audit logs on blockchain
+      store_audit_logs: false
+      
+      # Smart contract for secure multi-party computation
+      contract_hash: ""
+
+# Resource limits
+resources:
+  memory: 512MB
+  timeout: 300s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30
