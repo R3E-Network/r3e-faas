@@ -4,11 +4,19 @@
 use serde::{Deserialize, Serialize};
 
 pub mod source;
+pub mod registry;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Trigger {
+    // Generic triggers
     NewBlock,
     NewTx,
+    
+    // Neo-specific triggers
+    NeoNewBlock,
+    NeoNewTx,
+    NeoContractNotification,
+    NeoApplicationLog,
 }
 
 

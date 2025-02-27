@@ -1,0 +1,284 @@
+// Copyright @ 2023 - 2024, R3E Network
+// All Rights Reserved
+
+syntax = "proto3";
+
+package registry;
+
+// Function metadata schema for user-provided JavaScript functions
+message FunctionMetadata {
+    // Unique identifier for the function
+    string id = 1;
+    
+    // User-provided name for the function
+    string name = 2;
+    
+    // User-provided description for the function
+    string description = 3;
+    
+    // Version information
+    uint64 version = 4;
+    
+    // Creation timestamp
+    uint64 created_at = 5;
+    
+    // Last updated timestamp
+    uint64 updated_at = 6;
+    
+    // Trigger configuration
+    TriggerConfig trigger = 7;
+    
+    // Permission configuration
+    PermissionConfig permissions = 8;
+    
+    // Resource limits
+    ResourceLimits resources = 9;
+    
+    // Function code
+    string code = 10;
+}
+
+// Trigger configuration for function execution
+message TriggerConfig {
+    // Type of trigger
+    TriggerType type = 1;
+    
+    // Trigger-specific configuration
+    oneof config {
+        BlockchainTrigger blockchain = 2;
+        ScheduleTrigger schedule = 3;
+        HttpTrigger http = 4;
+        OracleTrigger oracle = 5;
+    }
+}
+
+// Types of triggers
+enum TriggerType {
+    TRIGGER_TYPE_UNSPECIFIED = 0;
+    TRIGGER_TYPE_BLOCKCHAIN = 1;
+    TRIGGER_TYPE_SCHEDULE = 2;
+    TRIGGER_TYPE_HTTP = 3;
+    TRIGGER_TYPE_ORACLE = 4;
+}
+
+// Blockchain event trigger configuration
+message BlockchainTrigger {
+    // Blockchain source
+    string source = 1;
+    
+    // Event type
+    string event_type = 2;
+    
+    // Optional filter for specific events
+    string filter = 3;
+}
+
+// Schedule-based trigger configuration
+message ScheduleTrigger {
+    // Cron expression for scheduling
+    string cron = 1;
+    
+    // Optional timezone
+    string timezone = 2;
+}
+
+// HTTP endpoint trigger configuration
+message HttpTrigger {
+    // HTTP path
+    string path = 1;
+    
+    // HTTP methods
+    repeated string methods = 2;
+    
+    // Authentication required
+    bool auth_required = 3;
+}
+
+// Oracle trigger configuration
+message OracleTrigger {
+    // Oracle type
+    string type = 1;
+    
+    // Oracle-specific configuration
+    string config = 2;
+}
+
+// Permission configuration for function execution
+message PermissionConfig {
+    // Network access permissions
+    NetworkPermissions network = 1;
+    
+    // Storage access permissions
+    StoragePermissions storage = 2;
+    
+    // Blockchain access permissions
+    BlockchainPermissions blockchain = 3;
+}
+
+// Network access permissions
+message NetworkPermissions {
+    // Allow outbound network requests
+    bool allow_outbound = 1;
+    
+    // Allowed domains for outbound requests
+    repeated string allowed_domains = 2;
+}
+
+// Storage access permissions
+message StoragePermissions {
+    // Allow read access to storage
+    bool allow_read = 1;
+    
+    // Allow write access to storage
+    bool allow_write = 2;
+    
+    // Storage namespace for the function
+    string namespace = 3;
+}
+
+// Blockchain access permissions
+message BlockchainPermissions {
+    // Allow read access to blockchain
+    bool allow_read = 1;
+    
+    // Allow write access to blockchain (transactions)
+    bool allow_write = 2;
+    
+    // Allowed contract addresses
+    repeated string allowed_contracts = 3;
+}
+
+// Resource limits for function execution
+message ResourceLimits {
+    // Maximum memory usage in MB
+    uint32 memory_mb = 1;
+    
+    // Maximum CPU time in ms
+    uint32 cpu_ms = 2;
+    
+    // Maximum execution time in ms
+    uint32 execution_time_ms = 3;
+    
+    // Maximum storage usage in KB
+    uint32 storage_kb = 4;
+}
+
+// Function registration request
+message RegisterFunctionRequest {
+    // Function name
+    string name = 1;
+    
+    // Function description
+    string description = 2;
+    
+    // Trigger configuration
+    TriggerConfig trigger = 3;
+    
+    // Permission configuration
+    PermissionConfig permissions = 4;
+    
+    // Resource limits
+    ResourceLimits resources = 5;
+    
+    // Function code
+    string code = 6;
+}
+
+// Function registration response
+message RegisterFunctionResponse {
+    // Function metadata
+    FunctionMetadata metadata = 1;
+}
+
+// Function update request
+message UpdateFunctionRequest {
+    // Function ID
+    string id = 1;
+    
+    // Function name (optional)
+    optional string name = 2;
+    
+    // Function description (optional)
+    optional string description = 3;
+    
+    // Trigger configuration (optional)
+    optional TriggerConfig trigger = 4;
+    
+    // Permission configuration (optional)
+    optional PermissionConfig permissions = 5;
+    
+    // Resource limits (optional)
+    optional ResourceLimits resources = 6;
+    
+    // Function code (optional)
+    optional string code = 7;
+}
+
+// Function update response
+message UpdateFunctionResponse {
+    // Updated function metadata
+    FunctionMetadata metadata = 1;
+}
+
+// Function get request
+message GetFunctionRequest {
+    // Function ID
+    string id = 1;
+}
+
+// Function get response
+message GetFunctionResponse {
+    // Function metadata
+    FunctionMetadata metadata = 1;
+}
+
+// Function list request
+message ListFunctionsRequest {
+    // Pagination token
+    string page_token = 1;
+    
+    // Page size
+    uint32 page_size = 2;
+    
+    // Filter by trigger type
+    optional TriggerType trigger_type = 3;
+}
+
+// Function list response
+message ListFunctionsResponse {
+    // Function metadata list
+    repeated FunctionMetadata functions = 1;
+    
+    // Next page token
+    string next_page_token = 2;
+}
+
+// Function delete request
+message DeleteFunctionRequest {
+    // Function ID
+    string id = 1;
+}
+
+// Function delete response
+message DeleteFunctionResponse {
+    // Success flag
+    bool success = 1;
+}
+
+// Function registry service
+service FunctionRegistry {
+    // Register a new function
+    rpc RegisterFunction(RegisterFunctionRequest) returns (RegisterFunctionResponse) {}
+    
+    // Update an existing function
+    rpc UpdateFunction(UpdateFunctionRequest) returns (UpdateFunctionResponse) {}
+    
+    // Get a function by ID
+    rpc GetFunction(GetFunctionRequest) returns (GetFunctionResponse) {}
+    
+    // List functions with optional filtering
+    rpc ListFunctions(ListFunctionsRequest) returns (ListFunctionsResponse) {}
+    
+    // Delete a function by ID
+    rpc DeleteFunction(DeleteFunctionRequest) returns (DeleteFunctionResponse) {}
+}
