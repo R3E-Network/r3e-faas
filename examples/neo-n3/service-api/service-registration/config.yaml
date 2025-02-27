@@ -1,0 +1,94 @@
+# Service Registration Example Configuration
+
+# Service metadata
+name: example-service
+description: Example service for Neo N3 FaaS platform
+version: 1.0.0
+
+# Functions
+functions:
+  - name: index
+    description: Main function for the service
+    handler: functions/index.js:handler
+    trigger:
+      type: request
+      config:
+        http:
+          path: "/example-service"
+          methods: ["GET", "POST"]
+          cors:
+            enabled: true
+            allowed_origins: ["*"]
+            allowed_methods: ["GET", "POST", "OPTIONS"]
+            allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+  
+  - name: auth
+    description: Authentication function for the service
+    handler: functions/auth.js:handler
+    trigger:
+      type: request
+      config:
+        http:
+          path: "/example-service/auth"
+          methods: ["POST"]
+          cors:
+            enabled: true
+            allowed_origins: ["*"]
+            allowed_methods: ["POST", "OPTIONS"]
+            allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+  
+  - name: data
+    description: Data processing function for the service
+    handler: functions/data.js:handler
+    trigger:
+      type: request
+      config:
+        http:
+          path: "/example-service/data"
+          methods: ["GET", "POST"]
+          cors:
+            enabled: true
+            allowed_origins: ["*"]
+            allowed_methods: ["GET", "POST", "OPTIONS"]
+            allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+
+# Dependencies
+dependencies:
+  - name: neo-sdk
+    version: "^1.0.0"
+  - name: axios
+    version: "^0.24.0"
+  - name: jsonwebtoken
+    version: "^9.0.0"
+  - name: crypto-js
+    version: "^4.1.1"
+
+# Permissions
+permissions:
+  invoke:
+    - type: "user"
+      id: "*"  # Allow all authenticated users
+    - type: "role"
+      id: "admin"  # Allow users with admin role
+  manage:
+    - type: "user"
+      id: "owner"  # Only the owner can manage the service
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 60s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  NEO_NETWORK: testnet
+  JWT_SECRET: ${JWT_SECRET}  # Will be replaced with actual secret at runtime
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this service
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

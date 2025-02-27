@@ -1,0 +1,371 @@
+# Neo N3 Secure Key Management Configuration
+
+# Function metadata
+name: neo-n3-secure-key-management
+description: Example function that implements secure key management using TEE in Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request
+  type: request
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/tee/key-management"
+      methods: ["GET", "POST", "PUT", "DELETE"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+
+# TEE configuration
+tee:
+  # Key management configuration
+  key_management:
+    # Enable key management
+    enabled: true
+    
+    # TEE provider configuration
+    provider:
+      # TEE provider type: 'sgx', 'sev', 'trustzone', or 'simulation'
+      type: "sgx"
+      
+      # Provider-specific configuration
+      config:
+        # Intel SGX configuration
+        sgx:
+          # EPID or DCAP attestation
+          attestation_type: "dcap"
+          # Enclave measurement (MRENCLAVE) for verification
+          mrenclave: ""
+          # Enclave signer measurement (MRSIGNER) for verification
+          mrsigner: ""
+          # Product ID for verification
+          product_id: 1
+          # Security version number for verification
+          security_version: 1
+          # Allow debug mode (should be false in production)
+          allow_debug: false
+        
+        # AMD SEV configuration
+        sev:
+          # Attestation URL
+          attestation_url: "https://kdsintf.amd.com"
+          # AMD root key for verification
+          amd_root_key: ""
+        
+        # ARM TrustZone configuration
+        trustzone:
+          # Trusted Application ID
+          ta_id: "23456789-abcd-ef01-2345-6789abcdef01"
+          # Trusted Application verification key
+          ta_verification_key: ""
+        
+        # Simulation configuration (for testing without actual TEE hardware)
+        simulation:
+          # Simulate attestation failures
+          simulate_failures: false
+          # Failure rate (0.0 - 1.0)
+          failure_rate: 0.0
+    
+    # Key types configuration
+    key_types:
+      # Asymmetric key types
+      asymmetric:
+        - name: "secp256r1"
+          enabled: true
+          description: "NIST P-256 curve for ECDSA"
+          
+        - name: "secp256k1"
+          enabled: true
+          description: "Bitcoin curve for ECDSA"
+          
+        - name: "ed25519"
+          enabled: true
+          description: "Edwards curve for EdDSA"
+          
+        - name: "rsa-2048"
+          enabled: true
+          description: "RSA 2048-bit"
+          
+        - name: "rsa-4096"
+          enabled: false
+          description: "RSA 4096-bit"
+      
+      # Symmetric key types
+      symmetric:
+        - name: "aes-128-gcm"
+          enabled: true
+          description: "AES-128 with GCM mode"
+          
+        - name: "aes-256-gcm"
+          enabled: true
+          description: "AES-256 with GCM mode"
+          
+        - name: "chacha20-poly1305"
+          enabled: true
+          description: "ChaCha20 with Poly1305"
+    
+    # Key operations configuration
+    operations:
+      # Signing operations
+      sign:
+        enabled: true
+        algorithms:
+          - "ECDSA"
+          - "EdDSA"
+          - "RSA-PSS"
+          - "RSA-PKCS1"
+      
+      # Verification operations
+      verify:
+        enabled: true
+        algorithms:
+          - "ECDSA"
+          - "EdDSA"
+          - "RSA-PSS"
+          - "RSA-PKCS1"
+      
+      # Encryption operations
+      encrypt:
+        enabled: true
+        algorithms:
+          - "RSA-OAEP"
+          - "ECDH"
+          - "AES-GCM"
+          - "ChaCha20-Poly1305"
+      
+      # Decryption operations
+      decrypt:
+        enabled: true
+        algorithms:
+          - "RSA-OAEP"
+          - "ECDH"
+          - "AES-GCM"
+          - "ChaCha20-Poly1305"
+      
+      # Key derivation operations
+      derive:
+        enabled: true
+        algorithms:
+          - "HKDF"
+          - "PBKDF2"
+          - "ECDH"
+      
+      # Key wrapping operations
+      wrap:
+        enabled: true
+        algorithms:
+          - "AES-KW"
+          - "RSA-OAEP"
+      
+      # Key unwrapping operations
+      unwrap:
+        enabled: true
+        algorithms:
+          - "AES-KW"
+          - "RSA-OAEP"
+    
+    # Key policy configuration
+    policies:
+      # Default key policy
+      default:
+        # Key rotation policy
+        rotation:
+          # Enable automatic key rotation
+          enabled: true
+          # Rotation period in days
+          period: 90
+          # Overlap period in days (keep old key valid)
+          overlap: 7
+        
+        # Key usage policy
+        usage:
+          # Maximum number of operations
+          max_operations: 10000
+          # Maximum age in days
+          max_age: 365
+        
+        # Key export policy
+        export:
+          # Allow key export (should be false for sensitive keys)
+          allowed: false
+          # Allow public key export
+          public_allowed: true
+        
+        # Key backup policy
+        backup:
+          # Enable key backup
+          enabled: true
+          # Backup encryption algorithm
+          encryption: "AES-256-GCM"
+          # Backup authentication required
+          auth_required: true
+      
+      # Custom policies for specific key types
+      custom:
+        - name: "high-security"
+          key_types: ["secp256r1", "ed25519", "aes-256-gcm"]
+          rotation:
+            enabled: true
+            period: 30
+            overlap: 3
+          usage:
+            max_operations: 1000
+            max_age: 90
+          export:
+            allowed: false
+            public_allowed: true
+          backup:
+            enabled: true
+            encryption: "AES-256-GCM"
+            auth_required: true
+        
+        - name: "medium-security"
+          key_types: ["secp256k1", "rsa-2048", "aes-128-gcm"]
+          rotation:
+            enabled: true
+            period: 180
+            overlap: 14
+          usage:
+            max_operations: 100000
+            max_age: 730
+          export:
+            allowed: false
+            public_allowed: true
+          backup:
+            enabled: true
+            encryption: "AES-256-GCM"
+            auth_required: true
+    
+    # Access control configuration
+    access_control:
+      # Enable access control
+      enabled: true
+      
+      # Authentication methods
+      authentication:
+        # API key authentication
+        api_key:
+          enabled: true
+          header: "X-API-Key"
+        
+        # JWT authentication
+        jwt:
+          enabled: true
+          header: "Authorization"
+          prefix: "Bearer "
+          issuer: "neo-n3-tee"
+          audience: "neo-n3-clients"
+        
+        # Neo N3 blockchain authentication
+        blockchain:
+          enabled: true
+          # Verify signatures from Neo N3 addresses
+          verify_signature: true
+      
+      # Authorization configuration
+      authorization:
+        # Role-based access control
+        rbac:
+          enabled: true
+          roles:
+            - name: "admin"
+              permissions: ["create", "read", "update", "delete", "sign", "encrypt", "decrypt"]
+            
+            - name: "key-manager"
+              permissions: ["create", "read", "update", "delete"]
+            
+            - name: "signer"
+              permissions: ["read", "sign"]
+            
+            - name: "encryptor"
+              permissions: ["read", "encrypt", "decrypt"]
+        
+        # User role assignments
+        users:
+          - id: "admin"
+            roles: ["admin"]
+          
+          - id: "key-manager"
+            roles: ["key-manager"]
+          
+          - id: "signer"
+            roles: ["signer"]
+          
+          - id: "encryptor"
+            roles: ["encryptor"]
+    
+    # Monitoring and auditing configuration
+    monitoring:
+      # Enable monitoring
+      enabled: true
+      
+      # Log all key operations
+      log_operations: true
+      
+      # Log level for key operations
+      log_level: "info"
+      
+      # Audit trail configuration
+      audit:
+        # Enable audit trail
+        enabled: true
+        
+        # Audit storage type: 'memory', 'store', or 'blockchain'
+        storage: "store"
+        
+        # Retention period in days
+        retention: 365
+        
+        # Audit events to record
+        events:
+          - "key_generation"
+          - "key_rotation"
+          - "key_deletion"
+          - "key_usage"
+          - "policy_violation"
+          - "authentication_failure"
+          - "authorization_failure"
+    
+    # Neo N3 blockchain integration
+    blockchain:
+      # Enable blockchain integration
+      enabled: true
+      
+      # Neo N3 network to use
+      network: "testnet"
+      
+      # Store key metadata on blockchain
+      store_metadata: true
+      
+      # Store audit logs on blockchain
+      store_audit_logs: false
+      
+      # Smart contract for key management
+      contract_hash: ""
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 365

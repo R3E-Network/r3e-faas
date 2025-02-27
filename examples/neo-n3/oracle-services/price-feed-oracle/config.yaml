@@ -1,0 +1,115 @@
+# Neo N3 Price Feed Oracle Configuration
+
+# Function metadata
+name: neo-n3-price-feed-oracle
+description: Example function that implements a price feed oracle service for Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a schedule or by a direct request
+  type: multi_trigger
+  config:
+    # Schedule trigger (for regular price updates)
+    schedule:
+      # Update prices every 5 minutes
+      cron: "*/5 * * * *"
+      
+      # Optional: Specify timezone (default is UTC)
+      timezone: "UTC"
+    
+    # Request trigger (for on-demand price requests)
+    request:
+      # Enable HTTP endpoint for direct requests
+      http:
+        enabled: true
+        path: "/oracle/price-feed"
+        methods: ["GET", "POST"]
+        
+        # Optional: Enable authentication for requests
+        auth:
+          enabled: true
+          type: "api_key"
+    
+    # Neo N3 smart contract trigger (for on-chain price requests)
+    neo_contract:
+      # Neo N3 network to monitor (mainnet, testnet, or custom)
+      network: testnet
+      
+      # Optional: RPC node URL (if not using the default for the selected network)
+      # rpc_url: https://testnet1.neo.coz.io:443
+      
+      # Contract hash that can request price data
+      contract_hash: "0x1234567890abcdef1234567890abcdef12345678"
+      
+      # Method name that requests price data
+      method_name: "requestPriceData"
+
+# Oracle service configuration
+oracle:
+  # Supported asset pairs
+  pairs:
+    - "NEO/USD"
+    - "GAS/USD"
+    - "BTC/USD"
+    - "ETH/USD"
+    - "NEO/BTC"
+    - "GAS/BTC"
+  
+  # Data sources
+  sources:
+    - name: "CoinGecko"
+      enabled: true
+      weight: 1.0
+      rate_limit: 50  # requests per minute
+    
+    - name: "Binance"
+      enabled: true
+      weight: 1.0
+      rate_limit: 100  # requests per minute
+    
+    - name: "Coinbase"
+      enabled: true
+      weight: 1.0
+      rate_limit: 30  # requests per minute
+  
+  # Aggregation settings
+  aggregation:
+    # Minimum number of sources required for a valid price
+    min_sources: 2
+    
+    # Remove outliers that are more than this many standard deviations from the mean
+    outlier_threshold: 2.0
+    
+    # Aggregation method (average, median, vwap)
+    method: "median"
+  
+  # Security settings
+  security:
+    # Sign price data with the oracle's private key
+    sign_data: true
+    
+    # Maximum age of price data (in seconds) before it's considered stale
+    max_age: 300
+    
+    # Minimum confidence score required for a valid price
+    min_confidence: 0.7
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

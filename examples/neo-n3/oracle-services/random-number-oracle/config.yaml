@@ -1,0 +1,134 @@
+# Neo N3 Random Number Oracle Configuration
+
+# Function metadata
+name: neo-n3-random-number-oracle
+description: Example function that implements a random number oracle service for Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a schedule or by a direct request
+  type: multi_trigger
+  config:
+    # Schedule trigger (for regular random number generation)
+    schedule:
+      # Generate random numbers every hour
+      cron: "0 * * * *"
+      
+      # Optional: Specify timezone (default is UTC)
+      timezone: "UTC"
+    
+    # Request trigger (for on-demand random number requests)
+    request:
+      # Enable HTTP endpoint for direct requests
+      http:
+        enabled: true
+        path: "/oracle/random-number"
+        methods: ["GET", "POST"]
+        
+        # Optional: Enable authentication for requests
+        auth:
+          enabled: true
+          type: "api_key"
+    
+    # Neo N3 smart contract trigger (for on-chain random number requests)
+    neo_contract:
+      # Neo N3 network to monitor (mainnet, testnet, or custom)
+      network: testnet
+      
+      # Optional: RPC node URL (if not using the default for the selected network)
+      # rpc_url: https://testnet1.neo.coz.io:443
+      
+      # Contract hash that can request random numbers
+      contract_hash: "0x1234567890abcdef1234567890abcdef12345678"
+      
+      # Method name that requests random numbers
+      method_name: "requestRandomNumber"
+
+# Oracle service configuration
+oracle:
+  # Random number types
+  types:
+    - name: "integer"
+      enabled: true
+      
+    - name: "bytes"
+      enabled: true
+      
+    - name: "uuid"
+      enabled: true
+      
+    - name: "boolean"
+      enabled: true
+      
+    - name: "float"
+      enabled: true
+  
+  # Entropy sources
+  entropy:
+    - name: "hardware"
+      enabled: true
+      weight: 1.0
+      
+    - name: "crypto"
+      enabled: true
+      weight: 1.0
+      
+    - name: "blockchain"
+      enabled: true
+      weight: 1.0
+      
+    - name: "external"
+      enabled: true
+      weight: 0.5
+      
+    - name: "time"
+      enabled: true
+      weight: 0.2
+  
+  # Verification methods
+  verification:
+    - name: "vrf"
+      enabled: true
+      
+    - name: "commit-reveal"
+      enabled: true
+      
+    - name: "multi-party"
+      enabled: true
+      
+    - name: "signature"
+      enabled: true
+  
+  # Security settings
+  security:
+    # Sign random data with the oracle's private key
+    sign_data: true
+    
+    # Maximum age of random data (in seconds) before it's considered stale
+    max_age: 3600
+    
+    # Rate limiting (requests per minute per client)
+    rate_limit: 10
+    
+    # Maximum number of random values per request
+    max_values_per_request: 100
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

@@ -1,0 +1,159 @@
+# Neo N3 Oracle Authentication Configuration
+
+# Function metadata
+name: neo-n3-oracle-authentication
+description: Example function that implements secure authentication for oracle services in Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request
+  type: request
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/oracle/auth"
+      methods: ["GET", "POST"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key", "X-Signature", "X-Public-Key"]
+        max_age: 86400
+
+# Oracle service configuration
+oracle:
+  # Authentication methods
+  auth:
+    # API key authentication
+    api_key:
+      enabled: true
+      # Key storage options: 'memory', 'store', 'blockchain'
+      storage: 'store'
+      # Header name for API key
+      header: 'X-API-Key'
+      # Optional: Key rotation period in days (0 = no rotation)
+      rotation_days: 90
+      # Optional: Rate limiting per API key (requests per minute)
+      rate_limit: 60
+    
+    # JWT token authentication
+    jwt:
+      enabled: true
+      # Secret key for JWT verification (in a real implementation, this would be stored securely)
+      # This is just for demonstration purposes
+      secret: 'neo-n3-oracle-jwt-secret-key'
+      # JWT issuer
+      issuer: 'neo-n3-oracle'
+      # JWT audience
+      audience: 'neo-n3-clients'
+      # JWT expiration time in seconds
+      expiration: 3600
+      # Header name for JWT token
+      header: 'Authorization'
+      # Header format (Bearer token)
+      header_format: 'Bearer {token}'
+    
+    # Blockchain-based authentication
+    blockchain:
+      enabled: true
+      # Neo N3 network to use for verification
+      network: 'testnet'
+      # Header name for signature
+      signature_header: 'X-Signature'
+      # Header name for public key
+      public_key_header: 'X-Public-Key'
+      # Header name for message timestamp
+      timestamp_header: 'X-Timestamp'
+      # Maximum age of message timestamp in seconds
+      max_timestamp_age: 300
+  
+  # Role-based access control
+  rbac:
+    enabled: true
+    # Role definitions
+    roles:
+      - name: 'admin'
+        permissions: ['read_all', 'write_all']
+      
+      - name: 'price_reader'
+        permissions: ['read_price_data']
+      
+      - name: 'weather_reader'
+        permissions: ['read_weather_data']
+      
+      - name: 'sports_reader'
+        permissions: ['read_sports_data']
+      
+      - name: 'full_reader'
+        permissions: ['read_price_data', 'read_weather_data', 'read_sports_data']
+    
+    # User role assignments
+    users:
+      - id: 'user1'
+        roles: ['price_reader', 'weather_reader']
+      
+      - id: 'user2'
+        roles: ['sports_reader']
+      
+      - id: 'user3'
+        roles: ['full_reader']
+      
+      - id: 'admin'
+        roles: ['admin']
+    
+    # Smart contract role assignments
+    contracts:
+      - hash: '0x1234567890abcdef1234567890abcdef12345678'
+        roles: ['price_reader']
+      
+      - hash: '0xabcdef1234567890abcdef1234567890abcdef12'
+        roles: ['full_reader']
+  
+  # Access monitoring and auditing
+  auditing:
+    enabled: true
+    # Log all access attempts
+    log_all_attempts: true
+    # Log successful access
+    log_success: true
+    # Log failed access
+    log_failure: true
+    # Log level for access logs
+    log_level: 'info'
+    # Storage options for access logs: 'memory', 'store', 'blockchain'
+    storage: 'store'
+    # Optional: Retention period for access logs in days
+    retention_days: 90
+    # Optional: Alert on suspicious activity
+    alert_on_suspicious: true
+    # Optional: Suspicious activity detection rules
+    suspicious_rules:
+      # Maximum failed attempts before alerting
+      max_failed_attempts: 5
+      # Time window for failed attempts in seconds
+      failed_attempts_window: 300
+      # Maximum requests per minute before alerting
+      max_requests_per_minute: 100
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

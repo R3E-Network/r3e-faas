@@ -1,0 +1,56 @@
+# Neo N3 Contract Notification Event Handler Configuration
+
+# Function metadata
+name: neo-n3-contract-notification-handler
+description: Example function that processes Neo N3 contract notification events
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  type: neo_notification
+  config:
+    # Neo N3 network to monitor (mainnet, testnet, or custom)
+    network: testnet
+    
+    # Optional: RPC node URL (if not using the default for the selected network)
+    # rpc_url: https://testnet1.neo.coz.io:443
+    
+    # Optional: Filter notifications by contract hash
+    # Only process notifications from these contracts
+    contract_hashes:
+      - 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5  # NEO token
+      - 0xd2a4cff31913016155e38e474a2c06d08be276cf  # GAS token
+      # Add other contract hashes as needed
+    
+    # Optional: Filter notifications by event name
+    # Only process notifications with these event names
+    event_names:
+      - Transfer
+      - Mint
+      - Burn
+      # Add other event names as needed
+    
+    # Optional: Process notifications in batches (useful for catching up)
+    # batch_size: 10
+    
+    # Optional: Set to true to process all historical notifications
+    # process_historical: false
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

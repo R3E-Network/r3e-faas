@@ -1,0 +1,91 @@
+# Neo N3 Multi-Event Handler Configuration
+
+# Function metadata
+name: neo-n3-multi-event-handler
+description: Example function that handles multiple types of Neo N3 blockchain events
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  type: neo_multi_event
+  config:
+    # Neo N3 network to monitor (mainnet, testnet, or custom)
+    network: testnet
+    
+    # Optional: RPC node URL (if not using the default for the selected network)
+    # rpc_url: https://testnet1.neo.coz.io:443
+    
+    # Event types to monitor
+    event_types:
+      - block
+      - transaction
+      - notification
+    
+    # Block event configuration
+    block:
+      # Optional: Filter blocks by index range
+      # min_index: 1000000
+      # max_index: 2000000
+      
+      # Optional: Process blocks in batches (useful for catching up)
+      # batch_size: 10
+    
+    # Transaction event configuration
+    transaction:
+      # Optional: Filter transactions by type
+      types:
+        - InvocationTransaction
+        - ClaimTransaction
+      
+      # Optional: Filter transactions by contract hash
+      # Only process transactions that interact with these contracts
+      contract_hashes:
+        - 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5  # NEO token
+        - 0xd2a4cff31913016155e38e474a2c06d08be276cf  # GAS token
+    
+    # Notification event configuration
+    notification:
+      # Optional: Filter notifications by contract hash
+      contract_hashes:
+        - 0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5  # NEO token
+        - 0xd2a4cff31913016155e38e474a2c06d08be276cf  # GAS token
+      
+      # Optional: Filter notifications by event name
+      event_names:
+        - Transfer
+        - Mint
+        - Burn
+    
+    # Optional: Set to true to process all historical events
+    # process_historical: false
+    
+    # Optional: Coordination settings
+    coordination:
+      # Enable cross-event coordination
+      enabled: true
+      
+      # Maximum time to wait for related events (in seconds)
+      # After this time, process events even if related events are missing
+      max_wait_time: 60
+      
+      # Minimum number of events to process in a batch
+      min_batch_size: 10
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 60s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

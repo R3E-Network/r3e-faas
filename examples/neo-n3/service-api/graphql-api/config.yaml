@@ -1,0 +1,70 @@
+# GraphQL API Example Configuration
+
+# Service metadata
+name: example-graphql-api
+description: Example GraphQL API for Neo N3 FaaS platform
+version: 1.0.0
+
+# Functions
+functions:
+  - name: graphql
+    description: GraphQL API endpoint
+    handler: server.js:handler
+    trigger:
+      type: request
+      config:
+        http:
+          path: "/graphql"
+          methods: ["GET", "POST", "OPTIONS"]
+          cors:
+            enabled: true
+            allowed_origins: ["*"]
+            allowed_methods: ["GET", "POST", "OPTIONS"]
+            allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+
+# Dependencies
+dependencies:
+  - name: graphql
+    version: "^16.6.0"
+  - name: apollo-server-core
+    version: "^3.10.0"
+  - name: apollo-server-micro
+    version: "^3.10.0"
+  - name: neo-sdk
+    version: "^1.0.0"
+  - name: axios
+    version: "^0.24.0"
+  - name: jsonwebtoken
+    version: "^9.0.0"
+
+# Permissions
+permissions:
+  invoke:
+    - type: "user"
+      id: "*"  # Allow all authenticated users
+    - type: "role"
+      id: "admin"  # Allow users with admin role
+  manage:
+    - type: "user"
+      id: "owner"  # Only the owner can manage the service
+    - type: "role"
+      id: "admin"  # Allow users with admin role to manage the service
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 60s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  NEO_NETWORK: testnet
+  GRAPHQL_PLAYGROUND: "true"
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this service
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

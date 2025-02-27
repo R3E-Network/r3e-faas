@@ -1,0 +1,53 @@
+# Function Registration Example Configuration
+
+# Function metadata
+name: example-function
+description: Example function for Neo N3 FaaS platform
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Trigger configuration
+trigger:
+  type: request
+  config:
+    http:
+      enabled: true
+      path: "/example-function"
+      methods: ["GET", "POST"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+
+# Permissions configuration
+permissions:
+  invoke:
+    - type: "user"
+      id: "*"  # Allow all authenticated users
+    - type: "role"
+      id: "admin"  # Allow users with admin role
+  manage:
+    - type: "user"
+      id: "owner"  # Only the owner can manage the function
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

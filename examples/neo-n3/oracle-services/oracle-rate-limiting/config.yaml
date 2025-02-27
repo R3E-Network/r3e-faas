@@ -1,0 +1,193 @@
+# Neo N3 Oracle Rate Limiting Configuration
+
+# Function metadata
+name: neo-n3-oracle-rate-limiting
+description: Example function that implements rate limiting for oracle services in Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request
+  type: request
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/oracle/rate-limited"
+      methods: ["GET", "POST"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+
+# Oracle service configuration
+oracle:
+  # Rate limiting configuration
+  rate_limiting:
+    # Enable rate limiting
+    enabled: true
+    
+    # Rate limiting strategies
+    strategies:
+      # Fixed window rate limiting
+      fixed_window:
+        enabled: true
+        # Default limits
+        default_limits:
+          per_second: 5
+          per_minute: 100
+          per_hour: 1000
+          per_day: 10000
+        # User-specific limits
+        user_limits:
+          - user_id: "user1"
+            limits:
+              per_second: 10
+              per_minute: 200
+              per_hour: 2000
+              per_day: 20000
+          - user_id: "user2"
+            limits:
+              per_second: 8
+              per_minute: 150
+              per_hour: 1500
+              per_day: 15000
+        # Resource-specific limits
+        resource_limits:
+          - resource: "price"
+            limits:
+              per_second: 20
+              per_minute: 300
+              per_hour: 3000
+              per_day: 30000
+          - resource: "weather"
+            limits:
+              per_second: 15
+              per_minute: 250
+              per_hour: 2500
+              per_day: 25000
+      
+      # Sliding window rate limiting
+      sliding_window:
+        enabled: true
+        # Default window configuration
+        default_windows:
+          - window: 60  # seconds
+            max_requests: 100
+          - window: 300  # seconds
+            max_requests: 300
+        # User-specific window configuration
+        user_windows:
+          - user_id: "user1"
+            windows:
+              - window: 60
+                max_requests: 200
+              - window: 300
+                max_requests: 600
+      
+      # Token bucket rate limiting
+      token_bucket:
+        enabled: true
+        # Default bucket configuration
+        default_bucket:
+          capacity: 100
+          refill_rate: 1  # tokens per second
+        # User-specific bucket configuration
+        user_buckets:
+          - user_id: "user1"
+            bucket:
+              capacity: 200
+              refill_rate: 2
+          - user_id: "user2"
+            bucket:
+              capacity: 150
+              refill_rate: 1.5
+    
+    # Multi-level rate limiting
+    multi_level:
+      enabled: true
+      levels:
+        - level: "user"
+          priority: 1
+        - level: "ip"
+          priority: 2
+        - level: "resource"
+          priority: 3
+    
+    # Adaptive rate limiting
+    adaptive:
+      enabled: true
+      # System load thresholds
+      thresholds:
+        low: 0.3
+        medium: 0.6
+        high: 0.8
+      # Adjustment factors
+      adjustment_factors:
+        low: 1.2
+        medium: 1.0
+        high: 0.8
+        critical: 0.5
+    
+    # Rate limit response configuration
+    response:
+      # HTTP status code for rate limit exceeded
+      status_code: 429
+      # Include rate limit headers in responses
+      include_headers: true
+      # Header names
+      headers:
+        limit: "X-RateLimit-Limit"
+        remaining: "X-RateLimit-Remaining"
+        reset: "X-RateLimit-Reset"
+        retry_after: "Retry-After"
+      # Response body template
+      body_template: |
+        {
+          "status": "error",
+          "error": "rate_limit_exceeded",
+          "message": "Rate limit exceeded. Please try again later.",
+          "retry_after": {{retry_after}}
+        }
+    
+    # Rate limit storage configuration
+    storage:
+      # Storage type: 'memory', 'store', or 'redis'
+      type: "store"
+      # Key prefix for rate limit data
+      key_prefix: "rate:"
+      # Expiration time for rate limit data (in seconds)
+      expiration: 86400
+    
+    # Rate limit monitoring and analytics
+    monitoring:
+      enabled: true
+      # Log rate limit events
+      log_events: true
+      # Collect metrics
+      collect_metrics: true
+      # Metrics collection interval (in seconds)
+      metrics_interval: 60
+
+# Resource limits
+resources:
+  memory: 128MB
+  timeout: 30s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30

@@ -1,0 +1,357 @@
+# Neo N3 TEE Attestation Verification Configuration
+
+# Function metadata
+name: neo-n3-tee-attestation-verification
+description: Example function that implements TEE attestation verification in Neo N3
+runtime: javascript
+handler: function.js:handler
+version: 1.0.0
+
+# Event trigger configuration
+trigger:
+  # This function can be triggered by a direct request
+  type: request
+  config:
+    # Enable HTTP endpoint for direct requests
+    http:
+      enabled: true
+      path: "/tee/attestation-verification"
+      methods: ["GET", "POST", "PUT", "DELETE"]
+      
+      # Enable CORS for browser access
+      cors:
+        enabled: true
+        allowed_origins: ["*"]
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+        max_age: 86400
+
+# TEE configuration
+tee:
+  # Attestation verification configuration
+  attestation_verification:
+    # Enable attestation verification
+    enabled: true
+    
+    # TEE provider configuration
+    provider:
+      # TEE provider types: 'sgx', 'sev', 'trustzone', or 'simulation'
+      types:
+        - name: "sgx"
+          enabled: true
+          description: "Intel Software Guard Extensions"
+          
+        - name: "sev"
+          enabled: true
+          description: "AMD Secure Encrypted Virtualization"
+          
+        - name: "trustzone"
+          enabled: true
+          description: "ARM TrustZone"
+          
+        - name: "simulation"
+          enabled: true
+          description: "Simulation mode for testing"
+      
+      # Provider-specific configuration
+      config:
+        # Intel SGX configuration
+        sgx:
+          # Attestation types
+          attestation_types:
+            - name: "epid"
+              enabled: true
+              description: "Enhanced Privacy ID"
+              # Intel Attestation Service URL
+              ias_url: "https://api.trustedservices.intel.com/sgx/attestation/v4"
+              # Intel Attestation Service API key
+              ias_api_key: ""
+              # Intel Attestation Service signing certificate
+              ias_signing_cert: ""
+            
+            - name: "dcap"
+              enabled: true
+              description: "Data Center Attestation Primitives"
+              # Provisioning Certification Service URL
+              pccs_url: "https://pccs.service.com"
+              # Quote Generation Enclave identity
+              qe_identity: ""
+              # Quote Verification Enclave identity
+              qve_identity: ""
+          
+          # Enclave measurement verification
+          measurement_verification:
+            enabled: true
+            # MRENCLAVE values (hash of enclave code)
+            mrenclave: []
+            # MRSIGNER values (hash of enclave signer)
+            mrsigner: []
+            # Product ID values
+            product_id: []
+            # Security version numbers
+            security_version: []
+            # Allow debug mode (should be false in production)
+            allow_debug: false
+        
+        # AMD SEV configuration
+        sev:
+          # AMD Key Distribution Service URL
+          kds_url: "https://kdsintf.amd.com"
+          # AMD root key for verification
+          amd_root_key: ""
+          # SEV firmware versions to accept
+          firmware_versions: []
+          # SEV-SNP support
+          snp_enabled: true
+        
+        # ARM TrustZone configuration
+        trustzone:
+          # Trusted Application IDs
+          ta_ids: []
+          # Trusted Application verification keys
+          ta_verification_keys: []
+          # Trusted OS versions
+          trusted_os_versions: []
+        
+        # Simulation configuration (for testing without actual TEE hardware)
+        simulation:
+          # Simulate attestation failures
+          simulate_failures: false
+          # Failure rate (0.0 - 1.0)
+          failure_rate: 0.0
+          # Simulate specific TEE types
+          simulate_types: ["sgx", "sev", "trustzone"]
+    
+    # Attestation verification protocols
+    protocols:
+      # Intel SGX EPID attestation protocol
+      sgx_epid:
+        enabled: true
+        # Verification steps
+        steps:
+          - name: "quote-verification"
+            enabled: true
+            description: "Verify the SGX quote with IAS"
+          - name: "signature-verification"
+            enabled: true
+            description: "Verify the IAS response signature"
+          - name: "status-verification"
+            enabled: true
+            description: "Verify the attestation status"
+          - name: "measurement-verification"
+            enabled: true
+            description: "Verify the enclave measurements"
+      
+      # Intel SGX DCAP attestation protocol
+      sgx_dcap:
+        enabled: true
+        # Verification steps
+        steps:
+          - name: "quote-verification"
+            enabled: true
+            description: "Verify the SGX quote with DCAP QVL"
+          - name: "tcb-verification"
+            enabled: true
+            description: "Verify the TCB level"
+          - name: "measurement-verification"
+            enabled: true
+            description: "Verify the enclave measurements"
+      
+      # AMD SEV attestation protocol
+      sev:
+        enabled: true
+        # Verification steps
+        steps:
+          - name: "report-verification"
+            enabled: true
+            description: "Verify the SEV attestation report"
+          - name: "signature-verification"
+            enabled: true
+            description: "Verify the report signature"
+          - name: "measurement-verification"
+            enabled: true
+            description: "Verify the platform measurements"
+      
+      # ARM TrustZone attestation protocol
+      trustzone:
+        enabled: true
+        # Verification steps
+        steps:
+          - name: "token-verification"
+            enabled: true
+            description: "Verify the TrustZone attestation token"
+          - name: "signature-verification"
+            enabled: true
+            description: "Verify the token signature"
+          - name: "measurement-verification"
+            enabled: true
+            description: "Verify the TA measurements"
+    
+    # Use cases configuration
+    use_cases:
+      # Remote attestation
+      remote_attestation:
+        enabled: true
+        # Attestation types
+        types:
+          - name: "local"
+            enabled: true
+            description: "Attestation of local TEE"
+          - name: "remote"
+            enabled: true
+            description: "Attestation of remote TEE"
+          - name: "mutual"
+            enabled: true
+            description: "Mutual attestation between TEEs"
+      
+      # Secure channel establishment
+      secure_channel:
+        enabled: true
+        # Channel types
+        types:
+          - name: "tls"
+            enabled: true
+            description: "TLS channel with attestation"
+          - name: "custom"
+            enabled: true
+            description: "Custom secure channel protocol"
+        # Key exchange methods
+        key_exchange:
+          - name: "ecdh"
+            enabled: true
+            description: "Elliptic Curve Diffie-Hellman"
+          - name: "ecdhe"
+            enabled: true
+            description: "Ephemeral Elliptic Curve Diffie-Hellman"
+      
+      # Trusted computing base verification
+      tcb_verification:
+        enabled: true
+        # Verification types
+        types:
+          - name: "hardware"
+            enabled: true
+            description: "Hardware TCB verification"
+          - name: "firmware"
+            enabled: true
+            description: "Firmware TCB verification"
+          - name: "software"
+            enabled: true
+            description: "Software TCB verification"
+    
+    # Security configuration
+    security:
+      # Freshness verification
+      freshness:
+        enabled: true
+        # Maximum age of attestation in seconds
+        max_age: 3600
+        # Nonce generation
+        nonce:
+          enabled: true
+          size: 32
+      
+      # Revocation checking
+      revocation:
+        enabled: true
+        # Revocation methods
+        methods:
+          - name: "crl"
+            enabled: true
+            description: "Certificate Revocation List"
+          - name: "ocsp"
+            enabled: true
+            description: "Online Certificate Status Protocol"
+          - name: "tcb-info"
+            enabled: true
+            description: "TCB Info"
+      
+      # Key management
+      key_management:
+        enabled: true
+        # Key types
+        types:
+          - name: "attestation"
+            enabled: true
+            description: "Keys for attestation verification"
+          - name: "communication"
+            enabled: true
+            description: "Keys for secure communication"
+        # Key storage
+        storage:
+          - name: "memory"
+            enabled: true
+            description: "In-memory key storage"
+          - name: "persistent"
+            enabled: true
+            description: "Persistent key storage"
+          - name: "tee"
+            enabled: true
+            description: "TEE-protected key storage"
+    
+    # Monitoring and auditing configuration
+    monitoring:
+      # Enable monitoring
+      enabled: true
+      
+      # Log all operations
+      log_operations: true
+      
+      # Log level for operations
+      log_level: "info"
+      
+      # Audit trail configuration
+      audit:
+        # Enable audit trail
+        enabled: true
+        
+        # Audit storage type: 'memory', 'store', or 'blockchain'
+        storage: "store"
+        
+        # Retention period in days
+        retention: 365
+        
+        # Audit events to record
+        events:
+          - "attestation_request"
+          - "attestation_verification"
+          - "attestation_success"
+          - "attestation_failure"
+          - "secure_channel_established"
+          - "secure_channel_closed"
+          - "key_generated"
+          - "key_rotated"
+    
+    # Neo N3 blockchain integration
+    blockchain:
+      # Enable blockchain integration
+      enabled: true
+      
+      # Neo N3 network to use
+      network: "testnet"
+      
+      # Store attestation results on blockchain
+      store_results: true
+      
+      # Store audit logs on blockchain
+      store_audit_logs: false
+      
+      # Smart contract for attestation verification
+      contract_hash: ""
+
+# Resource limits
+resources:
+  memory: 256MB
+  timeout: 60s
+  
+# Environment variables
+environment:
+  LOG_LEVEL: info
+  
+# Storage configuration
+storage:
+  # Enable persistent storage for this function
+  enabled: true
+  
+  # Optional: Storage retention period
+  retention_days: 30
