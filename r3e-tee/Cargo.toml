@@ -39,6 +39,9 @@ sgx_tcrypto = { version = "1.1.1", optional = true }
 # For AMD SEV support
 sev         = { version = "1.2.0", optional = true }
 
+# Mock dependencies for development
+mockall = { version = "0.11" }
+
 
 [features]
 default = []

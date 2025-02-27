@@ -143,4 +143,99 @@ await r3e.sandbox.requestPermission("net");
 await r3e.sandbox.requestPermission("fs");
 ```
 
+## Cloud TEE Solutions
+
+The platform supports multiple cloud service provider TEE solutions:
+
+### AWS Nitro Enclaves
+
+- **Isolated Execution**: Run code in isolated virtual machines with no persistent storage
+- **Hardware-based Attestation**: Cryptographically verify the integrity of the enclave
+- **Memory Encryption**: Automatic encryption of all memory used by the enclave
+- **Secure Local Communication**: Communicate securely with the parent instance
+
+### Other Supported TEE Platforms
+
+- **Intel SGX**: Software Guard Extensions for application-level trusted execution environments
+- **AMD SEV**: Secure Encrypted Virtualization for VM memory encryption
+- **Google Confidential Computing**: Confidential VMs with hardware-based isolation
+- **Azure Confidential Computing**: Secure enclaves for sensitive data processing
+
+## Additional Off-Chain Services
+
+### Data Indexing Service
+
+The Data Indexing Service provides efficient data querying and storage capabilities:
+
+- **Flexible Querying**: Query indexed data with complex filters and sorting
+- **Collection Management**: Create and manage data collections
+- **Document Indexing**: Index JSON documents with customizable indexes
+- **Real-time Updates**: Get real-time updates when indexed data changes
+
+### Identity Service
+
+The Identity Service provides decentralized identity management:
+
+- **DID Support**: Create and manage Decentralized Identifiers (DIDs)
+- **Credential Management**: Issue and verify verifiable credentials
+- **Authentication**: Multiple authentication methods (keys, passwords, biometrics)
+- **Recovery Options**: Social recovery and backup mechanisms
+
+### Cross-Chain Bridge Service
+
+The Cross-Chain Bridge Service enables interoperability between blockchains:
+
+- **Token Transfers**: Transfer tokens between Neo N3 and other blockchains
+- **Asset Wrapping**: Wrap assets from one chain to another
+- **Message Passing**: Pass messages between smart contracts on different chains
+- **Transaction Monitoring**: Track cross-chain transactions
+
+## Business Model
+
+### Pricing Tiers
+
+The platform offers multiple pricing tiers to suit different needs:
+
+- **Basic**: For development and testing with limited resources
+- **Standard**: For production workloads with moderate resources
+- **Premium**: For demanding applications with high resources
+- **Enterprise**: For custom solutions with dedicated support
+
+### Resource-Based Pricing
+
+Execution costs are calculated based on resource usage:
+
+- **Execution Time**: Cost per millisecond of function execution
+- **Memory Usage**: Cost per MB of memory used
+- **Storage Usage**: Cost per MB of data stored
+- **Network Usage**: Cost per MB of data transferred
+- **TEE Usage**: Additional cost for secure execution environments
+
+### Subscription Models
+
+Choose from different subscription models:
+
+- **Pay-as-you-go**: Pay only for what you use
+- **Monthly**: Fixed monthly fee for a certain amount of resources
+- **Annual**: Discounted annual fee for committed usage
+- **Reserved Capacity**: Discounted rates for reserved capacity
+
+### Value-Added Services
+
+Optional services available for additional fees:
+
+- **Enhanced Support**: Priority support with faster response times
+- **Advanced Monitoring**: Detailed metrics and alerting
+- **Custom Integrations**: Tailored solutions for specific use cases
+- **Training and Consulting**: Expert guidance for your projects
+
+### Ecosystem Incentives
+
+Participate in the ecosystem and earn rewards:
+
+- **Developer Rewards**: Earn rewards for building popular functions
+- **Referral Program**: Earn rewards for referring new users
+- **Community Contributions**: Get rewarded for contributing to the platform
+- **Staking Rewards**: Earn rewards for staking NEO or GAS tokens
+
 ## Architecture

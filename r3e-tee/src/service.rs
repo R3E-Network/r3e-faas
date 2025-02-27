@@ -5,6 +5,8 @@ use crate::{AttestationReport, TeeError, TeeExecutionRequest, TeeExecutionRespon
 use crate::attestation::{AttestationOptions, AttestationService, AttestationServiceImpl};
 use crate::enclave::{EnclaveConfig, EnclaveManager};
 use crate::key_management::{KeyManagementService, KeyManagementServiceImpl};
+#[cfg(feature = "nitro")]
+use crate::provider::NitroProvider;
 use crate::provider::{NeoTeeProvider, TeeProviderImpl, create_default_neo_tee_provider};
 use crate::types::{ExecutionOptions, ExecutionStats, NeoTeeRequest, NeoTeeResponse};
 use serde::{Deserialize, Serialize};
@@ -59,6 +61,16 @@ impl TeeServiceImpl {
             let provider = TeeProviderImpl::default_for_platform(TeePlatform::TrustZone);
             providers.insert(
                 TeePlatform::TrustZone,
+                Arc::new(provider) as Arc<dyn TeeProvider>,
+            );
+        }
+        
+        #[cfg(feature = "nitro")]
+        {
+            // Register Nitro provider
+            let provider = NitroProvider::default();
+            providers.insert(
+                TeePlatform::Nitro,
                 Arc::new(provider) as Arc<dyn TeeProvider>,
             );
         }
