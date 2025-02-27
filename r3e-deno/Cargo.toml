@@ -25,5 +25,10 @@ thiserror   =  { version = "1" }
 
 lazy_static =  { version = "1" }
 
+# Neo N3 SDK
+NeoRust     = { path = "../../NeoRust" }
+url         = { version = "2" }
+hex         = { version = "0.4" }
+
 [dev-dependencies]
 

@@ -15,6 +15,8 @@ import {
     base64Decode,
 } from "./encoding.js";
 
+import { Neo } from "./neo.js";
+
 globalThis.setImmediate = setImmediate;
 globalThis.setTimeout = setTimeout;
 globalThis.setInterval = setInterval;
@@ -29,4 +31,5 @@ Object.assign(globalThis.r3e, {
     defer,
     base64Encode,
     base64Decode,
+    Neo,
 });
