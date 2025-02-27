@@ -16,6 +16,7 @@ import {
 } from "./encoding.js";
 
 import { Neo } from "./neo.js";
+import { Oracle } from "./oracle.js";
 
 globalThis.setImmediate = setImmediate;
 globalThis.setTimeout = setTimeout;
@@ -32,4 +33,5 @@ Object.assign(globalThis.r3e, {
     base64Encode,
     base64Decode,
     Neo,
+    Oracle,
 });
