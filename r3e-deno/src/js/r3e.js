@@ -18,6 +18,7 @@ import {
 import { Neo } from "./neo.js";
 import { Oracle } from "./oracle.js";
 import { TEE } from "./tee.js";
+import { GasBankService, MetaTxService, AbstractAccountService } from "./neo_services.js";
 
 globalThis.setImmediate = setImmediate;
 globalThis.setTimeout = setTimeout;
@@ -36,4 +37,9 @@ Object.assign(globalThis.r3e, {
     Neo,
     Oracle,
     TEE,
+    NeoServices: {
+        GasBank: GasBankService,
+        MetaTx: MetaTxService,
+        AbstractAccount: AbstractAccountService
+    }
 });

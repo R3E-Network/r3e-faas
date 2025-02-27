@@ -9,6 +9,7 @@ This documentation provides comprehensive information about the Neo N3 Function-
 3. [Components](#components)
    - [Neo N3 Blockchain Integration](#neo-n3-blockchain-integration)
    - [JavaScript Runtime](#javascript-runtime)
+   - [Blockchain Services](#blockchain-services)
    - [Oracle Services](#oracle-services)
    - [TEE Computing Services](#tee-computing-services)
    - [Service API](#service-api)
@@ -48,6 +49,15 @@ Key features:
 - Smart contract notification handling
 - NEP-17 token support
 - Neo Name Service integration
+
+### Blockchain Services
+
+The Blockchain Services component provides essential off-chain services that enhance the user experience when interacting with the Neo N3 blockchain. These services reduce friction and enable more user-friendly dApps.
+
+Key features:
+- **Gas Bank Service**: Manages gas fees for users with various fee models (fixed, percentage, dynamic, free)
+- **Meta Transactions Service**: Enables gasless transactions through relayers, allowing users to interact with dApps without holding GAS
+- **Abstract Account Service**: Provides flexible account management with multi-signature support, account recovery, and programmable authorization
 
 ### JavaScript Runtime
 
