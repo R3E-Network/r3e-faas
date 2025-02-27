@@ -5,6 +5,7 @@ pub mod assign;
 pub mod builder;
 pub mod runner;
 pub mod worker;
+pub mod neo_task_source;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

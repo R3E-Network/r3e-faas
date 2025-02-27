@@ -3,12 +3,15 @@
 
 use std::hash::Hash;
 use std::num::NonZero;
-use std::time::Instant;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use libc::pid_t;
 use lru::LruCache;
+use uuid::Uuid;
 
-use r3e_deno::{ExecError, JsRuntime, RuntimeConfig};
+use r3e_built_in_services::balance::{BalanceServiceTrait, TransactionType};
+use r3e_deno::{ExecError, JsRuntime, RuntimeConfig, sandbox::SandboxConfig};
 use r3e_event::source::{Task, TaskSource};
 
 use crate::Stopper;
@@ -17,7 +20,10 @@ pub struct Runner {
     uid: u64,
     max_runtimes: u32,
     tasks: Box<dyn TaskSource>,
-    // reactor: tokio::runtime::Runtime,
+    // Sandbox configuration
+    sandbox_config: SandboxConfig,
+    // Balance service
+    balance_service: Option<Arc<dyn BalanceServiceTrait>>,
 }
 
 struct RunContext {
@@ -28,11 +34,31 @@ struct RunContext {
 
 impl Runner {
     pub fn new(uid: u64, max_runtimes: u32, tasks: Box<dyn TaskSource>) -> Self {
+        // Default sandbox configuration
+        let sandbox_config = SandboxConfig {
+            initial_heap_size: 1 * 1024 * 1024, // 1MB
+            max_heap_size: 128 * 1024 * 1024,   // 128MB
+            max_execution_time: Duration::from_secs(10),
+            enable_jit: false,
+            allow_net: false,
+            allow_fs: false,
+            allow_env: false,
+            allow_run: false,
+            allow_hrtime: false,
+        };
+        
         Self {
             uid,
             tasks,
             max_runtimes,
+            sandbox_config,
+            balance_service: None,
         }
+    }
+    
+    pub fn with_balance_service(mut self, balance_service: Arc<dyn BalanceServiceTrait>) -> Self {
+        self.balance_service = Some(balance_service);
+        self
     }
 
     pub fn run(mut self, stop: impl Stopper) {
@@ -77,6 +103,31 @@ impl Runner {
 
             let elapsed = start.elapsed();
             log::info!("runner: {},{} run task cost: {:?}", uid, fid, elapsed);
+            
+            // Charge for execution if balance service is available
+            if let Some(balance_service) = &self.balance_service {
+                let user_id = uid.to_string();
+                let function_id = fid.to_string();
+                
+                // Calculate gas amount based on execution time
+                // This is a simple calculation, in a real implementation this would be more sophisticated
+                let gas_amount = (elapsed.as_millis() as u64) * 10; // 10 gas per millisecond
+                
+                match balance_service.charge_for_execution(&user_id, &function_id, gas_amount).await {
+                    Ok(transaction) => {
+                        log::info!(
+                            "runner: {},{} charged {} gas for execution, transaction ID: {}",
+                            uid, fid, gas_amount, transaction.id
+                        );
+                    },
+                    Err(err) => {
+                        log::error!(
+                            "runner: {},{} failed to charge for execution: {}",
+                            uid, fid, err
+                        );
+                    }
+                }
+            }
         }
 
         log::info!(
@@ -105,10 +156,6 @@ impl Runner {
         fid: u64,
         runtimes: &'a mut LruCache<u64, RunContext>,
     ) -> Result<&'a mut RunContext, ExecError> {
-        // if let Some(run_cx) = runtimes.get_mut(&fid) {
-        //     return Ok(run_cx);
-        // }
-
         let run_cx = match self.load_fn(fid).await {
             Ok(run_cx) => run_cx,
             Err(err) => {
@@ -122,14 +169,41 @@ impl Runner {
     }
 
     async fn load_fn(&mut self, fid: u64) -> Result<RunContext, ExecError> {
-        let mut runtime = JsRuntime::new(RuntimeConfig::default());
+        // Check if user has enough balance to run the function
+        if let Some(balance_service) = &self.balance_service {
+            let user_id = self.uid.to_string();
+            let balance = match balance_service.get_balance(&user_id).await {
+                Ok(balance) => balance,
+                Err(err) => {
+                    return Err(ExecError::OnLoad(format!("Failed to get user balance: {}", err)));
+                }
+            };
+            
+            // Check if user has enough GAS balance
+            // This is a simple check, in a real implementation this would be more sophisticated
+            if balance.gas_balance < 1000 { // Minimum required balance
+                return Err(ExecError::OnLoad(format!(
+                    "Insufficient GAS balance to run function: {} < 1000",
+                    balance.gas_balance
+                )));
+            }
+        }
+        
+        // Create a new runtime with sandbox configuration
+        let runtime_config = RuntimeConfig {
+            max_heap_size: self.sandbox_config.max_heap_size,
+            sandbox_config: Some(self.sandbox_config.clone()),
+        };
+        
+        let mut runtime = JsRuntime::new(runtime_config);
+        
         let fn_code = self
             .tasks
             .acquire_fn(self.uid, fid)
             .await
             .map_err(|err| ExecError::OnLoad(err.to_string()))?;
 
-        log::info!("runner: {} load fn for {}", self.uid, fid);
+        log::info!("runner: {} load fn for {} in sandbox", self.uid, fid);
         let module = runtime.load_main_module(fn_code.code).await?;
 
         let _ = runtime.eval_module(module).await?;

@@ -1,38 +1,32 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-pub mod consts;
-pub mod ext;
-pub mod sandbox;
-
-#[cfg(test)]
-pub mod lib_test;
-
-pub use deno_core::op2 as js_op;
-
-mod runtime;
-pub use runtime::*;
-
 use deno_core::error::JsError;
 use deno_core::{v8, Extension, JsRuntime as Runtime, RuntimeOptions};
 use serde::Serialize;
 
 use r3e_core::make_v8_platform;
+use crate::sandbox::{SandboxConfig, SandboxContext, create_v8_flags, create_v8_params};
+use crate::ext::op_allowed;
 
-pub use {consts::*, ext::*};
-
+#[derive(Debug)]
+pub struct RuntimeConfig {
+    pub max_heap_size: usize,
+    pub sandbox_config: Option<SandboxConfig>,
+}
 
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
-            max_heap_size: DEFAULT_MAX_HEAP_SIZE,
+            max_heap_size: 128 * 1024 * 1024, // 128MB
+            sandbox_config: None,
         }
     }
 }
 
 pub struct JsRuntime {
     runtime: Runtime,
-    // reactor: Arc<tokio::runtime::Runtime>,
+    sandbox_context: Option<SandboxContext>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -45,6 +39,12 @@ pub enum ExecError {
 
     #[error("exec: on execute: {0}")]
     OnExecute(String),
+    
+    #[error("exec: sandbox violation: {0}")]
+    SandboxViolation(String),
+    
+    #[error("exec: timeout: execution exceeded time limit")]
+    Timeout,
 }
 
 impl JsRuntime {
@@ -55,27 +55,36 @@ impl JsRuntime {
             ..Default::default()
         };
 
-        // enable jitless for v8
-        v8::V8::set_flags_from_string("--jitless");
-        let create_params =
-            v8::CreateParams::default().heap_limits(DEFAULT_INIT_HEAP_SIZE, config.max_heap_size);
+        // Set up sandbox if configured
+        let sandbox_config = config.sandbox_config.clone().unwrap_or_else(|| SandboxConfig::default());
+        
+        // Set V8 flags based on sandbox configuration
+        let v8_flags = create_v8_flags(&sandbox_config);
+        v8::V8::set_flags_from_string(&v8_flags);
+        
+        // Create V8 parameters
+        let create_params = create_v8_params(&sandbox_config);
 
-        // let _enter = reactor.enter();
-        let runtime = Runtime::new(RuntimeOptions {
+        // Create runtime
+        let mut runtime = Runtime::new(RuntimeOptions {
             v8_platform: Some(make_v8_platform()),
-            extensions: vec![allows, r3e::init_ops_and_esm()],
+            extensions: vec![allows, crate::r3e::init_ops_and_esm()],
             create_params: Some(create_params),
             ..Default::default()
         });
-        // runtime.add_near_heap_limit_callback(cb);
+        
+        // Create sandbox context if needed
+        let sandbox_context = if config.sandbox_config.is_some() {
+            Some(SandboxContext::new(sandbox_config, runtime.v8_isolate()))
+        } else {
+            None
+        };
 
-        Self { runtime }
+        Self { runtime, sandbox_context }
     }
 
     // must execute in the tokio context
     pub fn execute(&mut self, code: &str) -> Result<(), ExecError> {
-        // let _enter = self.reactor.enter();
-
         let mut scope = self.runtime.handle_scope();
         let script = v8::String::new(&mut scope, code)
             .ok_or_else(|| ExecError::OnCompile("code too long"))?;
@@ -87,6 +96,12 @@ impl JsRuntime {
         let _rv = script.run(&mut catch).ok_or_else(|| {
             if let Some(ex) = catch.exception() {
                 let js_err = JsError::from_v8_exception(&mut catch, ex);
+                
+                // Check if this is a termination exception (timeout)
+                if catch.is_execution_terminating() {
+                    return ExecError::Timeout;
+                }
+                
                 return ExecError::OnExecute(js_err.to_string());
             }
             return ExecError::OnExecute("script run failed".into());
@@ -97,12 +112,6 @@ impl JsRuntime {
 
     pub async fn load_main_module(&mut self, code: String) -> Result<usize, ExecError> {
         let specifier = deno_core::resolve_url("file://main.js").unwrap();
-        // let _enter = self.reactor.enter();
-        // let module = self
-        //     .reactor
-        //     .block_on(self.runtime.load_main_es_module_from_code(&specifier, code))
-        //     .map_err(|err| ExecError::OnLoad(err.to_string()))?;
-
         let module = self
             .runtime
             .load_main_es_module_from_code(&specifier, code)
@@ -113,19 +122,19 @@ impl JsRuntime {
     }
 
     pub async fn eval_module(&mut self, module: usize) -> Result<(), ExecError> {
-        // let _enter = self.reactor.enter();
-        // let _rv = self
-        //     .reactor
-        //     .block_on(self.runtime.mod_evaluate(module))
-        //     .map_err(|err| ExecError::OnExecute(err.to_string()))?;
-
-        let _rv = self
+        let result = self
             .runtime
             .mod_evaluate(module)
             .await
-            .map_err(|err| ExecError::OnExecute(err.to_string()))?;
+            .map_err(|err| {
+                // Check if this is a termination exception (timeout)
+                if err.to_string().contains("execution terminated") {
+                    return ExecError::Timeout;
+                }
+                ExecError::OnExecute(err.to_string())
+            })?;
 
-        Ok(())
+        Ok(result)
     }
 
     // call it must after eval_module completed
@@ -154,21 +163,21 @@ impl JsRuntime {
             v8::Global::new(scope, default_fn)
         };
 
-        // let _enter = self.reactor.enter();
         let options = Default::default();
         let call = self.runtime.call_with_args(&default_fn, args);
-        // let _rv = self
-        //     .reactor
-        //     .block_on(self.runtime.with_event_loop_promise(call, options))
-        //     .map_err(|err| ExecError::OnExecute(err.to_string()))?;
-
-        let _rv = self
+        let result = self
             .runtime
             .with_event_loop_promise(call, options)
             .await
-            .map_err(|err| ExecError::OnExecute(err.to_string()))?;
+            .map_err(|err| {
+                // Check if this is a termination exception (timeout)
+                if err.to_string().contains("execution terminated") {
+                    return ExecError::Timeout;
+                }
+                ExecError::OnExecute(err.to_string())
+            })?;
 
-        Ok(())
+        Ok(result)
     }
 
     pub fn to_global(
@@ -195,10 +204,4 @@ impl JsRuntime {
         let isolate = self.runtime.v8_isolate();
         unsafe { isolate.enter() };
     }
-
-    // pub fn new_context(&mut self) -> v8::Global<v8::Context> {
-    //     let scope = &mut self.runtime.handle_scope();
-    //     let cx: v8::Local<'_, v8::Context> = v8::Context::new(scope, v8::ContextOptions::default());
-    //     v8::Global::new(scope, cx)
-    // }
 }
