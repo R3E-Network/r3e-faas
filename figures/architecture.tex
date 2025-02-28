@@ -1,0 +1,77 @@
+\documentclass{standalone}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usetikzlibrary{positioning, fit, backgrounds, shadows, arrows.meta, patterns}
+
+\begin{document}
+\begin{tikzpicture}[
+    scale=0.9,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
+               fill=white, text width=6cm, align=center, minimum height=1cm,
+               pattern=#1, pattern color=black!20,
+               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
+    arrow/.style={->, >=stealth, thick, draw=black!70},
+    layer/.style={box=#1, text width=6cm},
+    component/.style={rectangle, draw=black!70, rounded corners=3pt, 
+                 fill=white, text width=2.5cm, align=center, minimum height=0.8cm,
+                 pattern=#1, pattern color=black!20,
+                 drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}}
+]
+
+% Architecture layers with increased vertical spacing and patterns instead of colors
+\node[layer=north east lines] (apps) at (0,8) {Applications};
+\node[layer=north west lines] (api) at (0,6) {API Layer (r3e-api)};
+\node[layer=crosshatch] (services) at (0,3) {Service Layer};
+\node[layer=dots] (integration) at (0,0) {Integration Layer};
+\node[layer=grid] (neo) at (0,-2) {Neo N3 Blockchain};
+
+% Service components - Core Services
+\node[component=north east lines] (core) at (-6,4) {Core Services\\(r3e-core)};
+
+% Service components - Neo Services
+\node[component=north west lines] (gas) at (-3,4) {Gas Bank};
+\node[component=north west lines] (meta) at (0,4) {Meta Tx};
+\node[component=north west lines] (abstract) at (3,4) {Abstract Account};
+\node[component=north west lines] (neo_services) at (6,4) {Neo Services\\(r3e-neo-services)};
+
+% Service components - Oracle and TEE
+\node[component=crosshatch] (oracle) at (-6,2) {Oracle Service\\(r3e-oracle)};
+\node[component=crosshatch] (tee) at (-3,2) {TEE Service\\(r3e-tee)};
+
+% Service components - Event and Worker
+\node[component=dots] (event) at (0,2) {Event Processing\\(r3e-event)};
+\node[component=dots] (worker) at (3,2) {Worker\\(r3e-worker)};
+
+% Service components - Cryptographic Services
+\node[component=grid] (fhe) at (-3,0) {FHE Service\\(r3e-fhe)};
+\node[component=grid] (zk) at (0,0) {ZK Service\\(r3e-zk)};
+\node[component=grid] (store) at (3,0) {Storage\\(r3e-store)};
+
+% Arrows connecting layers
+\draw[arrow] (apps) -- (api);
+\draw[arrow] (api) -- (services);
+\draw[arrow] (services) -- (integration);
+\draw[arrow] (integration) -- (neo);
+
+% Arrows connecting components
+\draw[arrow] (gas) -- (neo_services);
+\draw[arrow] (meta) -- (neo_services);
+\draw[arrow] (abstract) -- (neo_services);
+\draw[arrow] (oracle) -- (event);
+\draw[arrow] (tee) -- (worker);
+\draw[arrow] (event) -- (worker);
+\draw[arrow] (fhe) -- (store);
+\draw[arrow] (zk) -- (store);
+
+% Sample blocks - using absolute positioning with adequate spacing
+\node at ($(apps.east)+(4cm,0)$) [font=\small, align=left] {dApps, Wallets, User Interfaces};
+\node at ($(api.east)+(4cm,0)$) [font=\small, align=left] {REST, GraphQL, WebSockets};
+\node at ($(services.east)+(4cm,0)$) [font=\small, align=left] {Core Service Components};
+\node at ($(integration.east)+(4cm,0)$) [font=\small, align=left] {Event Monitoring, State Sync};
+\node at ($(neo.east)+(4cm,0)$) [font=\small, align=left] {Smart Contracts, Consensus};
+
+% Title
+\node[font=\Large\bfseries] at (0,10) {Neo Service Layer Architecture};
+
+\end{tikzpicture}
+\end{document}

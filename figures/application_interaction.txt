@@ -1,0 +1,82 @@
++-----------------------------------------------------------------------------------+
+|                    Neo Service Layer Application Interaction                      |
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+|  +----------------+                                                               |
+|  | Applications   |                                                               |
+|  | - dApps        |                                                               |
+|  | - Wallets      |                                                               |
+|  | - User         |                                                               |
+|  |   Interfaces   |                                                               |
+|  +-------+--------+                                                               |
+|          |                                                                        |
+|          | 1. API Requests (REST/GraphQL/WebSockets)                             |
+|          v                                                                        |
+|  +----------------+                                                               |
+|  | API Layer      |                                                               |
+|  | (r3e-api)      |                                                               |
+|  +-------+--------+                                                               |
+|          |                                                                        |
+|          | 2. Service Requests                                                    |
+|          v                                                                        |
+|  +----------------+     +----------------+     +----------------+                 |
+|  | Neo Services   |     | Oracle Service |     | TEE Service    |                 |
+|  | - Gas Bank     |     | - Price Data   |     | - Secure       |                 |
+|  | - Meta Tx      |     | - Random       |     |   Computation  |                 |
+|  | - Abstract     |     | - Custom Data  |     | - Attestation  |                 |
+|  |   Account      |     |                |     |                |                 |
+|  +-------+--------+     +-------+--------+     +-------+--------+                 |
+|          |                      |                      |                          |
+|          | 3. Process           | 3. Process           | 3. Process               |
+|          |    Requests          |    Requests          |    Requests              |
+|          v                      v                      v                          |
+|  +----------------+     +----------------+     +----------------+                 |
+|  | Event          |     | Worker         |     | Cryptographic  |                 |
+|  | Processing     |     | - Execute      |     | Services       |                 |
+|  | - Triggers     |     |   Functions    |     | - FHE          |                 |
+|  | - Notifications|     | - Process      |     | - ZK           |                 |
+|  |                |     |   Events       |     |                |                 |
+|  +-------+--------+     +-------+--------+     +-------+--------+                 |
+|          |                      |                      |                          |
+|          | 4. Blockchain        | 4. Blockchain        | 4. Blockchain            |
+|          |    Integration       |    Integration       |    Integration           |
+|          v                      v                      v                          |
+|  +------------------------------------------------------------------+            |
+|  | Integration Layer                                                 |            |
+|  | - Blockchain Connectors                                           |            |
+|  | - State Synchronization                                           |            |
+|  | - Event Monitoring                                                |            |
+|  +---------------------------+----------------------------------+----+            |
+|                              |                                                    |
+|                              | 5. Blockchain Transactions                         |
+|                              v                                                    |
+|                     +----------------+                                            |
+|                     | Neo N3         |                                            |
+|                     | Blockchain     |                                            |
+|                     +----------------+                                            |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
+
+Application Interaction Flow:
+
+1. Applications (dApps, wallets, user interfaces) interact with the Neo Service Layer 
+   through the API Layer using REST, GraphQL, or WebSocket interfaces.
+
+2. The API Layer routes requests to the appropriate service components based on the 
+   request type and parameters.
+
+3. Service components process the requests:
+   - Neo Services handle gas payments, meta transactions, and account management
+   - Oracle Service provides off-chain data to smart contracts
+   - TEE Service executes code in secure environments
+   - Event Processing handles blockchain events and triggers
+   - Worker executes functions in response to events
+   - Cryptographic Services provide privacy-preserving computation
+
+4. Services interact with the blockchain through the Integration Layer, which 
+   handles blockchain connections, state synchronization, and event monitoring.
+
+5. The Integration Layer submits transactions to the Neo N3 Blockchain and 
+   monitors for events and state changes.
+
+6. Results are returned to the application through the same path in reverse order.
