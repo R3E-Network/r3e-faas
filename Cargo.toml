@@ -6,7 +6,10 @@ resolver = "2"
 
 
 members = [
+    "r3e",
+    "r3e-api",
     "r3e-built-in-services",
+    "r3e-config",
     "r3e-core",
     "r3e-deno",
     "r3e-event",

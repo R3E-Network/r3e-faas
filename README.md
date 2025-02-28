@@ -9,22 +9,50 @@ R3E FaaS is a serverless computing platform built specifically for Web3 applicat
 - **Built-in Web3 Services**: Access oracle data, gas management, and TEE capabilities
 - **Token-based Billing**: Pay for execution using NEO or GAS tokens
 - **Event-driven Architecture**: Execute functions in response to blockchain events
+- **Secret Management**: Store and access encrypted secrets in your functions
+- **Custom Triggers**: Set up triggers based on blockchain events, time, or market prices
+- **Automatic Smart Contracts**: Automatically invoke smart contracts upon specified triggers
 
-## Components
+## Getting Started
 
-* **r3e-built-in-services**: Consolidated services including oracle, gas bank, and TEE
-* **r3e-core**: Core and common functions
-* **r3e-deno**: JavaScript runtime based on deno-core with V8 engine
-* **r3e-event**: Event definitions and sources from various blockchain events
-* **r3e-neo-services**: Neo N3 blockchain services integration
-* **r3e-oracle**: Oracle services for external data access
-* **r3e-proc-macros**: Procedural macros for code generation
-* **r3e-runlog**: Function execution logging and monitoring
-* **r3e-scheduler**: Scheduling logic for worker nodes and function execution
-* **r3e-stock**: Blockchain history and data querying
-* **r3e-store**: Event and data storage
-* **r3e-tee**: Trusted Execution Environment implementation
-* **r3e-worker**: Worker node implementation for function execution
+- [Installation Guide](./docs/installation.md)
+- [Quick Start Guide](./docs/quickstart.md)
+- [Development Guide](./docs/development.md)
+- [API Reference](./docs/api-reference.md)
+- [Docker Development](./docs/docker-development.md)
+- [Docker Production](./docs/docker-production.md)
+
+## Project Structure
+
+The R3E FaaS platform is organized as a Rust workspace with multiple crates:
+
+- **Core Crates**:
+  - `r3e-core`: Common types, traits, and utilities
+  - `r3e-config`: Configuration management
+  - `r3e-store`: Storage abstractions and implementations
+  - `r3e-event`: Event handling and processing
+
+- **Service Crates**:
+  - `r3e-built-in-services`: Consolidated services (oracle, gas bank, TEE, etc.)
+  - `r3e-neo-services`: Neo N3 blockchain integration
+  - `r3e-oracle`: Oracle services for external data
+  - `r3e-tee`: Trusted Execution Environment implementation
+  - `r3e-secrets`: Secret management with encryption
+
+- **Runtime Crates**:
+  - `r3e-deno`: JavaScript runtime based on deno-core with V8 engine
+  - `r3e-runtime`: Function execution runtime
+  - `r3e-worker`: Worker node implementation
+  - `r3e-scheduler`: Function scheduling and distribution
+
+- **API and Utilities**:
+  - `r3e-api`: HTTP API server
+  - `r3e-proc-macros`: Procedural macros for code generation
+  - `r3e-runlog`: Function execution logging
+  - `r3e-stock`: Blockchain history and data querying
+
+- **Main Application**:
+  - `r3e`: Command-line interface and entry point
 
 ## Built-in Services
 
@@ -53,6 +81,52 @@ The TEE Service provides secure execution for sensitive operations:
 - **Secure Execution**: Run code in an isolated, secure environment
 - **Attestation**: Verify the integrity of the execution environment
 - **Confidential Computing**: Process sensitive data with privacy guarantees
+- **Cloud Provider Support**: AWS Nitro, Google Confidential Computing, Azure Confidential Computing
+
+### Data Indexing Service
+
+The Data Indexing Service provides efficient data querying and storage capabilities:
+
+- **Flexible Querying**: Query indexed data with complex filters and sorting
+- **Collection Management**: Create and manage data collections
+- **Document Indexing**: Index JSON documents with customizable indexes
+- **Real-time Updates**: Get real-time updates when indexed data changes
+
+### Identity Service
+
+The Identity Service provides decentralized identity management:
+
+- **DID Support**: Create and manage Decentralized Identifiers (DIDs)
+- **Credential Management**: Issue and verify verifiable credentials
+- **Authentication**: Multiple authentication methods (keys, passwords, biometrics)
+- **Recovery Options**: Social recovery and backup mechanisms
+
+### Cross-Chain Bridge Service
+
+The Cross-Chain Bridge Service enables interoperability between blockchains:
+
+- **Token Transfers**: Transfer tokens between Neo N3 and other blockchains
+- **Asset Wrapping**: Wrap assets from one chain to another
+- **Message Passing**: Pass messages between smart contracts on different chains
+- **Transaction Monitoring**: Track cross-chain transactions
+
+### Secret Management Service
+
+The Secret Management Service provides secure storage and access to sensitive data:
+
+- **Encryption**: AES-256-GCM encryption for all secrets
+- **Access Control**: Function-specific access control
+- **User-owned Secrets**: Secrets are owned by the user who created them
+- **Secure Storage**: Secrets are stored securely using RocksDB
+
+### Automatic Smart Contract Service
+
+The Automatic Smart Contract Service enables automatic invocation of smart contracts:
+
+- **Trigger-based Execution**: Execute smart contracts based on triggers
+- **Multiple Trigger Types**: Blockchain events, time-based, market price, custom events
+- **Execution Tracking**: Track execution history and status
+- **Contract Management**: Create, update, and delete automatic contracts
 
 ## Token Deposit and Balance Management
 
@@ -70,6 +144,8 @@ Function execution costs are calculated based on:
 - **Execution Time**: Longer-running functions cost more GAS
 - **Memory Usage**: Functions using more memory incur higher costs
 - **Network Operations**: External API calls and blockchain interactions have additional costs
+- **Storage Usage**: Storing data incurs additional costs
+- **TEE Usage**: Using Trusted Execution Environments incurs additional costs
 
 ## Sandboxed JavaScript Execution
 
@@ -133,68 +209,70 @@ const randomNumber = await r3e.oracle.getRandom(1, 100);
 const weather = await r3e.oracle.getWeather("New York");
 ```
 
-### Requesting Permissions
+### Managing Secrets
 
 ```javascript
-// Request network access permission
-await r3e.sandbox.requestPermission("net");
+// Store a secret
+await r3e.secrets.set("API_KEY", "your-api-key");
 
-// Request file system access
-await r3e.sandbox.requestPermission("fs");
+// Get a secret
+const apiKey = await r3e.secrets.get("API_KEY");
+
+// Use the secret
+const response = await fetch("https://api.example.com/data", {
+  headers: {
+    "Authorization": `Bearer ${apiKey}`
+  }
+});
 ```
 
-## Cloud TEE Solutions
+### Setting Up Triggers
 
-The platform supports multiple cloud service provider TEE solutions:
+```javascript
+// Create a blockchain event trigger
+const trigger = await r3e.trigger.create({
+  type: "blockchain",
+  event: "NeoNewBlock"
+});
 
-### AWS Nitro Enclaves
+// Create a time-based trigger (every hour)
+const timeTrigger = await r3e.trigger.create({
+  type: "time",
+  schedule: "0 * * * *"
+});
 
-- **Isolated Execution**: Run code in isolated virtual machines with no persistent storage
-- **Hardware-based Attestation**: Cryptographically verify the integrity of the enclave
-- **Memory Encryption**: Automatic encryption of all memory used by the enclave
-- **Secure Local Communication**: Communicate securely with the parent instance
+// Create a price trigger (when NEO price changes by 5%)
+const priceTrigger = await r3e.trigger.create({
+  type: "price",
+  asset: "NEO/USD",
+  change: 5
+});
+```
 
-### Other Supported TEE Platforms
+### Creating Automatic Smart Contracts
 
-- **Intel SGX**: Software Guard Extensions for application-level trusted execution environments
-- **AMD SEV**: Secure Encrypted Virtualization for VM memory encryption
-- **Google Confidential Computing**: Confidential VMs with hardware-based isolation
-- **Azure Confidential Computing**: Secure enclaves for sensitive data processing
-
-## Additional Off-Chain Services
-
-### Data Indexing Service
-
-The Data Indexing Service provides efficient data querying and storage capabilities:
-
-- **Flexible Querying**: Query indexed data with complex filters and sorting
-- **Collection Management**: Create and manage data collections
-- **Document Indexing**: Index JSON documents with customizable indexes
-- **Real-time Updates**: Get real-time updates when indexed data changes
-
-### Identity Service
-
-The Identity Service provides decentralized identity management:
-
-- **DID Support**: Create and manage Decentralized Identifiers (DIDs)
-- **Credential Management**: Issue and verify verifiable credentials
-- **Authentication**: Multiple authentication methods (keys, passwords, biometrics)
-- **Recovery Options**: Social recovery and backup mechanisms
-
-### Cross-Chain Bridge Service
-
-The Cross-Chain Bridge Service enables interoperability between blockchains:
-
-- **Token Transfers**: Transfer tokens between Neo N3 and other blockchains
-- **Asset Wrapping**: Wrap assets from one chain to another
-- **Message Passing**: Pass messages between smart contracts on different chains
-- **Transaction Monitoring**: Track cross-chain transactions
+```javascript
+// Create an automatic contract that executes when NEO price is above $50
+const contract = await r3e.autoContract.create({
+  trigger: {
+    type: "price",
+    asset: "NEO/USD",
+    condition: "above",
+    threshold: 50
+  },
+  action: {
+    contract: "0x1234567890abcdef",
+    method: "transfer",
+    params: ["NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv", 5]
+  }
+});
+```
 
 ## Business Model
 
-### Pricing Tiers
+The platform offers multiple pricing tiers and subscription models to suit different needs:
 
-The platform offers multiple pricing tiers to suit different needs:
+### Pricing Tiers
 
 - **Basic**: For development and testing with limited resources
 - **Standard**: For production workloads with moderate resources
@@ -220,22 +298,84 @@ Choose from different subscription models:
 - **Annual**: Discounted annual fee for committed usage
 - **Reserved Capacity**: Discounted rates for reserved capacity
 
-### Value-Added Services
+## Docker Support
 
-Optional services available for additional fees:
+The R3E FaaS platform provides Docker support for both development and production environments:
 
-- **Enhanced Support**: Priority support with faster response times
-- **Advanced Monitoring**: Detailed metrics and alerting
-- **Custom Integrations**: Tailored solutions for specific use cases
-- **Training and Consulting**: Expert guidance for your projects
+### Development Environment
 
-### Ecosystem Incentives
+Use the development Docker image for a consistent development environment:
 
-Participate in the ecosystem and earn rewards:
+```bash
+# Build the development Docker image
+docker build -f Dockerfile.dev -t r3e-faas-dev .
 
-- **Developer Rewards**: Earn rewards for building popular functions
-- **Referral Program**: Earn rewards for referring new users
-- **Community Contributions**: Get rewarded for contributing to the platform
-- **Staking Rewards**: Earn rewards for staking NEO or GAS tokens
+# Run the container with mounted source code
+docker run -v $(pwd):/app -p 8080:8080 r3e-faas-dev
+```
+
+### Production Deployment
+
+Deploy the platform in production using Docker:
+
+```bash
+# Build the production Docker image
+docker build -t r3e-faas:latest .
+
+# Run the container
+docker run -d \
+  --name r3e-faas \
+  -p 8080:8080 \
+  -v /var/lib/r3e-faas:/data \
+  -e R3E_FAAS__GENERAL__ENVIRONMENT=production \
+  r3e-faas:latest
+```
+
+For more details, see the [Docker Development](./docs/docker-development.md) and [Docker Production](./docs/docker-production.md) guides.
 
 ## Architecture
+
+The R3E FaaS platform follows a modular microservice architecture:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                           API Layer                             │
+│                         (r3e-api)                               │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────────────┐
+│                           │                                     │
+│  ┌─────────────────┐    ┌─┴──────────────┐    ┌──────────────┐  │
+│  │  Event Sources  │    │   Scheduler    │    │    Worker    │  │
+│  │  (r3e-event)    │───►│ (r3e-scheduler)│───►│ (r3e-worker) │  │
+│  └─────────────────┘    └────────────────┘    └──────┬───────┘  │
+│                                                      │          │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────▼──────┐   │
+│  │  Storage Layer  │◄───┤  Runtime Layer  │◄───┤ JavaScript │   │
+│  │  (r3e-store)    │    │  (r3e-runtime)  │    │ (r3e-deno) │   │
+│  └─────────────────┘    └─────────────────┘    └────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────────────┐
+│                           │                                     │
+│  ┌─────────────────┐    ┌─┴──────────────┐    ┌──────────────┐  │
+│  │  Oracle Service │    │   Gas Bank     │    │     TEE      │  │
+│  │  (r3e-oracle)   │    │(r3e-neo-service)│    │  (r3e-tee)   │  │
+│  └─────────────────┘    └────────────────┘    └──────────────┘  │
+│                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐  │
+│  │ Secret Service  │    │ Indexing Service│    │Identity Service│ │
+│  │  (r3e-secrets)  │    │(r3e-built-in-svc)│    │(r3e-built-in-svc)│ │
+│  └─────────────────┘    └─────────────────┘    └──────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Contributing
+
+Contributions are welcome! Please see the [Development Guide](./docs/development.md) for more information on how to contribute to the project.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
