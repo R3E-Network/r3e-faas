@@ -1,6 +1,10 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
+pub mod ethereum;
+pub mod event_filter;
+pub mod event_processor;
+pub mod event_processor_service;
 pub mod events;
 pub mod events_ext;
 pub mod mock;
@@ -11,7 +15,10 @@ pub mod service;
 mod events_test;
 
 #[allow(unused_imports)]
-pub use {events::*, events_ext::*, mock::*, neo::*, service::*};
+pub use {
+    ethereum::*, event_filter::*, event_processor::*, event_processor_service::*,
+    events::*, events_ext::*, mock::*, neo::*, service::*,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TaskError {
@@ -20,6 +27,9 @@ pub enum TaskError {
 
     #[error("task: no more task: {0}")]
     NoMoreTask(u64),
+    
+    #[error("task: error: {0}")]
+    Error(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -30,6 +40,9 @@ pub enum FuncError {
     // uid, fid
     #[error("func: no such func: {0},{1}")]
     NoSuchFunc(u64, u64),
+    
+    #[error("func: error: {0}")]
+    Error(String),
 }
 
 pub struct Task {
@@ -46,7 +59,7 @@ impl Task {
 }
 
 #[async_trait::async_trait]
-pub trait TaskSource {
+pub trait TaskSource: Send + Sync {
     async fn acquire_task(&mut self, uid: u64, fid_hint: u64) -> Result<Task, TaskError>;
 
     async fn acquire_fn(&mut self, uid: u64, fid: u64) -> Result<Func, FuncError>;

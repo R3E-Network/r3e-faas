@@ -53,11 +53,17 @@ impl Runner {
             max_runtimes,
             sandbox_config,
             balance_service: None,
+            sandbox_config: None,
         }
     }
     
     pub fn with_balance_service(mut self, balance_service: Arc<dyn BalanceServiceTrait>) -> Self {
         self.balance_service = Some(balance_service);
+        self
+    }
+    
+    pub fn with_sandbox_config(mut self, sandbox_config: SandboxConfig) -> Self {
+        self.sandbox_config = sandbox_config;
         self
     }
 

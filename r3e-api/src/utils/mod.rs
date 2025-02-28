@@ -2,4 +2,5 @@
 // All Rights Reserved
 
 pub mod crypto;
+pub mod function_validation;
 pub mod validation;

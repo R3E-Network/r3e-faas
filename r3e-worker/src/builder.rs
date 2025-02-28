@@ -1,32 +1,16 @@
-use crate::neo_task_source::NeoTaskSource;
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use r3e_event::source::{
+    neo::NeoTaskSource, 
+    ethereum::EthereumTaskSource,
+    mock::MockTaskSource,
+    TaskSource,
+};
 
-use r3e_event::source::{MockTaskSource, TaskSource};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum EventSource {
-    #[serde(rename = "mock")]
-    Mock,
-    #[serde(rename = "neo")]
-    Neo,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TaskConfig {
-    pub source: EventSource,
-}
-
-impl Default for TaskConfig {
-    fn default() -> Self {
-        Self { source: EventSource::Mock }
-    }
-}
+use crate::TaskConfig;
 
 pub struct TaskSourceBuilder {
     config: TaskConfig,
@@ -37,11 +21,63 @@ impl TaskSourceBuilder {
         Self { config }
     }
 
-    // TODO: add more task acquirers
     pub fn build(&self) -> Box<dyn TaskSource> {
-        match self.config.source {
-            EventSource::Mock => Box::new(MockTaskSource::new(Duration::from_secs(2), 1)),
-            EventSource::Neo => Box::new(NeoTaskSource::new(Duration::from_secs(2), 1)),
+        let sleep = Duration::from_millis(self.config.sleep_ms);
+        let uid = 0;
+        
+        // Create the appropriate task source based on the configuration
+        match self.config.source_type.as_str() {
+            "neo" => {
+                let source = NeoTaskSource::new(sleep, uid);
+                
+                // Configure the source with RPC URL if provided
+                let source = if let Some(rpc_url) = &self.config.rpc_url {
+                    source.with_rpc_url(rpc_url)
+                } else {
+                    source
+                };
+                
+                // Configure the source with filter if provided
+                let source = if let Some(filter) = &self.config.filter {
+                    source.with_filter(filter.clone())
+                } else {
+                    source
+                };
+                
+                Box::new(source)
+            },
+            "ethereum" => {
+                // In a real implementation, we would create an Ethereum task source
+                // For now, we'll use a placeholder implementation
+                log::warn!("Using placeholder Ethereum task source");
+                
+                let source = EthereumTaskSource::new(sleep, uid);
+                
+                // Configure the source with RPC URL if provided
+                let source = if let Some(rpc_url) = &self.config.rpc_url {
+                    source.with_rpc_url(rpc_url)
+                } else {
+                    source
+                };
+                
+                // Configure the source with filter if provided
+                let source = if let Some(filter) = &self.config.filter {
+                    source.with_filter(filter.clone())
+                } else {
+                    source
+                };
+                
+                Box::new(source)
+            },
+            "mock" => {
+                // Create a mock task source for testing
+                Box::new(MockTaskSource::new(sleep, uid))
+            },
+            _ => {
+                // Default to mock task source
+                log::warn!("Unknown task source type: {}, using mock task source", self.config.source_type);
+                Box::new(MockTaskSource::new(sleep, uid))
+            }
         }
     }
 }
@@ -53,7 +89,7 @@ mod tests {
     #[test]
     fn test_build() {
         let config = TaskConfig::default();
-        let config = serde_yaml::to_string(&config).unwrap();
-        std::println!("config: \n{}", config);
+        let config = serde_json::to_string_pretty(&config).unwrap();
+        println!("config: \n{}", config);
     }
 }

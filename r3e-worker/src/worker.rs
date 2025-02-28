@@ -86,8 +86,12 @@ impl Worker {
                     
                     let balance_service = Arc::new(BalanceService::new(balance_storage, gas_bank_service));
                     
+                    // Get the sandbox configuration
+                    let sandbox_config = self.config.sandbox.clone();
+                    
                     let runner = Runner::new(uid, max_runtimes, task_source)
-                        .with_balance_service(balance_service);
+                        .with_balance_service(balance_service)
+                        .with_sandbox_config(sandbox_config);
                     
                     let stop = stop2.clone();
                     let tx = tx.clone();
