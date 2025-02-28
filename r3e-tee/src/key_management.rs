@@ -3,9 +3,11 @@
 
 use crate::TeeError;
 use crate::types::{KeyMetadata, KeyType, KeyUsage};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Key management service trait
 #[async_trait::async_trait]
@@ -174,6 +176,8 @@ impl InMemoryKeyStorage {
 pub struct KeyManagementServiceImpl {
     /// Key storage
     storage: Arc<InMemoryKeyStorage>,
+    /// Is initialized
+    initialized: AtomicBool,
 }
 
 impl KeyManagementServiceImpl {
@@ -181,7 +185,24 @@ impl KeyManagementServiceImpl {
     pub fn new() -> Self {
         Self {
             storage: Arc::new(InMemoryKeyStorage::new()),
+            initialized: AtomicBool::new(false),
         }
+    }
+    
+    /// Initialize the key management service
+    pub async fn initialize(&self) -> Result<(), TeeError> {
+        // Set initialized to true
+        self.initialized.store(true, Ordering::SeqCst);
+        
+        // Log initialization
+        info!("Key management service initialized");
+        
+        Ok(())
+    }
+    
+    /// Check if the key management service is initialized
+    pub fn is_initialized(&self) -> bool {
+        self.initialized.load(Ordering::SeqCst)
     }
     
     /// Generate a random key ID
