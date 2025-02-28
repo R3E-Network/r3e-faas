@@ -9,7 +9,7 @@ r3e-deno    = { path = "../r3e-deno" }
 r3e-core    = { path = "../r3e-core" }
 
 # Neo N3 SDK
-NeoRust     = { path = "../../NeoRust" }
+NeoRust = { git = "https://github.com/R3E-Network/NeoRust.git" }
 
 # Async runtime
 tokio       = { version = "1", features = ["full"] }

@@ -10,7 +10,7 @@ description = "Fully Homomorphic Encryption service for the R3E FaaS platform"
 license = "MIT"
 
 [dependencies]
-tfhe = { version = "0.3", package = "tfhe-rs" }
+tfhe = { version = "0.0.0", package = "tfhe-rs" }
 r3e-core = { path = "../r3e-core" }
 r3e-store = { path = "../r3e-store" }
 r3e-tee = { path = "../r3e-tee" }
