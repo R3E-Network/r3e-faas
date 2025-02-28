@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - R3E_FAAS__GENERAL__ENVIRONMENT=production
+      - R3E_FAAS__LOGGING__LEVEL=info
+      - R3E_FAAS__STORAGE__PATH=/app/data
+    volumes:
+      - r3e_data:/app/data
+    networks:
+      - r3e-network
+    restart: always
+    depends_on:
+      - worker
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    environment:
+      - R3E_FAAS__GENERAL__ENVIRONMENT=production
+      - R3E_FAAS__LOGGING__LEVEL=info
+      - R3E_FAAS__STORAGE__PATH=/app/data
+    volumes:
+      - r3e_data:/app/data
+    networks:
+      - r3e-network
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+networks:
+  r3e-network:
+    driver: bridge
+
+volumes:
+  r3e_data:
+    driver: local
