@@ -124,7 +124,8 @@ postgres:
     storageClass: r3e-storage
   env:
     POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
+    # Password should be provided via Kubernetes secrets
+    # POSTGRES_PASSWORD: <your-secure-password>
     POSTGRES_DB: r3e_faas
 
 storage:
