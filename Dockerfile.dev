@@ -1,0 +1,97 @@
+FROM rust:1.75-bullseye
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    libclang-dev \
+    libssl-dev \
+    pkg-config \
+    librocksdb-dev \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy Cargo.toml and Cargo.lock
+COPY Cargo.toml Cargo.lock ./
+
+# Copy all crate Cargo.toml files to trick cargo into caching dependencies
+COPY r3e/Cargo.toml ./r3e/
+COPY r3e-api/Cargo.toml ./r3e-api/
+COPY r3e-built-in-services/Cargo.toml ./r3e-built-in-services/
+COPY r3e-config/Cargo.toml ./r3e-config/
+COPY r3e-core/Cargo.toml ./r3e-core/
+COPY r3e-deno/Cargo.toml ./r3e-deno/
+COPY r3e-event/Cargo.toml ./r3e-event/
+COPY r3e-neo-services/Cargo.toml ./r3e-neo-services/
+COPY r3e-oracle/Cargo.toml ./r3e-oracle/
+COPY r3e-proc-macros/Cargo.toml ./r3e-proc-macros/
+COPY r3e-runlog/Cargo.toml ./r3e-runlog/
+COPY r3e-runtime/Cargo.toml ./r3e-runtime/
+COPY r3e-scheduler/Cargo.toml ./r3e-scheduler/
+COPY r3e-secrets/Cargo.toml ./r3e-secrets/
+COPY r3e-stock/Cargo.toml ./r3e-stock/
+COPY r3e-store/Cargo.toml ./r3e-store/
+COPY r3e-tee/Cargo.toml ./r3e-tee/
+COPY r3e-worker/Cargo.toml ./r3e-worker/
+
+# Create dummy source files
+RUN mkdir -p r3e/src && \
+    mkdir -p r3e-api/src && \
+    mkdir -p r3e-built-in-services/src && \
+    mkdir -p r3e-config/src && \
+    mkdir -p r3e-core/src && \
+    mkdir -p r3e-deno/src && \
+    mkdir -p r3e-event/src && \
+    mkdir -p r3e-neo-services/src && \
+    mkdir -p r3e-oracle/src && \
+    mkdir -p r3e-proc-macros/src && \
+    mkdir -p r3e-runlog/src && \
+    mkdir -p r3e-runtime/src && \
+    mkdir -p r3e-scheduler/src && \
+    mkdir -p r3e-secrets/src && \
+    mkdir -p r3e-stock/src && \
+    mkdir -p r3e-store/src && \
+    mkdir -p r3e-tee/src && \
+    mkdir -p r3e-worker/src && \
+    touch r3e/src/lib.rs && \
+    touch r3e-api/src/lib.rs && \
+    touch r3e-built-in-services/src/lib.rs && \
+    touch r3e-config/src/lib.rs && \
+    touch r3e-core/src/lib.rs && \
+    touch r3e-deno/src/lib.rs && \
+    touch r3e-event/src/lib.rs && \
+    touch r3e-neo-services/src/lib.rs && \
+    touch r3e-oracle/src/lib.rs && \
+    touch r3e-proc-macros/src/lib.rs && \
+    touch r3e-runlog/src/lib.rs && \
+    touch r3e-runtime/src/lib.rs && \
+    touch r3e-scheduler/src/lib.rs && \
+    touch r3e-secrets/src/lib.rs && \
+    touch r3e-stock/src/lib.rs && \
+    touch r3e-store/src/lib.rs && \
+    touch r3e-tee/src/lib.rs && \
+    touch r3e-worker/src/lib.rs && \
+    touch r3e/src/main.rs
+
+# Build dependencies
+RUN cargo build
+
+# Copy the rest of the source code
+COPY . .
+
+# Build the project
+RUN cargo build
+
+# Set up environment
+ENV RUST_BACKTRACE=1
+ENV RUST_LOG=info
+
+# Create config directory
+RUN mkdir -p /app/config
+
+# Default command
+CMD ["cargo", "run", "--bin", "r3e", "--", "worker", "--config", "/app/config/r3e-faas.yaml"]
