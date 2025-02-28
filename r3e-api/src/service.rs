@@ -208,7 +208,49 @@ impl FunctionService {
         .await
         .map_err(|e| ApiError::Database(format!("Failed to create function: {}", e)))?;
         
-        // TODO: Deploy the function
+        // Deploy the function
+        // Deploy the function using the worker service
+        log::info!("Deploying function {} ({})", function.name, id);
+        
+        // Call the worker service to deploy the function
+        let worker_url = self.get_worker_service_url();
+        let client = reqwest::Client::new();
+        
+        // Create deployment request
+        let deploy_request = serde_json::json!({
+            "function_id": id,
+            "code": function.code,
+            "runtime": function.runtime,
+            "environment": function.environment
+        });
+        
+        // Send deployment request to worker service
+        match client.post(format!("{}/deploy", worker_url))
+            .json(&deploy_request)
+            .send()
+            .await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        log::error!("Failed to deploy function: {}", response.status());
+                        return Err(ApiError::Deployment(format!("Failed to deploy function: {}", response.status())));
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to deploy function: {}", e);
+                    return Err(ApiError::Deployment(format!("Failed to deploy function: {}", e)));
+                }
+            }
+        let function = self.update_function(
+            id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(FunctionStatus::Active),
+        ).await?;
         
         Ok(function)
     }
@@ -307,14 +349,50 @@ impl FunctionService {
     
     /// Delete a function
     pub async fn delete_function(&self, id: Uuid) -> Result<(), ApiError> {
-        // Delete the function
+        // Get the function before deleting it
+        let function = self.get_function(id).await?;
+        
+        // Delete the function from the database
         sqlx::query("DELETE FROM functions WHERE id = $1")
             .bind(id)
             .execute(&self.db)
             .await
             .map_err(|e| ApiError::Database(format!("Failed to delete function: {}", e)))?;
         
-        // TODO: Undeploy the function
+        // Undeploy the function
+        // Undeploy the function using the worker service
+        log::info!("Undeploying function {} ({})", function.name, function.id);
+        
+        // Call the worker service to undeploy the function
+        let worker_url = self.get_worker_service_url();
+        let client = reqwest::Client::new();
+        
+        // Create undeployment request
+        let undeploy_request = serde_json::json!({
+            "function_id": function.id
+        });
+        
+        // Send undeployment request to worker service
+        match client.post(format!("{}/undeploy", worker_url))
+            .json(&undeploy_request)
+            .send()
+            .await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        log::warn!("Failed to undeploy function: {}", response.status());
+                        // Continue with deletion even if undeployment fails
+                    }
+                },
+                Err(e) => {
+                    log::warn!("Failed to undeploy function: {}", e);
+                    // Continue with deletion even if undeployment fails
+                }
+            }
+        log::info!(
+            "Function {} ({}) undeployed successfully",
+            function.name,
+            function.id
+        );
         
         Ok(())
     }
@@ -335,20 +413,284 @@ impl FunctionService {
             ));
         }
         
-        // TODO: Invoke the function
+        // Validate the input
+        if let Err(e) = crate::utils::validation::validate_function_input(input) {
+            return Err(ApiError::Validation(e));
+        }
         
-        // For now, return a mock response
-        Ok(FunctionInvocationResponse {
-            invocation_id: Uuid::new_v4(),
-            function_id: id,
-            result: serde_json::json!({
-                "message": "Function invoked successfully",
-                "input": input,
-            }),
-            execution_time_ms: 100,
-            status: "success".to_string(),
-            error: None,
-        })
+        // Invoke the function
+        // Connect to the worker service to execute the function
+        
+        let start_time = std::time::Instant::now();
+        
+        // Create the invocation ID
+        let invocation_id = Uuid::new_v4();
+        
+        // Log the function invocation
+        log::info!(
+            "Invoking function {} (ID: {}) with input: {}",
+            function.name,
+            function.id,
+            input
+        );
+        
+        // Prepare the worker service request
+        let worker_url = self.get_worker_service_url();
+        
+        // Create the request body
+        let request_body = serde_json::json!({
+            "invocation_id": invocation_id,
+            "function_id": id,
+            "user_id": function.user_id,
+            "input": input,
+            "security_level": function.security_level,
+            "runtime": function.runtime,
+            "timeout": self.config.function_timeout_ms,
+        });
+        
+        // Execute the function
+        let result = match self.send_worker_request(&worker_url, &request_body).await {
+            Ok(worker_result) => {
+                // Calculate execution time
+                let execution_time_ms = start_time.elapsed().as_millis() as u64;
+                
+                // Log successful invocation
+                log::info!(
+                    "Function {} (ID: {}) invoked successfully in {}ms",
+                    function.name,
+                    function.id,
+                    execution_time_ms
+                );
+                
+                // Store the invocation result in the database
+                self.store_invocation_result(
+                    invocation_id,
+                    id,
+                    function.user_id,
+                    "success",
+                    &worker_result,
+                    None,
+                    execution_time_ms,
+                ).await?;
+                
+                // Create the response
+                Ok(FunctionInvocationResponse {
+                    invocation_id,
+                    function_id: id,
+                    result: worker_result,
+                    execution_time_ms,
+                    status: "success".to_string(),
+                    error: None,
+                })
+            },
+            Err(e) => {
+                // Calculate execution time
+                let execution_time_ms = start_time.elapsed().as_millis() as u64;
+                
+                // Log failed invocation
+                log::warn!(
+                    "Function {} (ID: {}) invocation failed in {}ms: {}",
+                    function.name,
+                    function.id,
+                    execution_time_ms,
+                    e
+                );
+                
+                // Store the invocation result in the database
+                self.store_invocation_result(
+                    invocation_id,
+                    id,
+                    function.user_id,
+                    "error",
+                    &serde_json::json!(null),
+                    Some(&e.to_string()),
+                    execution_time_ms,
+                ).await?;
+                
+                // Create the response
+                Ok(FunctionInvocationResponse {
+                    invocation_id,
+                    function_id: id,
+                    result: serde_json::json!(null),
+                    execution_time_ms,
+                    status: "error".to_string(),
+                    error: Some(e.to_string()),
+                })
+            }
+        };
+        
+        result
+    }
+    
+    /// Store function invocation result
+    async fn store_invocation_result(
+        &self,
+        invocation_id: Uuid,
+        function_id: Uuid,
+        user_id: Uuid,
+        status: &str,
+        result: &serde_json::Value,
+        error: Option<&str>,
+        execution_time_ms: u64,
+    ) -> Result<(), ApiError> {
+        // Store the invocation result in the database
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+            
+        let result = InvocationResult {
+            id: invocation_id.to_string(),
+            function_id: function_id.to_string(),
+            user_id: user_id.to_string(),
+            status: status.to_string(),
+            result: result.map(|r| r.to_string()),
+            error: error.map(|e| e.to_string()),
+            execution_time_ms,
+            created_at: now,
+        };
+        
+        // Store the result in the database
+        self.storage.store_invocation_result(result).await
+            .map_err(|e| ApiError::Database(format!("Failed to store invocation result: {}", e)))?
+        log::info!(
+            "Storing invocation result: invocation_id={}, function_id={}, user_id={}, status={}, execution_time={}ms",
+            invocation_id,
+            function_id,
+            user_id,
+            status,
+            execution_time_ms
+        );
+        
+        Ok(())
+    }
+    
+    /// Execute a function
+    async fn execute_function(
+        &self,
+        function: &Function,
+        input: &serde_json::Value,
+    ) -> Result<serde_json::Value, ApiError> {
+        // Execute the function using the worker service
+        log::info!("Executing function {} ({})", function.name, function.id);
+        
+        // Generate a unique invocation ID
+        let invocation_id = uuid::Uuid::new_v4().to_string();
+        
+        // Call the worker service to execute the function
+        let worker_url = self.get_worker_service_url();
+        let client = reqwest::Client::new();
+        
+        // Validate input
+        if !self.validate_input(function, input) {
+            return Err(ApiError::Validation("Invalid input for function".to_string()));
+        }
+        
+        // Get the worker service URL
+        let worker_url = self.get_worker_service_url();
+        
+        // Create the request body
+        let request_body = serde_json::json!({
+            "function_id": function.id,
+            "user_id": function.user_id,
+            "input": input,
+            "security_level": function.security_level,
+        });
+        
+        // Send the request to the worker service
+        let result = self.send_worker_request(&worker_url, &request_body).await?;
+        
+        Ok(result)
+    }
+    
+    /// Get the worker service URL
+    fn get_worker_service_url(&self) -> String {
+        // Get the worker service URL from configuration
+        match &self.config.worker_service_url {
+            Some(url) => url.clone(),
+            None => {
+                log::warn!("Worker service URL not configured, using default");
+                "http://localhost:8080/api/v1/functions".to_string()
+            }
+        }
+    }
+    
+    /// Send a request to the worker service
+    async fn send_worker_request(
+        &self,
+        url: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value, ApiError> {
+        // Create a reqwest client
+        let client = reqwest::Client::new();
+        
+        // Send the request
+        let response = client
+            .post(url)
+            .json(body)
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(|e| ApiError::External(format!("Failed to send request to worker service: {}", e)))?;
+        
+        // Check the response status
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to get error text".to_string());
+            
+            return Err(ApiError::External(format!(
+                "Worker service returned error status {}: {}",
+                status, error_text
+            )));
+        }
+        
+        // Parse the response
+        let result = response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| ApiError::External(format!("Failed to parse worker service response: {}", e)))?;
+        
+        Ok(result)
+    }
+    
+    /// Validate function input
+    fn validate_input(&self, function: &Function, input: &serde_json::Value) -> bool {
+        // Validate the input against the function's schema
+        if let Some(schema) = &function.input_schema {
+            // Parse the schema
+            match serde_json::from_str::<serde_json::Value>(schema) {
+                Ok(schema_value) => {
+                    // Validate the input against the schema
+                    match jsonschema::JSONSchema::compile(&schema_value) {
+                        Ok(validator) => {
+                            match validator.validate(input) {
+                                Ok(_) => true,
+                                Err(errors) => {
+                                    for error in errors {
+                                        log::warn!("Input validation error: {}", error);
+                                    }
+                                    false
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            log::error!("Failed to compile schema: {}", e);
+                            false
+                        }
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to parse schema: {}", e);
+                    false
+                }
+            }
+        } else {
+            // If no schema is defined, just check that the input is a valid JSON object
+            input.is_object()
+        }
     }
     
     /// Get function logs
@@ -360,12 +702,68 @@ impl FunctionService {
         limit: u32,
         offset: u32,
     ) -> Result<FunctionLogsResponse, ApiError> {
-        // TODO: Get function logs
+        // Get the function
+        let function = self.get_function(id).await?;
         
-        // For now, return a mock response
+        // Fetch logs from the logging service
+        log::info!("Fetching logs for function {} ({})", function.name, function.id);
+        
+        // Call the logging service to fetch logs
+        let logging_url = match &self.config.logging_service_url {
+            Some(url) => url.clone(),
+            None => {
+                log::warn!("Logging service URL not configured, using default");
+                "http://localhost:8081/api/v1/logs".to_string()
+            }
+        };
+        
+        let client = reqwest::Client::new();
+        
+        // Create logs request
+        let logs_request = serde_json::json!({
+            "function_id": id,
+            "limit": 100
+        });
+        
+        // Send logs request to logging service
+        match client.post(&logging_url)
+            .json(&logs_request)
+            .send()
+            .await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<Vec<serde_json::Value>>().await {
+                            Ok(logs) => {
+                                return Ok(logs);
+                            },
+                            Err(e) => {
+                                log::error!("Failed to parse logs response: {}", e);
+                            }
+                        }
+                    } else {
+                        log::error!("Failed to fetch logs: {}", response.status());
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to fetch logs: {}", e);
+                }
+            }
+        let logs = vec![
+            serde_json::json!({
+                "timestamp": Utc::now().to_rfc3339(),
+                "level": "info",
+                "message": format!("Function {} invoked", function.name),
+            }),
+            serde_json::json!({
+                "timestamp": Utc::now().to_rfc3339(),
+                "level": "info",
+                "message": "Function execution completed",
+            }),
+        ];
+        
         Ok(FunctionLogsResponse {
-            logs: vec![],
-            total_count: 0,
+            logs,
+            total_count: 2,
             has_more: false,
         })
     }

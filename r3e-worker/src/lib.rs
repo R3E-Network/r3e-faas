@@ -6,6 +6,8 @@ pub mod builder;
 pub mod runner;
 pub mod worker;
 pub mod neo_task_source;
+pub mod sandbox;
+pub mod function;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -15,12 +17,31 @@ use std::time::Duration;
 use duration_str::deserialize_duration;
 use serde::{Deserialize, Serialize};
 
-pub use {assign::*, builder::*, runner::*, worker::*};
+pub use {assign::*, builder::*, runner::*, worker::*, sandbox::*};
 
 pub const MAX_RUNNERS: u32 = 1024;
 
 lazy_static::lazy_static! {
     pub static ref NUM_CPUS: u32 = num_cpus::get() as u32;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskConfig {
+    pub sleep_ms: u64,
+    pub source_type: String,
+    pub rpc_url: Option<String>,
+    pub filter: Option<serde_json::Value>,
+}
+
+impl Default for TaskConfig {
+    fn default() -> Self {
+        Self {
+            sleep_ms: 1000,
+            source_type: "neo".to_string(),
+            rpc_url: None,
+            filter: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +53,7 @@ pub struct WorkerConfig {
     pub max_runners: u32,
     pub max_runtimes_per_runner: u32,
     pub tasks: TaskConfig,
+    pub sandbox: SandboxConfig,
 }
 
 impl Default for WorkerConfig {
@@ -42,6 +64,7 @@ impl Default for WorkerConfig {
             max_runners: *NUM_CPUS * 2,
             max_runtimes_per_runner: 16,
             tasks: TaskConfig::default(),
+            sandbox: SandboxConfig::default(),
         }
     }
 }

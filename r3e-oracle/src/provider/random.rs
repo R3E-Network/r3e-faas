@@ -85,24 +85,29 @@ impl RandomProvider {
     
     /// Generate VRF-based random numbers
     async fn generate_vrf_random(&self, min: u64, max: u64, count: u32) -> Result<(Vec<u64>, String), OracleError> {
-        // In a real implementation, this would use a verifiable random function
-        // For this example, we'll use a simple hash-based approach
+        // Use ecvrf for verifiable random function implementation
+        let vrf = ecvrf::VRF::new().map_err(|e| OracleError::Provider(format!("Failed to create VRF: {}", e)))?;
         
-        // Generate a random seed
-        let mut rng = rand::thread_rng();
-        let random_seed: u64 = rng.gen();
+        // Generate VRF proof using current timestamp as input
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+        let input = timestamp.to_be_bytes();
         
-        // Create a seed string
-        let seed = format!("vrf:{}", random_seed);
+        // Generate VRF output and proof
+        let (output, proof) = vrf.prove(&input)
+            .map_err(|e| OracleError::Provider(format!("Failed to generate VRF proof: {}", e)))?;
+            
+        // Use VRF output as seed for random number generation
+        let mut values = Vec::with_capacity(count as usize);
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(&output[..32]);
         
-        // Generate random values
-        let values = self.generate_seeded_random(min, max, count, &seed);
+        let mut rng = StdRng::from_seed(seed);
+        for _ in 0..count {
+            values.push(rng.gen_range(min..=max));
+        }
         
-        // Create a proof
-        let mut hasher = Sha256::new();
-        hasher.update(seed.as_bytes());
-        let hash = hasher.finalize();
-        let proof = format!("vrf_proof:{}", hex::encode(hash));
+        // Format proof for verification
+        let proof_str = format!("vrf_proof:{}", hex::encode(proof));
         
         Ok((values, proof))
     }

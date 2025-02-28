@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "r3e-faas.fullname" . }}-config
+  labels:
+    {{- include "r3e-faas.labels" . | nindent 4 }}
+data:
+  # Database connection string will be provided via environment variables
+  # to avoid storing sensitive information in ConfigMaps
+  redis_url: "redis://{{ include "r3e-faas.fullname" . }}-redis:{{ .Values.redis.service.port }}/0"
+  neo_rpc_url: {{ .Values.config.neo.rpcUrl | quote }}
+  ethereum_rpc_url: {{ .Values.config.ethereum.rpcUrl | quote }}
+  log_level: {{ .Values.global.logLevel | quote }}
+  storage_type: "rocksdb"
+  max_concurrent_functions: {{ .Values.worker.maxConcurrentFunctions | quote }}
+  function_timeout_seconds: {{ .Values.worker.functionTimeoutSeconds | quote }}
+  api_port: {{ .Values.api.service.targetPort | quote }}
+  worker_port: "8081"

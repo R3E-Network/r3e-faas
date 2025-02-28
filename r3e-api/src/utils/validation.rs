@@ -125,7 +125,100 @@ pub fn validate_javascript_code(code: &str) -> Result<(), ValidationError> {
         return Err(ValidationError::new("code_too_long"));
     }
     
-    // TODO: Add more validation for JavaScript code
+    // Check for potentially dangerous patterns
+    let dangerous_patterns = [
+        // Process manipulation
+        "process.exit", "process.kill", "process.abort",
+        
+        // Deno system access
+        "Deno.exit", "Deno.permissions", "Deno.chmod", "Deno.chown",
+        "Deno.remove", "Deno.symlink", "Deno.truncate",
+        "Deno.writeFile", "Deno.writeTextFile", "Deno.writeFileSync",
+        "Deno.writeTextFileSync", "Deno.run", "Deno.Command",
+        
+        // Eval and dynamic code execution
+        "eval(", "new Function(", "setTimeout(", "setInterval(",
+        "Function(", "constructor.constructor",
+        
+        // Network access bypassing
+        "fetch(", "XMLHttpRequest", "WebSocket",
+        
+        // DOM access (should not be available but check anyway)
+        "document.", "window.", "navigator.", "location.",
+        
+        // Storage access
+        "localStorage", "sessionStorage", "indexedDB",
+        
+        // Worker threads
+        "Worker(", "SharedWorker(", "ServiceWorker",
+        
+        // Crypto access that might be used for mining
+        "crypto.subtle", "SubtleCrypto",
+        
+        // Prototype manipulation
+        "__proto__", "Object.prototype", "Function.prototype",
+        
+        // Imports that bypass sandboxing
+        "import(", "require(", "module.exports",
+    ];
+    
+    for pattern in dangerous_patterns {
+        if code.contains(pattern) {
+            return Err(ValidationError::new(&format!(
+                "code_contains_dangerous_pattern: {}",
+                pattern
+            )));
+        }
+    }
+    
+    // Check for export pattern to ensure the function is properly exported
+    if !code.contains("export default") && !code.contains("export function") && !code.contains("export const") {
+        return Err(ValidationError::new("code_missing_export"));
+    }
+    
+    // Check for infinite loops patterns
+    let loop_patterns = [
+        "while(true)", "while (true)", "for(;;)", "for (;;)",
+        "while(1)", "while (1)",
+    ];
+    
+    for pattern in loop_patterns {
+        if code.contains(pattern) {
+            return Err(ValidationError::new(&format!(
+                "code_contains_potential_infinite_loop: {}",
+                pattern
+            )));
+        }
+    }
+    
+    Ok(())
+}
+
+/// Validate JSON schema for function inputs
+pub fn validate_json_schema(input: &serde_json::Value, schema: &serde_json::Value) -> Result<(), ValidationError> {
+    use jsonschema::{Draft, JSONSchema};
+    
+    // Compile the schema
+    let compiled_schema = JSONSchema::options()
+        .with_draft(Draft::Draft7)
+        .compile(schema)
+        .map_err(|e| {
+            ValidationError::new(&format!("invalid_schema: {}", e))
+        })?;
+    
+    // Validate the input against the schema
+    let result = compiled_schema.validate(input);
+    
+    if let Err(errors) = result {
+        let error_messages: Vec<String> = errors
+            .map(|error| format!("{}", error))
+            .collect();
+        
+        return Err(ValidationError::new(&format!(
+            "schema_validation_failed: {}",
+            error_messages.join(", ")
+        )));
+    }
     
     Ok(())
 }

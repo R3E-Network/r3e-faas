@@ -39,19 +39,17 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
     
-    # Temporarily skip code formatting check due to dependency issues
-    # - name: Check code formatting
-    #   uses: actions-rs/cargo@v1
-    #   with:
-    #     command: fmt
-    #     args: --all -- --check
+    - name: Check code formatting
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
     
-    # Temporarily skip clippy check due to dependency issues
-    # - name: Lint with clippy
-    #   uses: actions-rs/cargo@v1
-    #   with:
-    #     command: clippy
-    #     args: -- -D warnings
+    - name: Lint with clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+        args: -- -D warnings
     
     - name: Build
       uses: actions-rs/cargo@v1
@@ -64,7 +62,3 @@ jobs:
       with:
         command: test
         args: --workspace --exclude r3e-zk -- --nocapture
-    
-    # Add a simple success step to ensure the workflow passes
-    - name: Success
-      run: echo "Workflow completed successfully"

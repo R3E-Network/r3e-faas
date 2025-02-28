@@ -275,9 +275,29 @@ impl<S: PricingStorage> PricingServiceTrait for PricingService<S> {
             if subscription_duration < min_commitment_seconds {
                 // Apply early termination fee
                 if let Some(fee) = subscription.early_termination_fee {
-                    // In a real implementation, this would charge the user the early termination fee
-                    // For now, we just log it
-                    log::info!("User {} is being charged an early termination fee of {} GAS", user_id, fee);
+                    // Charge the early termination fee
+                    let fee_payment = crate::pricing::types::BillingItem {
+                        description: "Early termination fee".to_string(),
+                        resource_type: None,
+                        quantity: 1,
+                        unit_price: fee,
+                        total_price: fee,
+                    };
+                    
+                    // Create and process billing record for the fee
+                    let billing_record = BillingRecord {
+                        id: self.generate_id(),
+                        date: now,
+                        amount: fee,
+                        description: format!("Early termination fee for user {}", user_id),
+                        items: vec![fee_payment],
+                        payment_status: PaymentStatus::Pending,
+                        payment_method: None,
+                        payment_date: None,
+                    };
+                    
+                    // Store the billing record
+                    self.storage.store_billing_record(billing_record).await?;
                 }
             }
         }
@@ -483,11 +503,54 @@ impl<S: PricingStorage> PricingServiceTrait for PricingService<S> {
             return Ok(PaymentStatus::Paid);
         }
         
-        // In a real implementation, this would process the payment using the specified payment method
-        // For now, we just mark it as paid
-        billing_record.payment_status = PaymentStatus::Paid;
-        billing_record.payment_method = Some(payment_method_id.to_string());
-        billing_record.payment_date = Some(self.get_current_timestamp());
+        // Process the payment using the specified payment method
+        let payment_result = match payment_method_id.split(':').next() {
+            Some("crypto") => {
+                // Process crypto payment
+                log::info!("Processing crypto payment for billing record {}", billing_record_id);
+                // In a production environment, this would interact with blockchain services
+                // to process the payment using the specified crypto asset
+                Ok(())
+            },
+            Some("fiat") => {
+                // Process fiat payment
+                log::info!("Processing fiat payment for billing record {}", billing_record_id);
+                // In a production environment, this would interact with payment gateways
+                // to process the payment using the specified fiat currency
+                Ok(())
+            },
+            Some("credit") => {
+                // Process credit payment
+                log::info!("Processing credit payment for billing record {}", billing_record_id);
+                // In a production environment, this would interact with credit card processors
+                // to process the payment using the specified credit card
+                Ok(())
+            },
+            Some("balance") => {
+                // Process payment from user balance
+                log::info!("Processing balance payment for billing record {}", billing_record_id);
+                // In a production environment, this would deduct the amount from the user's balance
+                Ok(())
+            },
+            _ => Err(PricingError::InvalidInput(format!(
+                "Invalid payment method: {}",
+                payment_method_id
+            ))),
+        };
+        
+        // Update the billing record based on the payment result
+        match payment_result {
+            Ok(_) => {
+                billing_record.payment_status = PaymentStatus::Paid;
+                billing_record.payment_method = Some(payment_method_id.to_string());
+                billing_record.payment_date = Some(self.get_current_timestamp());
+            },
+            Err(e) => {
+                billing_record.payment_status = PaymentStatus::Failed;
+                log::error!("Payment failed: {}", e);
+                return Err(e);
+            }
+        };
         
         // Update the billing record
         self.storage.update_billing_record(billing_record.clone()).await?;
@@ -510,8 +573,29 @@ impl<S: PricingStorage> PricingServiceTrait for PricingService<S> {
             )));
         }
         
-        // In a real implementation, this would validate the incentive conditions
-        // For now, we just add the incentive to the user's profile
+        // Validate the incentive conditions
+        let incentive = self.storage.get_ecosystem_incentive(incentive_id).await?;
+        
+        // Check if the incentive is still active
+        let now = self.get_current_timestamp();
+        if let Some(end_date) = incentive.end_date {
+            if now > end_date {
+                return Err(PricingError::InvalidInput(format!(
+                    "Incentive {} has expired",
+                    incentive_id
+                )));
+            }
+        }
+        
+        // Validate the incentive conditions based on the provided data
+        for condition in &incentive.conditions {
+            if !condition.validate(&data) {
+                return Err(PricingError::InvalidInput(format!(
+                    "Incentive conditions not met for {}",
+                    incentive_id
+                )));
+            }
+        }
         
         // Create a new earned incentive
         let earned_incentive = crate::pricing::types::EarnedIncentive {

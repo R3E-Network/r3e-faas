@@ -92,9 +92,11 @@ impl<S: GasBankStorage> GasBankService<S> {
             FeeModel::Fixed(fee) => *fee,
             FeeModel::Percentage(percentage) => ((amount as f64) * percentage / 100.0) as u64,
             FeeModel::Dynamic => {
-                // In a real implementation, this would calculate a dynamic fee based on network congestion
-                // For this example, we'll use a simple calculation
-                amount / 100
+                // Calculate dynamic fee based on network congestion
+                let gas_price = self.get_gas_price().await.unwrap_or(1000);
+                let network_usage = self.rpc_client.get_network_usage().await.unwrap_or(50);
+                let congestion_multiplier = 1.0 + (network_usage as f64 / 100.0);
+                ((amount as f64) * 0.01 * congestion_multiplier) as u64
             },
             FeeModel::Free => 0,
         }
@@ -112,9 +114,14 @@ impl<S: GasBankStorage> GasBankService<S> {
     
     /// Send transaction
     async fn send_transaction(&self, tx: Transaction) -> Result<String, Error> {
-        // In a real implementation, this would sign and send the transaction
-        // For this example, we'll return a mock transaction hash
-        let tx_hash = format!("0x{}", hex::encode([0u8; 32]));
+        // Sign the transaction with the gas bank wallet
+        let signed_tx = self.wallet.sign_transaction(tx).await
+            .map_err(|e| Error::Transaction(format!("Failed to sign transaction: {}", e)))?;
+        
+        // Send the transaction to the network
+        let tx_hash = self.rpc_client.send_raw_transaction(signed_tx).await
+            .map_err(|e| Error::Transaction(format!("Failed to send transaction: {}", e)))?;
+            
         Ok(tx_hash)
     }
 }
@@ -286,15 +293,20 @@ impl<S: GasBankStorage> GasBankServiceTrait for GasBankService<S> {
     }
     
     async fn get_gas_price(&self) -> Result<u64, Error> {
-        // In a real implementation, this would query the network for the current gas price
-        // For this example, we'll return a fixed value
-        Ok(1000)
+        // Query the network for current gas price
+        self.rpc_client.get_gas_price().await
+            .map_err(|e| Error::Network(format!("Failed to get gas price: {}", e)))
     }
     
     async fn estimate_gas(&self, tx_data: &[u8]) -> Result<u64, Error> {
-        // In a real implementation, this would estimate the gas required for a transaction
-        // For this example, we'll return a fixed value based on the data size
-        Ok(21000 + (tx_data.len() as u64 * 68))
+        // Create an unsigned transaction with the data
+        let tx = TransactionBuilder::new()
+            .script(tx_data.to_vec())
+            .build();
+            
+        // Estimate gas using RPC client
+        self.rpc_client.estimate_gas(tx).await
+            .map_err(|e| Error::Transaction(format!("Failed to estimate gas: {}", e)))
     }
     
     async fn get_balance(&self, address: &str) -> Result<u64, Error> {
@@ -312,11 +324,7 @@ impl<S: GasBankStorage> GasBankServiceTrait for GasBankService<S> {
     }
     
     async fn get_account_for_contract(&self, contract_hash: &str) -> Result<Option<GasBankAccount>, Error> {
-        // In a real implementation, this would retrieve the mapping from contract hash to account address
-        // from a storage mechanism, and then retrieve the account
-        
-        // For this example, we'll use a simple mock implementation
-        // In a production environment, this would be stored in a database or on-chain
+        // Retrieve the mapping from storage
         
         // Check if we have a mapping for this contract
         let address = match self.storage.get_contract_account_mapping(contract_hash).await? {
@@ -329,11 +337,7 @@ impl<S: GasBankStorage> GasBankServiceTrait for GasBankService<S> {
     }
     
     async fn set_account_for_contract(&self, contract_hash: &str, address: &str) -> Result<(), Error> {
-        // In a real implementation, this would store the mapping from contract hash to account address
-        // in a storage mechanism
-        
-        // For this example, we'll use a simple mock implementation
-        // In a production environment, this would be stored in a database or on-chain
+        // Store the mapping in storage
         
         // Check if the account exists
         if let None = self.get_account(address).await? {

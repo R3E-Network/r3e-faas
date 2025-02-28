@@ -1,0 +1,145 @@
+# Default values for r3e-faas.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  environment: production
+  logLevel: info
+
+api:
+  replicaCount: 2
+  image:
+    repository: r3e-faas/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    path: /health
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    path: /ready
+
+worker:
+  replicaCount: 3
+  image:
+    repository: r3e-faas/worker
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 2
+      memory: 2Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    path: /health
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    path: /ready
+  maxConcurrentFunctions: 10
+  functionTimeoutSeconds: 30
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: api.r3e-faas.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: r3e-api-tls
+      hosts:
+        - api.r3e-faas.example.com
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 6.2-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: r3e-storage
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: 14-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 5432
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: r3e-storage
+  env:
+    POSTGRES_USER: postgres
+    # Password should be provided via Kubernetes secrets
+    # Password is managed via Kubernetes secrets
+    POSTGRES_DB: r3e_faas
+  auth:
+    # This section is used for secure password management
+    # The actual password will be generated during deployment
+    # or provided via external secrets management
+
+storage:
+  storageClass: r3e-storage
+  rocksdb:
+    enabled: true
+    size: 50Gi
+
+config:
+  neo:
+    rpcUrl: http://neo-node:10332
+  ethereum:
+    rpcUrl: http://ethereum-node:8545

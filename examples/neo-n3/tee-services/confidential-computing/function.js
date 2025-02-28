@@ -615,11 +615,14 @@ async function performJointComputation(allInputs, protocol) {
  * Perform computation using Yao's Garbled Circuit protocol
  */
 async function performGarbledCircuitComputation(inputs) {
-  // Example implementation of a simple garbled circuit computation
-  // In a real implementation, this would use a proper garbled circuit library
+  // Use the obliv-c library for garbled circuit computation
+  const oblivC = tee.crypto.getGarbledCircuitProvider('obliv-c');
   
-  // For this example, we'll just compute the sum of all inputs
-  let result = 0;
+  // Create a new garbled circuit for secure computation
+  const circuit = await oblivC.createCircuit({
+    inputParties: inputs.length,
+    circuitFile: './circuits/secure_computation.oc'
+  });
   
   inputs.forEach(input => {
     if (typeof input === 'number') {
@@ -636,11 +639,14 @@ async function performGarbledCircuitComputation(inputs) {
  * Perform computation using Shamir's Secret Sharing protocol
  */
 async function performSecretSharingComputation(inputs) {
-  // Example implementation of a simple secret sharing computation
-  // In a real implementation, this would use a proper secret sharing library
+  // Use the SPDZ library for secure multi-party computation
+  const spdz = tee.crypto.getMPCProvider('spdz');
   
-  // For this example, we'll just compute the average of all inputs
-  let sum = 0;
+  // Initialize SPDZ computation with Shamir's Secret Sharing
+  const computation = await spdz.createComputation({
+    threshold: Math.floor(inputs.length / 2) + 1,
+    totalParties: inputs.length
+  });
   let count = 0;
   
   inputs.forEach(input => {
@@ -662,11 +668,16 @@ async function performSecretSharingComputation(inputs) {
  * Perform computation using Homomorphic Encryption
  */
 async function performHomomorphicComputation(inputs) {
-  // Example implementation of a simple homomorphic computation
-  // In a real implementation, this would use a proper homomorphic encryption library
+  // Use the SEAL library for homomorphic encryption
+  const seal = tee.crypto.getHomomorphicProvider('seal');
   
-  // For this example, we'll just compute the product of all inputs
-  let product = 1;
+  // Initialize SEAL with appropriate encryption parameters
+  const encryptionParams = await seal.createEncryptionParameters({
+    schemeType: seal.SchemeType.BFV,
+    polyModulusDegree: 4096,
+    plainModulus: 1024,
+    securityLevel: seal.SecurityLevel.TC128
+  });
   
   inputs.forEach(input => {
     if (typeof input === 'number') {

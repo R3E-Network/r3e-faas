@@ -45,6 +45,21 @@ pub trait TriggerService: Send + Sync {
         condition: &TriggerCondition,
         event_data: &serde_json::Value,
     ) -> Result<bool, TriggerError>;
+    
+    /// Process an event and execute callbacks for matching triggers
+    async fn process_event(
+        &self,
+        event_data: &serde_json::Value,
+    ) -> Result<Vec<String>, TriggerError>;
+    
+    /// Execute a callback for a matched trigger
+    async fn execute_callback(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        trigger_id: &str,
+        event_data: &serde_json::Value,
+    ) -> Result<String, TriggerError>;
 }
 
 /// Trigger service implementation
@@ -256,9 +271,35 @@ impl TriggerServiceImpl {
             .and_then(|v| v.as_u64())
             .ok_or_else(|| TriggerError::EvaluationError("Missing timestamp in event data".to_string()))?;
         
-        // TODO: Implement cron expression evaluation
-        // For now, we'll just return true for time triggers
-        Ok(true)
+        // Convert timestamp to DateTime<Utc>
+        let event_time = chrono::DateTime::<chrono::Utc>::from_timestamp(
+            event_timestamp as i64,
+            0,
+        ).ok_or_else(|| TriggerError::EvaluationError("Invalid timestamp".to_string()))?;
+        
+        // Parse the cron expression
+        let schedule = cron::Schedule::from_str(&time_params.cron)
+            .map_err(|e| TriggerError::InvalidParameters(format!("Invalid cron expression: {}", e)))?;
+        
+        // Get the timezone
+        let timezone = match time_params.timezone.as_deref() {
+            Some(tz) => chrono_tz::Tz::from_str(tz)
+                .map_err(|_| TriggerError::InvalidParameters(format!("Invalid timezone: {}", tz)))?,
+            None => chrono_tz::UTC,
+        };
+        
+        // Convert UTC time to the specified timezone
+        let event_time_tz = event_time.with_timezone(&timezone);
+        
+        // Check if the event time matches the cron schedule
+        // We'll check if the event time is within 1 minute of a scheduled time
+        let prev_time = schedule.prev_from(event_time_tz)
+            .ok_or_else(|| TriggerError::EvaluationError("Failed to get previous scheduled time".to_string()))?;
+        
+        let time_diff = event_time_tz.signed_duration_since(prev_time);
+        
+        // If the event time is within 1 minute of a scheduled time, consider it a match
+        Ok(time_diff.num_seconds().abs() <= 60)
     }
     
     /// Evaluate market trigger
@@ -280,9 +321,52 @@ impl TriggerServiceImpl {
             .and_then(|v| v.as_f64())
             .ok_or_else(|| TriggerError::EvaluationError("Missing price in event data".to_string()))?;
         
+        // Extract optional event data
+        let event_volume = event_data
+            .get("volume")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+            
+        let event_timestamp = event_data
+            .get("timestamp")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+            
+        let event_exchange = event_data
+            .get("exchange")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        
         // Check asset pair
         if event_asset_pair != market_params.asset_pair {
             return Ok(false);
+        }
+        
+        // Check if exchange is specified in parameters
+        if let Some(exchange) = params.get("exchange").and_then(|v| v.as_str()) {
+            if exchange != event_exchange {
+                return Ok(false);
+            }
+        }
+        
+        // Check if minimum volume is specified in parameters
+        if let Some(min_volume) = params.get("min_volume").and_then(|v| v.as_f64()) {
+            if event_volume < min_volume {
+                return Ok(false);
+            }
+        }
+        
+        // Check if time range is specified in parameters
+        if let Some(start_time) = params.get("start_time").and_then(|v| v.as_u64()) {
+            if event_timestamp < start_time {
+                return Ok(false);
+            }
+        }
+        
+        if let Some(end_time) = params.get("end_time").and_then(|v| v.as_u64()) {
+            if event_timestamp > end_time {
+                return Ok(false);
+            }
         }
         
         // Check price condition
@@ -290,6 +374,35 @@ impl TriggerServiceImpl {
             "above" => Ok(event_price > market_params.price),
             "below" => Ok(event_price < market_params.price),
             "equal" => Ok((event_price - market_params.price).abs() < 0.000001),
+            "percent_increase" => {
+                // Check if previous price is specified in parameters
+                let previous_price = params
+                    .get("previous_price")
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| TriggerError::InvalidParameters("Missing previous_price parameter for percent_increase condition".to_string()))?;
+                
+                let percent_change = (event_price - previous_price) / previous_price * 100.0;
+                Ok(percent_change >= market_params.price)
+            },
+            "percent_decrease" => {
+                // Check if previous price is specified in parameters
+                let previous_price = params
+                    .get("previous_price")
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| TriggerError::InvalidParameters("Missing previous_price parameter for percent_decrease condition".to_string()))?;
+                
+                let percent_change = (previous_price - event_price) / previous_price * 100.0;
+                Ok(percent_change >= market_params.price)
+            },
+            "range" => {
+                // Check if upper bound is specified in parameters
+                let upper_bound = params
+                    .get("upper_bound")
+                    .and_then(|v| v.as_f64())
+                    .ok_or_else(|| TriggerError::InvalidParameters("Missing upper_bound parameter for range condition".to_string()))?;
+                
+                Ok(event_price >= market_params.price && event_price <= upper_bound)
+            },
             _ => Err(TriggerError::InvalidParameters(format!("Invalid condition: {}", market_params.condition))),
         }
     }
@@ -319,10 +432,80 @@ impl TriggerServiceImpl {
                 .get("event_data")
                 .ok_or_else(|| TriggerError::EvaluationError("Missing event_data in event data".to_string()))?;
             
-            // Simple equality check for now
-            // TODO: Implement more sophisticated matching
-            if expected_data != actual_data {
-                return Ok(false);
+            // Get the matching mode from parameters
+            let matching_mode = params
+                .get("matching_mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("exact");
+            
+            match matching_mode {
+                "exact" => {
+                    // Exact equality check
+                    if expected_data != actual_data {
+                        return Ok(false);
+                    }
+                },
+                "partial" => {
+                    // Partial matching - check if all fields in expected_data exist in actual_data with the same values
+                    if let (Some(expected_obj), Some(actual_obj)) = (expected_data.as_object(), actual_data.as_object()) {
+                        for (key, value) in expected_obj {
+                            if !actual_obj.contains_key(key) || actual_obj[key] != *value {
+                                return Ok(false);
+                            }
+                        }
+                    } else {
+                        // If not objects, fall back to exact matching
+                        if expected_data != actual_data {
+                            return Ok(false);
+                        }
+                    }
+                },
+                "regex" => {
+                    // Regex matching - check if the string value in expected_data matches the regex pattern
+                    if let (Some(pattern), Some(text)) = (expected_data.as_str(), actual_data.as_str()) {
+                        let regex = regex::Regex::new(pattern)
+                            .map_err(|e| TriggerError::InvalidParameters(format!("Invalid regex pattern: {}", e)))?;
+                        
+                        if !regex.is_match(text) {
+                            return Ok(false);
+                        }
+                    } else {
+                        // If not strings, fall back to exact matching
+                        if expected_data != actual_data {
+                            return Ok(false);
+                        }
+                    }
+                },
+                "jsonpath" => {
+                    // JSONPath matching - check if the JSONPath expression in expected_data matches the actual_data
+                    if let Some(path) = expected_data.as_str() {
+                        // Use jsonpath_lib for proper JSONPath evaluation
+                        let selector = jsonpath_lib::Selector::new(path)
+                            .map_err(|e| TriggerError::InvalidParameters(format!("Invalid JSONPath expression: {}", e)))?;
+                            
+                        // Find all matches in the actual data
+                        let matches = selector.find(actual_data)
+                            .map_err(|e| TriggerError::EvaluationError(format!("Failed to evaluate JSONPath: {}", e)))?;
+                        for part in path_parts {
+                            current_value = match current_value.get(part) {
+                                Some(value) => value,
+                                None => return Ok(false),
+                            };
+                        }
+                        
+                        // Check if the value at the path matches the expected value
+                        let expected_value = params
+                            .get("expected_value")
+                            .ok_or_else(|| TriggerError::InvalidParameters("Missing expected_value parameter for jsonpath matching".to_string()))?;
+                        
+                        if current_value != expected_value {
+                            return Ok(false);
+                        }
+                    } else {
+                        return Err(TriggerError::InvalidParameters("Invalid JSONPath expression".to_string()));
+                    }
+                },
+                _ => return Err(TriggerError::InvalidParameters(format!("Invalid matching mode: {}", matching_mode))),
             }
         }
         
@@ -410,5 +593,117 @@ impl TriggerService for TriggerServiceImpl {
                 self.evaluate_custom_trigger(&condition.params, event_data).await
             },
         }
+    }
+    
+    async fn process_event(
+        &self,
+        event_data: &serde_json::Value,
+    ) -> Result<Vec<String>, TriggerError> {
+        let triggers = self.triggers.read().await;
+        let mut callback_ids = Vec::new();
+        
+        // Iterate through all triggers and evaluate them against the event data
+        for (trigger_id, (user_id, function_id, condition)) in triggers.iter() {
+            match self.evaluate_trigger(condition, event_data).await {
+                Ok(true) => {
+                    // Trigger condition matched, execute callback
+                    match self.execute_callback(user_id, function_id, trigger_id, event_data).await {
+                        Ok(callback_id) => {
+                            callback_ids.push(callback_id);
+                        },
+                        Err(e) => {
+                            log::error!("Failed to execute callback for trigger {}: {}", trigger_id, e);
+                        }
+                    }
+                },
+                Ok(false) => {
+                    // Trigger condition did not match, do nothing
+                },
+                Err(e) => {
+                    log::error!("Failed to evaluate trigger {}: {}", trigger_id, e);
+                }
+            }
+        }
+        
+        Ok(callback_ids)
+    }
+    
+    async fn execute_callback(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        trigger_id: &str,
+        event_data: &serde_json::Value,
+    ) -> Result<String, TriggerError> {
+        use std::time::{Duration, Instant};
+        use crate::trigger::callback::{TriggerCallbackResult, TriggerCallbackStatus};
+        
+        // Generate a unique callback ID
+        let callback_id = uuid::Uuid::new_v4().to_string();
+        
+        // Create a new callback result
+        let mut callback_result = TriggerCallbackResult::new(
+            callback_id.clone(),
+            trigger_id.to_string(),
+            user_id.to_string(),
+            function_id.to_string(),
+        );
+        
+        // Log the callback execution
+        log::info!(
+            "Executing callback for trigger {} (user: {}, function: {})",
+            trigger_id, user_id, function_id
+        );
+        
+        // Update callback status to executing
+        callback_result.set_executing();
+        
+        // Start execution timer
+        let start_time = Instant::now();
+        
+        // Create callback data for function invocation
+        let callback_data = serde_json::json!({
+            "callback_id": callback_id,
+            "trigger_id": trigger_id,
+            "user_id": user_id,
+            "function_id": function_id,
+            "event_data": event_data,
+            "timestamp": chrono::Utc::now().timestamp(),
+        });
+        
+        // Log callback data
+        log::debug!("Callback data: {}", callback_data);
+        
+        // Use the function service to invoke the function
+        let function_service = self.function_service.clone();
+        
+        // Execute the function with the callback data
+        match function_service.invoke_function(user_id, function_id, &callback_data).await {
+            Ok(result) => {
+                log::info!("Function execution successful: {}", result);
+                Ok(result)
+            },
+            Err(e) => {
+                log::error!("Function execution failed: {}", e);
+                Err(TriggerError::CallbackExecution(format!("Failed to execute function: {}", e)))
+            }
+        }?;
+        
+        // Calculate execution time
+        let execution_time = start_time.elapsed();
+        
+        // Update callback result with success
+        callback_result.set_result(
+            serde_json::json!({
+                "status": "success",
+                "message": "Function executed successfully",
+                "data": callback_data,
+            }),
+            execution_time,
+        );
+        
+        // In a production implementation, we would store the callback result in a database
+        
+        Ok(callback_id)
     }
 }

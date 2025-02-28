@@ -134,11 +134,29 @@ impl SimulatedEnclave {
         input: &serde_json::Value,
         options: &ExecutionOptions,
     ) -> Result<(serde_json::Value, ExecutionStats), TeeError> {
-        // In a real implementation, this would use a secure JavaScript runtime
-        // For simulation, we'll use deno_core to execute the code
-        
-        // Create a new runtime
-        let mut runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions::default());
+        // Create a secure JavaScript runtime with TEE-specific options
+        let mut runtime_options = deno_core::RuntimeOptions {
+            will_snapshot: false, // Disable snapshotting for security
+            module_loader: Some(Arc::new(deno_core::FsModuleLoader)), // Use filesystem module loader
+            extensions: vec![
+                deno_webidl::init(),
+                deno_console::init(),
+                deno_crypto::init(), // For cryptographic operations
+                deno_tls::init(), // For secure communication
+            ],
+            ..Default::default()
+        };
+
+        // Add TEE-specific V8 flags for security
+        runtime_options.v8_flags = vec![
+            "--no-expose-wasm".to_string(), // Disable WebAssembly
+            "--jitless".to_string(), // Disable JIT compilation
+            "--no-opt".to_string(), // Disable optimization
+            "--secure-heap".to_string(), // Enable secure heap
+        ];
+
+        // Create runtime with secure options
+        let mut runtime = deno_core::JsRuntime::new(runtime_options);
         
         // Prepare the input
         let input_json = serde_json::to_string(input).map_err(|e| {

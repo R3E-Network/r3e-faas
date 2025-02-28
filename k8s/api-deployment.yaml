@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: r3e-api
+  namespace: r3e-faas
+  labels:
+    app: r3e-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: r3e-api
+  template:
+    metadata:
+      labels:
+        app: r3e-api
+    spec:
+      containers:
+      - name: r3e-api
+        image: r3e-faas/api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: RUST_LOG
+          value: "info"
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: redis_url
+        - name: STORAGE_PATH
+          value: "/data/rocksdb"
+        - name: NEO_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: neo_rpc_url
+        - name: ETHEREUM_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: ethereum_rpc_url
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        volumeMounts:
+        - name: rocksdb-storage
+          mountPath: /data/rocksdb
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: rocksdb-storage
+        persistentVolumeClaim:
+          claimName: rocksdb-pvc

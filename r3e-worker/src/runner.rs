@@ -53,11 +53,17 @@ impl Runner {
             max_runtimes,
             sandbox_config,
             balance_service: None,
+            sandbox_config: None,
         }
     }
     
     pub fn with_balance_service(mut self, balance_service: Arc<dyn BalanceServiceTrait>) -> Self {
         self.balance_service = Some(balance_service);
+        self
+    }
+    
+    pub fn with_sandbox_config(mut self, sandbox_config: SandboxConfig) -> Self {
+        self.sandbox_config = sandbox_config;
         self
     }
 
@@ -109,9 +115,24 @@ impl Runner {
                 let user_id = uid.to_string();
                 let function_id = fid.to_string();
                 
-                // Calculate gas amount based on execution time
-                // This is a simple calculation, in a real implementation this would be more sophisticated
-                let gas_amount = (elapsed.as_millis() as u64) * 10; // 10 gas per millisecond
+                // Calculate gas amount based on execution time and resource usage
+                let gas_amount = {
+                    // Base cost for function execution
+                    let base_cost: u64 = 1000;
+                    
+                    // Time-based cost (5 gas per millisecond)
+                    let time_cost = elapsed.as_millis() as u64 * 5;
+                    
+                    // Memory usage cost (1 gas per KB)
+                    let memory_kb = run_cx.runtime.get_heap_stats().total_heap_size / 1024;
+                    let memory_cost = memory_kb as u64;
+                    
+                    // Total cost with caps
+                    std::cmp::min(
+                        base_cost + time_cost + memory_cost,
+                        self.sandbox_config.max_execution_time.as_millis() as u64 * 10
+                    )
+                };
                 
                 match balance_service.charge_for_execution(&user_id, &function_id, gas_amount).await {
                     Ok(transaction) => {
@@ -179,9 +200,26 @@ impl Runner {
                 }
             };
             
-            // Check if user has enough GAS balance
-            // This is a simple check, in a real implementation this would be more sophisticated
-            if balance.gas_balance < 1000 { // Minimum required balance
+            // Check if user has enough GAS balance for function execution
+            let required_balance = {
+                // Base requirement for function execution
+                let base_requirement: u64 = 1000;
+                
+                // Additional requirement based on function complexity
+                let complexity_requirement = match fn_code.complexity_score {
+                    Some(score) => score * 100,
+                    None => 500 // Default if complexity score not available
+                };
+                
+                // Additional requirement based on estimated resource usage
+                let resource_requirement = 
+                    (self.sandbox_config.max_heap_size / (1024 * 1024)) as u64 * 100 +  // 100 per MB of max heap
+                    self.sandbox_config.max_execution_time.as_secs() * 1000;             // 1000 per second of max time
+                
+                base_requirement + complexity_requirement + resource_requirement
+            };
+            
+            if balance.gas_balance < required_balance {
                 return Err(ExecError::OnLoad(format!(
                     "Insufficient GAS balance to run function: {} < 1000",
                     balance.gas_balance

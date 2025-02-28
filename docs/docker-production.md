@@ -1,195 +1,449 @@
-# Docker Production Deployment
+# Docker Production Guide for R3E FaaS
 
-This guide explains how to deploy the R3E FaaS platform in a production environment using Docker.
+This guide provides detailed instructions for deploying the R3E FaaS platform in a production environment using Docker.
 
 ## Prerequisites
 
-- Docker 20.10 or later
-- Docker Compose 2.0 or later
-- A server with at least 2GB RAM and 2 CPU cores
+Before deploying the R3E FaaS platform in production, ensure you have the following prerequisites:
 
-## Deployment Options
+- **Docker**: Latest version
+- **Docker Compose**: Latest version
+- **Docker Swarm** or **Kubernetes**: For orchestration (optional but recommended)
+- **SSL Certificate**: For secure communication
+- **Domain Name**: For accessing the platform
 
-There are several ways to deploy the R3E FaaS platform:
+## Production Deployment
 
-1. **Single Container**: Simple deployment with all components in one container
-2. **Docker Compose**: Multi-container deployment with separate services
-3. **Kubernetes**: Scalable deployment with orchestration
-
-## Single Container Deployment
-
-### Building the Docker Image
+### 1. Clone the Repository
 
 ```bash
-# Clone the repository
 git clone https://github.com/R3E-Network/r3e-faas.git
 cd r3e-faas
-
-# Build the Docker image
-docker build -t r3e-faas:latest .
 ```
 
-### Running the Container
+### 2. Configure the Platform
+
+Create a `.env` file for production configuration:
 
 ```bash
-# Create a data directory
-mkdir -p /var/lib/r3e-faas
+cat > .env << EOL
+# General Configuration
+R3E_FAAS__GENERAL__ENVIRONMENT=production
+R3E_FAAS__GENERAL__LOG_LEVEL=info
 
-# Run the container
-docker run -d \
-  --name r3e-faas \
-  -p 8080:8080 \
-  -v /var/lib/r3e-faas:/data \
-  -e R3E_FAAS__GENERAL__ENVIRONMENT=production \
-  -e R3E_FAAS__STORAGE__STORAGE_TYPE=rocksdb \
-  -e R3E_FAAS__STORAGE__ROCKSDB_PATH=/data/db \
-  r3e-faas:latest
+# API Configuration
+R3E_FAAS__API__PORT=8080
+R3E_FAAS__API__HOST=0.0.0.0
+R3E_FAAS__API__CORS_ALLOWED_ORIGINS=https://your-domain.com
+R3E_FAAS__API__REQUEST_TIMEOUT=30
+
+# Storage Configuration
+R3E_FAAS__STORAGE__TYPE=rocksdb
+R3E_FAAS__STORAGE__PATH=/data/rocksdb
+
+# Neo Configuration
+R3E_FAAS__NEO__RPC_URL=https://mainnet.rpc.neo.org
+R3E_FAAS__NEO__NETWORK=mainnet
+R3E_FAAS__NEO__GAS_BANK_CONTRACT=0x1234567890abcdef1234567890abcdef12345678
+R3E_FAAS__NEO__META_TX_CONTRACT=0x1234567890abcdef1234567890abcdef12345678
+
+# Ethereum Configuration
+R3E_FAAS__ETHEREUM__RPC_URL=https://mainnet.infura.io/v3/your-api-key
+R3E_FAAS__ETHEREUM__NETWORK=mainnet
+R3E_FAAS__ETHEREUM__GAS_BANK_CONTRACT=0x1234567890abcdef1234567890abcdef12345678
+R3E_FAAS__ETHEREUM__META_TX_CONTRACT=0x1234567890abcdef1234567890abcdef12345678
+
+# Worker Configuration
+R3E_FAAS__WORKER__MAX_CONCURRENT_FUNCTIONS=20
+R3E_FAAS__WORKER__FUNCTION_TIMEOUT=60
+R3E_FAAS__WORKER__MEMORY_LIMIT=1024
+
+# ZK Configuration
+R3E_FAAS__ZK__PROVIDER=zokrates
+R3E_FAAS__ZK__STORAGE_TYPE=rocksdb
+R3E_FAAS__ZK__STORAGE_PATH=/data/zk
+R3E_FAAS__ZK__MAX_CIRCUIT_SIZE=10485760
+R3E_FAAS__ZK__TIMEOUT=300
+
+# FHE Configuration
+R3E_FAAS__FHE__SCHEME=tfhe
+R3E_FAAS__FHE__STORAGE_TYPE=rocksdb
+R3E_FAAS__FHE__STORAGE_PATH=/data/fhe
+R3E_FAAS__FHE__MAX_CIPHERTEXT_SIZE=10485760
+R3E_FAAS__FHE__TIMEOUT=300
+
+# TEE Configuration
+R3E_FAAS__TEE__PROVIDER=nitro
+R3E_FAAS__TEE__ATTESTATION_URL=https://attestation.example.com
+R3E_FAAS__TEE__ATTESTATION_TIMEOUT=30
+EOL
 ```
 
-### Updating the Container
+### 3. Production Docker Compose Configuration
 
-```bash
-# Pull the latest image
-docker pull r3e-faas:latest
-
-# Stop and remove the old container
-docker stop r3e-faas
-docker rm r3e-faas
-
-# Run the new container
-docker run -d \
-  --name r3e-faas \
-  -p 8080:8080 \
-  -v /var/lib/r3e-faas:/data \
-  -e R3E_FAAS__GENERAL__ENVIRONMENT=production \
-  -e R3E_FAAS__STORAGE__STORAGE_TYPE=rocksdb \
-  -e R3E_FAAS__STORAGE__ROCKSDB_PATH=/data/db \
-  r3e-faas:latest
-```
-
-## Docker Compose Deployment
-
-### Creating the Docker Compose File
-
-Create a `docker-compose.yml` file:
+The repository includes a `docker-compose.prod.yml` file specifically configured for production:
 
 ```yaml
 version: '3.8'
 
 services:
   api:
-    image: r3e-faas:latest
-    command: ["r3e", "api", "--config", "/config/r3e-faas.yaml"]
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: production
+    image: r3e-faas/api:latest
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/data
-      - ./config:/config
-    environment:
-      - R3E_FAAS__GENERAL__ENVIRONMENT=production
-      - R3E_FAAS__STORAGE__STORAGE_TYPE=rocksdb
-      - R3E_FAAS__STORAGE__ROCKSDB_PATH=/data/db
-    restart: unless-stopped
+      - r3e-data:/data
+    env_file:
+      - .env
+    restart: always
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       - worker
 
   worker:
-    image: r3e-faas:latest
-    command: ["r3e", "worker", "--config", "/config/r3e-faas.yaml"]
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+      target: production
+    image: r3e-faas/worker:latest
     volumes:
-      - ./data:/data
-      - ./config:/config
-    environment:
-      - R3E_FAAS__GENERAL__ENVIRONMENT=production
-      - R3E_FAAS__STORAGE__STORAGE_TYPE=rocksdb
-      - R3E_FAAS__STORAGE__ROCKSDB_PATH=/data/db
-    restart: unless-stopped
+      - r3e-data:/data
+    env_file:
+      - .env
+    restart: always
+    deploy:
+      replicas: 4
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/www:/var/www/html
+    depends_on:
+      - api
+    restart: always
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+
+volumes:
+  r3e-data:
+    driver: local
+```
+
+### 4. NGINX Configuration
+
+Create an NGINX configuration for SSL termination and reverse proxy:
+
+```bash
+mkdir -p nginx/conf.d
+cat > nginx/conf.d/r3e-faas.conf << EOL
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    location / {
+        proxy_pass http://api:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/v1/docs {
+        proxy_pass http://api:8080/api/v1/docs;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/v1/health {
+        proxy_pass http://api:8080/api/v1/health;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOL
+```
+
+### 5. SSL Certificate
+
+Place your SSL certificate files in the `nginx/ssl` directory:
+
+```bash
+mkdir -p nginx/ssl
+# Copy your SSL certificate files to nginx/ssl/fullchain.pem and nginx/ssl/privkey.pem
+```
+
+### 6. Start the Production Environment
+
+```bash
+# Start the production environment
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### 7. Verify the Deployment
+
+```bash
+# Check if the services are running
+docker-compose -f docker-compose.prod.yml ps
+
+# Check the logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Check the health of the API
+curl https://your-domain.com/api/v1/health
+```
+
+## Docker Swarm Deployment
+
+For high availability and scalability, you can deploy the R3E FaaS platform using Docker Swarm:
+
+### 1. Initialize Docker Swarm
+
+```bash
+# Initialize Docker Swarm
+docker swarm init
+
+# Or specify the advertise address
+docker swarm init --advertise-addr <IP_ADDRESS>
+```
+
+### 2. Create a Docker Stack File
+
+```bash
+cat > docker-stack.yml << EOL
+version: '3.8'
+
+services:
+  api:
+    image: r3e-faas/api:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - r3e-data:/data
+    env_file:
+      - .env
     deploy:
       replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - worker
 
-  scheduler:
-    image: r3e-faas:latest
-    command: ["r3e", "scheduler", "--config", "/config/r3e-faas.yaml"]
+  worker:
+    image: r3e-faas/worker:latest
     volumes:
-      - ./data:/data
-      - ./config:/config
-    environment:
-      - R3E_FAAS__GENERAL__ENVIRONMENT=production
-      - R3E_FAAS__STORAGE__STORAGE_TYPE=rocksdb
-      - R3E_FAAS__STORAGE__ROCKSDB_PATH=/data/db
-    restart: unless-stopped
+      - r3e-data:/data
+    env_file:
+      - .env
+    deploy:
+      replicas: 4
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/www:/var/www/html
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+
+volumes:
+  r3e-data:
+    driver: local
+EOL
 ```
 
-### Running Docker Compose
+### 3. Deploy the Stack
 
 ```bash
-# Create the necessary directories
-mkdir -p data config
+# Build the images
+docker-compose -f docker-compose.prod.yml build
 
-# Create a configuration file
-cp config/r3e-faas.example.yaml config/r3e-faas.yaml
-
-# Edit the configuration file
-nano config/r3e-faas.yaml
-
-# Start the services
-docker-compose up -d
+# Deploy the stack
+docker stack deploy -c docker-stack.yml r3e-faas
 ```
 
-### Scaling Workers
+### 4. Verify the Deployment
 
 ```bash
-# Scale up workers
-docker-compose up --scale worker=4 -d
+# Check the stack
+docker stack ps r3e-faas
+
+# Check the services
+docker service ls
+
+# Check the logs
+docker service logs r3e-faas_api
 ```
 
 ## Kubernetes Deployment
 
-For production deployments at scale, Kubernetes is recommended.
+For enterprise-grade deployment, you can use Kubernetes:
 
-### Prerequisites
+### 1. Create Kubernetes Manifests
 
-- Kubernetes cluster
-- kubectl configured
-- Helm (optional)
-
-### Deployment Steps
-
-1. Create a namespace:
+Create a directory for Kubernetes manifests:
 
 ```bash
-kubectl create namespace r3e-faas
+mkdir -p k8s
 ```
 
-2. Create a ConfigMap for configuration:
+#### Namespace
 
 ```bash
-kubectl create configmap r3e-faas-config --from-file=config/r3e-faas.yaml -n r3e-faas
+cat > k8s/namespace.yaml << EOL
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: r3e-faas
+EOL
 ```
 
-3. Create a PersistentVolumeClaim for data:
+#### ConfigMap
 
 ```bash
-kubectl apply -f kubernetes/pvc.yaml
+cat > k8s/configmap.yaml << EOL
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: r3e-faas-config
+  namespace: r3e-faas
+data:
+  R3E_FAAS__GENERAL__ENVIRONMENT: "production"
+  R3E_FAAS__GENERAL__LOG_LEVEL: "info"
+  R3E_FAAS__API__PORT: "8080"
+  R3E_FAAS__API__HOST: "0.0.0.0"
+  R3E_FAAS__API__CORS_ALLOWED_ORIGINS: "https://your-domain.com"
+  R3E_FAAS__API__REQUEST_TIMEOUT: "30"
+  R3E_FAAS__STORAGE__TYPE: "rocksdb"
+  R3E_FAAS__STORAGE__PATH: "/data/rocksdb"
+  R3E_FAAS__WORKER__MAX_CONCURRENT_FUNCTIONS: "20"
+  R3E_FAAS__WORKER__FUNCTION_TIMEOUT: "60"
+  R3E_FAAS__WORKER__MEMORY_LIMIT: "1024"
+EOL
 ```
 
-4. Deploy the services:
+#### Secret
 
 ```bash
-kubectl apply -f kubernetes/deployment.yaml
+cat > k8s/secret.yaml << EOL
+apiVersion: v1
+kind: Secret
+metadata:
+  name: r3e-faas-secret
+  namespace: r3e-faas
+type: Opaque
+data:
+  # Base64 encoded values
+  R3E_FAAS__NEO__RPC_URL: "aHR0cHM6Ly9tYWlubmV0LnJwYy5uZW8ub3Jn"
+  R3E_FAAS__NEO__NETWORK: "bWFpbm5ldA=="
+  R3E_FAAS__NEO__GAS_BANK_CONTRACT: "MHgxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5MGFiY2RlZjEyMzQ1Njc4"
+  R3E_FAAS__NEO__META_TX_CONTRACT: "MHgxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5MGFiY2RlZjEyMzQ1Njc4"
+  R3E_FAAS__ETHEREUM__RPC_URL: "aHR0cHM6Ly9tYWlubmV0LmluZnVyYS5pby92My95b3VyLWFwaS1rZXk="
+  R3E_FAAS__ETHEREUM__NETWORK: "bWFpbm5ldA=="
+  R3E_FAAS__ETHEREUM__GAS_BANK_CONTRACT: "MHgxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5MGFiY2RlZjEyMzQ1Njc4"
+  R3E_FAAS__ETHEREUM__META_TX_CONTRACT: "MHgxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5MGFiY2RlZjEyMzQ1Njc4"
+EOL
 ```
 
-5. Expose the API service:
+#### Persistent Volume Claim
 
 ```bash
-kubectl apply -f kubernetes/service.yaml
-```
-
-### Example Kubernetes Files
-
-#### pvc.yaml
-
-```yaml
+cat > k8s/pvc.yaml << EOL
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -201,140 +455,135 @@ spec:
   resources:
     requests:
       storage: 10Gi
+EOL
 ```
 
-#### deployment.yaml
+#### API Deployment
 
-```yaml
+```bash
+cat > k8s/api-deployment.yaml << EOL
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: r3e-faas-api
   namespace: r3e-faas
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: r3e-faas
-      component: api
+      app: r3e-faas-api
   template:
     metadata:
       labels:
-        app: r3e-faas
-        component: api
+        app: r3e-faas-api
     spec:
       containers:
       - name: api
-        image: r3e-faas:latest
-        command: ["r3e", "api", "--config", "/config/r3e-faas.yaml"]
+        image: r3e-faas/api:latest
         ports:
         - containerPort: 8080
         volumeMounts:
-        - name: config
-          mountPath: /config
-        - name: data
+        - name: r3e-faas-data
           mountPath: /data
-        env:
-        - name: R3E_FAAS__GENERAL__ENVIRONMENT
-          value: production
-        - name: R3E_FAAS__STORAGE__STORAGE_TYPE
-          value: rocksdb
-        - name: R3E_FAAS__STORAGE__ROCKSDB_PATH
-          value: /data/db
+        envFrom:
+        - configMapRef:
+            name: r3e-faas-config
+        - secretRef:
+            name: r3e-faas-secret
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       volumes:
-      - name: config
-        configMap:
-          name: r3e-faas-config
-      - name: data
+      - name: r3e-faas-data
         persistentVolumeClaim:
           claimName: r3e-faas-data
----
+EOL
+```
+
+#### Worker Deployment
+
+```bash
+cat > k8s/worker-deployment.yaml << EOL
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: r3e-faas-worker
   namespace: r3e-faas
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
-      app: r3e-faas
-      component: worker
+      app: r3e-faas-worker
   template:
     metadata:
       labels:
-        app: r3e-faas
-        component: worker
+        app: r3e-faas-worker
     spec:
       containers:
       - name: worker
-        image: r3e-faas:latest
-        command: ["r3e", "worker", "--config", "/config/r3e-faas.yaml"]
+        image: r3e-faas/worker:latest
         volumeMounts:
-        - name: config
-          mountPath: /config
-        - name: data
+        - name: r3e-faas-data
           mountPath: /data
-        env:
-        - name: R3E_FAAS__GENERAL__ENVIRONMENT
-          value: production
-        - name: R3E_FAAS__STORAGE__STORAGE_TYPE
-          value: rocksdb
-        - name: R3E_FAAS__STORAGE__ROCKSDB_PATH
-          value: /data/db
+        envFrom:
+        - configMapRef:
+            name: r3e-faas-config
+        - secretRef:
+            name: r3e-faas-secret
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1000m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       volumes:
-      - name: config
-        configMap:
-          name: r3e-faas-config
-      - name: data
+      - name: r3e-faas-data
         persistentVolumeClaim:
           claimName: r3e-faas-data
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: r3e-faas-scheduler
-  namespace: r3e-faas
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: r3e-faas
-      component: scheduler
-  template:
-    metadata:
-      labels:
-        app: r3e-faas
-        component: scheduler
-    spec:
-      containers:
-      - name: scheduler
-        image: r3e-faas:latest
-        command: ["r3e", "scheduler", "--config", "/config/r3e-faas.yaml"]
-        volumeMounts:
-        - name: config
-          mountPath: /config
-        - name: data
-          mountPath: /data
-        env:
-        - name: R3E_FAAS__GENERAL__ENVIRONMENT
-          value: production
-        - name: R3E_FAAS__STORAGE__STORAGE_TYPE
-          value: rocksdb
-        - name: R3E_FAAS__STORAGE__ROCKSDB_PATH
-          value: /data/db
-      volumes:
-      - name: config
-        configMap:
-          name: r3e-faas-config
-      - name: data
-        persistentVolumeClaim:
-          claimName: r3e-faas-data
+EOL
 ```
 
-#### service.yaml
+#### API Service
 
-```yaml
+```bash
+cat > k8s/api-service.yaml << EOL
 apiVersion: v1
 kind: Service
 metadata:
@@ -342,91 +591,188 @@ metadata:
   namespace: r3e-faas
 spec:
   selector:
-    app: r3e-faas
-    component: api
+    app: r3e-faas-api
   ports:
   - port: 8080
     targetPort: 8080
-  type: LoadBalancer
+  type: ClusterIP
+EOL
 ```
 
-## Monitoring and Logging
-
-### Prometheus Metrics
-
-The R3E FaaS platform exposes Prometheus metrics at `/metrics`. You can configure Prometheus to scrape these metrics.
-
-### Logging
-
-Logs are written to stdout/stderr and can be collected by Docker's logging driver or Kubernetes' logging system.
-
-### Health Checks
-
-The API service exposes health check endpoints:
-
-- `/health`: Overall health check
-- `/health/liveness`: Liveness probe
-- `/health/readiness`: Readiness probe
-
-## Security Considerations
-
-### Network Security
-
-- Use a reverse proxy (e.g., Nginx, Traefik) to handle TLS termination
-- Restrict access to the API service using network policies
-- Use a private Docker registry for production images
-
-### Authentication and Authorization
-
-- Enable authentication in the configuration
-- Set a strong JWT secret
-- Use HTTPS for all communications
-
-### Secrets Management
-
-- Use Docker secrets or Kubernetes secrets for sensitive information
-- Do not hardcode secrets in Docker images or configuration files
-- Rotate secrets regularly
-
-## Backup and Recovery
-
-### Data Backup
-
-Regularly backup the data directory:
+#### Ingress
 
 ```bash
-# For Docker
-docker run --rm -v r3e-faas-data:/data -v $(pwd)/backup:/backup alpine tar -czf /backup/r3e-faas-backup-$(date +%Y%m%d).tar.gz -C /data .
-
-# For Kubernetes
-kubectl exec -n r3e-faas $(kubectl get pod -n r3e-faas -l app=r3e-faas,component=api -o jsonpath='{.items[0].metadata.name}') -- tar -czf /tmp/backup.tar.gz -C /data .
-kubectl cp r3e-faas/$(kubectl get pod -n r3e-faas -l app=r3e-faas,component=api -o jsonpath='{.items[0].metadata.name}'):/tmp/backup.tar.gz ./backup/r3e-faas-backup-$(date +%Y%m%d).tar.gz
+cat > k8s/ingress.yaml << EOL
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: r3e-faas-ingress
+  namespace: r3e-faas
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - your-domain.com
+    secretName: r3e-faas-tls
+  rules:
+  - host: your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: r3e-faas-api
+            port:
+              number: 8080
+EOL
 ```
 
-### Recovery
-
-To restore from a backup:
+### 2. Apply the Kubernetes Manifests
 
 ```bash
-# For Docker
-docker run --rm -v r3e-faas-data:/data -v $(pwd)/backup:/backup alpine sh -c "rm -rf /data/* && tar -xzf /backup/r3e-faas-backup-20230101.tar.gz -C /data"
+# Create the namespace
+kubectl apply -f k8s/namespace.yaml
 
-# For Kubernetes
-kubectl cp ./backup/r3e-faas-backup-20230101.tar.gz r3e-faas/$(kubectl get pod -n r3e-faas -l app=r3e-faas,component=api -o jsonpath='{.items[0].metadata.name}'):/tmp/backup.tar.gz
-kubectl exec -n r3e-faas $(kubectl get pod -n r3e-faas -l app=r3e-faas,component=api -o jsonpath='{.items[0].metadata.name}') -- sh -c "rm -rf /data/* && tar -xzf /tmp/backup.tar.gz -C /data"
+# Apply the manifests
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/pvc.yaml
+kubectl apply -f k8s/api-deployment.yaml
+kubectl apply -f k8s/worker-deployment.yaml
+kubectl apply -f k8s/api-service.yaml
+kubectl apply -f k8s/ingress.yaml
 ```
+
+### 3. Verify the Deployment
+
+```bash
+# Check the pods
+kubectl get pods -n r3e-faas
+
+# Check the services
+kubectl get services -n r3e-faas
+
+# Check the ingress
+kubectl get ingress -n r3e-faas
+
+# Check the logs
+kubectl logs -n r3e-faas deployment/r3e-faas-api
+```
+
+## Production Best Practices
+
+### Security
+
+1. **SSL/TLS**: Always use SSL/TLS for production deployments
+2. **Secrets Management**: Use Docker Secrets or Kubernetes Secrets for sensitive information
+3. **Network Security**: Use network policies to restrict traffic
+4. **Container Security**: Use minimal base images and scan for vulnerabilities
+5. **Access Control**: Implement proper authentication and authorization
+
+### Scalability
+
+1. **Horizontal Scaling**: Scale the API and worker services horizontally
+2. **Load Balancing**: Use a load balancer to distribute traffic
+3. **Resource Limits**: Set appropriate resource limits for containers
+4. **Auto Scaling**: Implement auto-scaling based on CPU and memory usage
+5. **Database Scaling**: Consider using a distributed database for large-scale deployments
+
+### Reliability
+
+1. **Health Checks**: Implement health checks for all services
+2. **Restart Policies**: Configure appropriate restart policies
+3. **Backup and Recovery**: Regularly backup data and test recovery procedures
+4. **Monitoring**: Implement comprehensive monitoring
+5. **Logging**: Implement centralized logging
+
+### Monitoring
+
+1. **Prometheus**: Use Prometheus for metrics collection
+2. **Grafana**: Use Grafana for visualization
+3. **Alerting**: Configure alerts for critical issues
+4. **Tracing**: Implement distributed tracing
+5. **Log Aggregation**: Use a log aggregation solution like ELK stack
+
+### Continuous Deployment
+
+1. **CI/CD Pipeline**: Implement a CI/CD pipeline for automated deployments
+2. **Blue-Green Deployment**: Use blue-green deployment for zero-downtime updates
+3. **Canary Releases**: Implement canary releases for gradual rollouts
+4. **Rollback Strategy**: Have a rollback strategy in place
+5. **Testing**: Implement comprehensive testing in the CI/CD pipeline
 
 ## Troubleshooting
 
 ### Common Issues
 
-- **Container won't start**: Check the logs with `docker logs r3e-faas` or `kubectl logs -n r3e-faas <pod-name>`
-- **API not accessible**: Check if the container is running and the port is exposed
-- **Database errors**: Check if the data directory is properly mounted and has the correct permissions
-- **High memory usage**: Adjust the memory limits in the configuration
+#### Container Startup Issues
 
-### Getting Support
+If containers fail to start:
 
-- Check the [GitHub repository](https://github.com/R3E-Network/r3e-faas) for issues and solutions
-- Join the community Discord server for real-time support
-- Contact the R3E Network team for enterprise support
+```bash
+# Check the logs
+docker-compose -f docker-compose.prod.yml logs api
+docker-compose -f docker-compose.prod.yml logs worker
+
+# Check for errors in the configuration
+docker-compose -f docker-compose.prod.yml config
+```
+
+#### Network Issues
+
+If services cannot communicate:
+
+```bash
+# Check the network
+docker network ls
+docker network inspect r3e-faas_default
+
+# Check if the services are running
+docker-compose -f docker-compose.prod.yml ps
+```
+
+#### Storage Issues
+
+If there are storage issues:
+
+```bash
+# Check the volumes
+docker volume ls
+docker volume inspect r3e-faas_r3e-data
+
+# Check the permissions
+docker-compose -f docker-compose.prod.yml run --rm --user root api ls -la /data
+```
+
+#### Performance Issues
+
+If there are performance issues:
+
+```bash
+# Check the resource usage
+docker stats
+
+# Check the logs for slow operations
+docker-compose -f docker-compose.prod.yml logs | grep -i slow
+```
+
+### Getting Help
+
+If you encounter issues not covered in this guide:
+
+- Check the logs for error messages
+- Open an issue on GitHub
+- Join the community chat
+
+## Next Steps
+
+After deploying the R3E FaaS platform in production, you can:
+
+- Set up monitoring and alerting
+- Implement a backup and recovery strategy
+- Configure auto-scaling
+- Implement a CI/CD pipeline
+- Explore advanced deployment options

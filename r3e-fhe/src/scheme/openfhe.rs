@@ -82,12 +82,22 @@ impl OpenFheScheme {
     
     /// Generate OpenFHE parameters based on the provided FHE parameters.
     fn generate_openfhe_params(&self, params: &FheParameters) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to generate parameters
-        // For now, we'll create a placeholder
-        
+        // Generate parameters using the OpenFHE library
         let security_level = params.security_level.unwrap_or(self.default_security_level);
         let polynomial_modulus_degree = params.polynomial_modulus_degree.unwrap_or(self.default_polynomial_modulus_degree);
         let plaintext_modulus = params.plaintext_modulus.unwrap_or(self.default_plaintext_modulus);
+        
+        // Create OpenFHE context with the specified parameters
+        let context = openfhe::Context::new()
+            .with_security_level(security_level)
+            .with_polynomial_modulus_degree(polynomial_modulus_degree)
+            .with_plaintext_modulus(plaintext_modulus)
+            .build()
+            .map_err(|e| FheError::ParameterGenerationError(format!("Failed to generate OpenFHE parameters: {}", e)))?;
+            
+        // Serialize the context parameters
+        let params_data = context.serialize_parameters()
+            .map_err(|e| FheError::ParameterGenerationError(format!("Failed to serialize OpenFHE parameters: {}", e)))?;
         
         // Generate random parameters as a placeholder
         let mut rng = rand::thread_rng();
@@ -108,28 +118,22 @@ impl OpenFheScheme {
     
     /// Encrypt data using OpenFHE.
     fn encrypt_openfhe(&self, public_key_data: &[u8], plaintext: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to encrypt the data
-        // For now, we'll create a placeholder
-        
-        if public_key_data.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid public key data".into()));
-        }
-        
-        let mut rng = rand::thread_rng();
-        let mut ciphertext_data = Vec::with_capacity(plaintext.len() * 2 + 16);
-        
-        // Add metadata
-        ciphertext_data.extend_from_slice(&(plaintext.len() as u32).to_le_bytes());
-        
-        // Add a simple XOR-based encryption as a placeholder
-        // In a real implementation, this would be replaced with actual OpenFHE encryption
-        for (i, &byte) in plaintext.iter().enumerate() {
-            let key_byte = public_key_data[i % public_key_data.len()];
-            let random_byte: u8 = rng.gen();
-            ciphertext_data.push(byte ^ key_byte ^ random_byte);
-            ciphertext_data.push(random_byte);
-        }
-        
+        // Deserialize the public key
+        let public_key = openfhe::PublicKey::deserialize(public_key_data)
+            .map_err(|e| FheError::InvalidInputError(format!("Failed to deserialize public key: {}", e)))?;
+            
+        // Create a plaintext object from the input data
+        let plaintext_obj = openfhe::Plaintext::encode(plaintext)
+            .map_err(|e| FheError::EncryptionError(format!("Failed to encode plaintext: {}", e)))?;
+            
+        // Encrypt the plaintext using OpenFHE
+        let ciphertext = public_key.encrypt(&plaintext_obj)
+            .map_err(|e| FheError::EncryptionError(format!("Failed to encrypt data: {}", e)))?;
+            
+        // Serialize the ciphertext
+        let ciphertext_data = ciphertext.serialize()
+            .map_err(|e| FheError::EncryptionError(format!("Failed to serialize ciphertext: {}", e)))?;
+            
         Ok(ciphertext_data)
     }
     
@@ -459,22 +463,20 @@ impl FheScheme for OpenFheScheme {
         
         let timestamp = Self::current_timestamp();
 
-        // In a real implementation, we would use the OpenFHE library to generate keys
-        // For now, we'll create placeholder keys using the parameters
-        let mut rng = rand::thread_rng();
-        
-        // Generate public key
-        let mut public_key_data = Vec::with_capacity(128);
-        public_key_data.extend_from_slice(&params_data[0..12]); // Use part of the parameters
-        for _ in 0..116 {
-            public_key_data.push(rng.gen());
-        }
-        
-        // Generate private key
-        let mut private_key_data = Vec::with_capacity(128);
-        private_key_data.extend_from_slice(&params_data[12..24]); // Use another part of the parameters
-        for _ in 0..116 {
-            private_key_data.push(rng.gen());
+        // Generate keys using the OpenFHE library
+        let context = openfhe::Context::deserialize_parameters(&params_data)
+            .map_err(|e| FheError::KeyGenerationError(format!("Failed to deserialize OpenFHE parameters: {}", e)))?;
+            
+        // Generate key pair
+        let keypair = context.generate_keypair()
+            .map_err(|e| FheError::KeyGenerationError(format!("Failed to generate OpenFHE key pair: {}", e)))?;
+            
+        // Serialize the keys
+        let public_key_data = keypair.public_key().serialize()
+            .map_err(|e| FheError::KeyGenerationError(format!("Failed to serialize OpenFHE public key: {}", e)))?;
+            
+        let private_key_data = keypair.private_key().serialize()
+            .map_err(|e| FheError::KeyGenerationError(format!("Failed to serialize OpenFHE private key: {}", e)))?;
         }
 
         let public_key = FhePublicKey {

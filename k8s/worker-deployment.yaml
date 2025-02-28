@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: r3e-worker
+  namespace: r3e-faas
+  labels:
+    app: r3e-worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: r3e-worker
+  template:
+    metadata:
+      labels:
+        app: r3e-worker
+    spec:
+      containers:
+      - name: r3e-worker
+        image: r3e-faas/worker:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: RUST_LOG
+          value: "info"
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: redis_url
+        - name: STORAGE_PATH
+          value: "/data/rocksdb"
+        - name: NEO_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: neo_rpc_url
+        - name: ETHEREUM_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: r3e-config
+              key: ethereum_rpc_url
+        - name: MAX_CONCURRENT_FUNCTIONS
+          value: "10"
+        - name: FUNCTION_TIMEOUT_SECONDS
+          value: "30"
+        resources:
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+          requests:
+            cpu: "1"
+            memory: "1Gi"
+        volumeMounts:
+        - name: rocksdb-storage
+          mountPath: /data/rocksdb
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: rocksdb-storage
+        persistentVolumeClaim:
+          claimName: rocksdb-pvc

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: r3e-faas
+description: A Helm chart for R3E FaaS Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: R3E Network
+    email: info@r3e.network

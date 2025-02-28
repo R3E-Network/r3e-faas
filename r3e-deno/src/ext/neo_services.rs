@@ -63,9 +63,14 @@ pub struct GasBankPayGasRequest {
 #[op2]
 #[serde]
 pub fn op_neo_gas_bank_create_account(#[serde] request: GasBankAccountRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would create a gas bank account
-    // For this example, we'll return a mock response
-    let account = GasBankAccount {
+    // Create a gas bank account using the NeoRust SDK
+    let gas_bank_service = GasBankService::new()?;
+    let account = gas_bank_service.create_account(
+        request.address,
+        request.fee_model,
+        request.fee_value,
+        request.credit_limit,
+    ).await?;
         address: request.address,
         balance: 0,
         fee_model: match request.fee_model.as_str() {
@@ -86,9 +91,9 @@ pub fn op_neo_gas_bank_create_account(#[serde] request: GasBankAccountRequest) -
 #[op2]
 #[serde]
 pub fn op_neo_gas_bank_get_account(address: String) -> Result<String, AnyError> {
-    // In a real implementation, this would get a gas bank account
-    // For this example, we'll return a mock response
-    let account = GasBankAccount {
+    // Get a gas bank account using the NeoRust SDK
+    let gas_bank_service = GasBankService::new()?;
+    let account = gas_bank_service.get_account(&address).await?;
         address,
         balance: 1000,
         fee_model: FeeModel::Fixed(10),
@@ -104,9 +109,13 @@ pub fn op_neo_gas_bank_get_account(address: String) -> Result<String, AnyError> 
 #[op2]
 #[serde]
 pub fn op_neo_gas_bank_deposit(#[serde] request: GasBankDepositRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would deposit gas to an account
-    // For this example, we'll return a mock response
-    let deposit = GasBankDeposit {
+    // Deposit gas to an account using the NeoRust SDK
+    let gas_bank_service = GasBankService::new()?;
+    let deposit = gas_bank_service.deposit(
+        &request.tx_hash,
+        &request.address,
+        request.amount,
+    ).await?;
         tx_hash: request.tx_hash,
         address: request.address,
         amount: request.amount,
@@ -120,9 +129,12 @@ pub fn op_neo_gas_bank_deposit(#[serde] request: GasBankDepositRequest) -> Resul
 #[op2]
 #[serde]
 pub fn op_neo_gas_bank_withdraw(#[serde] request: GasBankWithdrawRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would withdraw gas from an account
-    // For this example, we'll return a mock response
-    let withdrawal = GasBankWithdrawal {
+    // Withdraw gas from an account using the NeoRust SDK
+    let gas_bank_service = GasBankService::new()?;
+    let withdrawal = gas_bank_service.withdraw(
+        &request.address,
+        request.amount,
+    ).await?;
         tx_hash: format!("0x{}", hex::encode([0u8; 32])),
         address: request.address,
         amount: request.amount,
@@ -137,9 +149,13 @@ pub fn op_neo_gas_bank_withdraw(#[serde] request: GasBankWithdrawRequest) -> Res
 #[op2]
 #[serde]
 pub fn op_neo_gas_bank_pay_gas(#[serde] request: GasBankPayGasRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would pay gas for a transaction
-    // For this example, we'll return a mock response
-    let transaction = GasBankTransaction {
+    // Pay gas for a transaction using the NeoRust SDK
+    let gas_bank_service = GasBankService::new()?;
+    let transaction = gas_bank_service.pay_gas(
+        &request.tx_hash,
+        &request.address,
+        request.amount,
+    ).await?;
         tx_hash: request.tx_hash,
         address: request.address,
         tx_type: "gas_payment".to_string(),
@@ -155,9 +171,10 @@ pub fn op_neo_gas_bank_pay_gas(#[serde] request: GasBankPayGasRequest) -> Result
 #[op2]
 #[serde]
 pub fn op_neo_gas_bank_get_gas_price() -> Result<u64, AnyError> {
-    // In a real implementation, this would get the current gas price
-    // For this example, we'll return a mock response
-    Ok(1000)
+    // Get the current gas price using the NeoRust SDK
+    let gas_bank_service = GasBankService::new()?;
+    let gas_price = gas_bank_service.get_gas_price().await?;
+    Ok(gas_price)
 }
 
 // Meta Transaction operations
@@ -176,9 +193,17 @@ pub struct MetaTxSubmitRequest {
 #[op2]
 #[serde]
 pub fn op_neo_meta_tx_submit(#[serde] request: MetaTxSubmitRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would submit a meta transaction
-    // For this example, we'll return a mock response
-    let fee_model = match request.fee_model.as_str() {
+    // Submit a meta transaction using the NeoRust SDK
+    let meta_tx_service = MetaTxService::new()?;
+    let response = meta_tx_service.submit_transaction(
+        &request.tx_data,
+        &request.sender,
+        &request.signature,
+        request.nonce,
+        request.deadline,
+        &request.fee_model,
+        request.fee_amount,
+    ).await?;
         "fixed" => FeeModel::Fixed(request.fee_amount),
         "percentage" => FeeModel::Percentage(request.fee_amount as f64),
         "dynamic" => FeeModel::Dynamic,
@@ -211,18 +236,19 @@ pub fn op_neo_meta_tx_submit(#[serde] request: MetaTxSubmitRequest) -> Result<St
 #[op2]
 #[serde]
 pub fn op_neo_meta_tx_get_status(request_id: String) -> Result<String, AnyError> {
-    // In a real implementation, this would get the status of a meta transaction
-    // For this example, we'll return a mock response
-    Ok(MetaTxStatus::Confirmed.to_string())
+    // Get the status of a meta transaction using the NeoRust SDK
+    let meta_tx_service = MetaTxService::new()?;
+    let status = meta_tx_service.get_transaction_status(&request_id).await?;
+    Ok(status.to_string())
 }
 
 #[op2]
 #[serde]
 pub fn op_neo_meta_tx_get_transaction(request_id: String) -> Result<String, AnyError> {
-    // In a real implementation, this would get a meta transaction
-    // For this example, we'll return a mock response
-    let request = MetaTxRequest {
-        tx_data: "0x1234".to_string(),
+    // Get a meta transaction using the NeoRust SDK
+    let meta_tx_service = MetaTxService::new()?;
+    let record = meta_tx_service.get_transaction(&request_id).await?;
+    let request = record.request;
         sender: "neo1abc".to_string(),
         signature: "0xsig".to_string(),
         nonce: 1,
@@ -256,9 +282,10 @@ pub fn op_neo_meta_tx_get_transaction(request_id: String) -> Result<String, AnyE
 #[op2]
 #[serde]
 pub fn op_neo_meta_tx_get_next_nonce(sender: String) -> Result<u64, AnyError> {
-    // In a real implementation, this would get the next nonce for a sender
-    // For this example, we'll return a mock response
-    Ok(1)
+    // Get the next nonce for a sender using the NeoRust SDK
+    let meta_tx_service = MetaTxService::new()?;
+    let nonce = meta_tx_service.get_next_nonce(&sender).await?;
+    Ok(nonce)
 }
 
 // Abstract Account operations
@@ -287,10 +314,17 @@ pub struct AbstractAccountOperationRequest {
 #[op2]
 #[serde]
 pub fn op_neo_abstract_account_create(#[serde] request: AbstractAccountCreateRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would create an abstract account
-    // For this example, we'll return a mock response
-    let account = AbstractAccount {
-        address: format!("neo-{}", uuid::Uuid::new_v4().to_string()),
+    // Create an abstract account using the NeoRust SDK
+    let abstract_account_service = AbstractAccountService::new()?;
+    let account = abstract_account_service.create_account(
+        &request.owner,
+        &request.controllers,
+        &request.recovery_addresses,
+        &request.policy_type,
+        request.required_signatures,
+        request.total_signatures,
+        &request.signature,
+    ).await?;
         owner: request.owner,
         controllers: request.controllers.iter().map(|c| {
             super::abstract_account::AccountController {
@@ -328,10 +362,9 @@ pub fn op_neo_abstract_account_create(#[serde] request: AbstractAccountCreateReq
 #[op2]
 #[serde]
 pub fn op_neo_abstract_account_get(address: String) -> Result<String, AnyError> {
-    // In a real implementation, this would get an abstract account
-    // For this example, we'll return a mock response
-    let account = AbstractAccount {
-        address,
+    // Get an abstract account using the NeoRust SDK
+    let abstract_account_service = AbstractAccountService::new()?;
+    let account = abstract_account_service.get_account(&address).await?;
         owner: "neo1abc".to_string(),
         controllers: vec![
             super::abstract_account::AccountController {
@@ -363,9 +396,16 @@ pub fn op_neo_abstract_account_get(address: String) -> Result<String, AnyError> 
 #[op2]
 #[serde]
 pub fn op_neo_abstract_account_execute_operation(#[serde] request: AbstractAccountOperationRequest) -> Result<String, AnyError> {
-    // In a real implementation, this would execute an operation on an abstract account
-    // For this example, we'll return a mock response
-    let operation = match request.operation_type.as_str() {
+    // Execute an operation on an abstract account using the NeoRust SDK
+    let abstract_account_service = AbstractAccountService::new()?;
+    let response = abstract_account_service.execute_operation(
+        &request.account_address,
+        &request.operation_type,
+        &request.operation_data,
+        &request.signatures,
+        request.nonce,
+        request.deadline,
+    ).await?;
         "transfer" => AccountOperation::Transfer {
             asset: "GAS".to_string(),
             to: "neo1def".to_string(),
@@ -436,15 +476,17 @@ pub fn op_neo_abstract_account_execute_operation(#[serde] request: AbstractAccou
 #[op2]
 #[serde]
 pub fn op_neo_abstract_account_get_operation_status(request_id: String) -> Result<String, AnyError> {
-    // In a real implementation, this would get the status of an operation
-    // For this example, we'll return a mock response
-    Ok(super::abstract_account::OperationStatus::Confirmed.to_string())
+    // Get the status of an operation using the NeoRust SDK
+    let abstract_account_service = AbstractAccountService::new()?;
+    let status = abstract_account_service.get_operation_status(&request_id).await?;
+    Ok(status.to_string())
 }
 
 #[op2]
 #[serde]
 pub fn op_neo_abstract_account_get_next_nonce(address: String) -> Result<u64, AnyError> {
-    // In a real implementation, this would get the next nonce for an account
-    // For this example, we'll return a mock response
-    Ok(1)
+    // Get the next nonce for an account using the NeoRust SDK
+    let abstract_account_service = AbstractAccountService::new()?;
+    let nonce = abstract_account_service.get_next_nonce(&address).await?;
+    Ok(nonce)
 }

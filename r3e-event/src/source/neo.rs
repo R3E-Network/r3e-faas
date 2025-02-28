@@ -131,26 +131,23 @@ impl NeoTaskSource {
         })?;
         
         // Get the transaction details
-        // Note: We can't directly get the transaction object, so we'll create a mock one
-        // In a real implementation, we would parse the raw transaction string
-        let _tx_raw = client.get_raw_transaction(hash).await.map_err(|e| {
+        let tx_raw = client.get_raw_transaction(hash).await.map_err(|e| {
             Box::new(e) as Box<dyn std::error::Error + Send + Sync>
         })?;
         
-        // Create a mock transaction for now
-        // In a real implementation, we would parse the raw transaction
+        // Parse the raw transaction into a NeoTx
         Ok(NeoTx {
             hash: tx_hash.to_string(),
-            size: 100,
-            version: 0,
-            nonce: 0,
-            sysfee: 0,
-            netfee: 0,
-            valid_until_block: 0,
-            script: "mock_script".to_string(),
-            signers: vec![],
-            attributes: vec![],
-            witnesses: vec![],
+            size: tx_raw.size as u32,
+            version: tx_raw.version as u32,
+            nonce: tx_raw.nonce as u32,
+            sysfee: tx_raw.sys_fee.parse::<u64>().unwrap_or(0),
+            netfee: tx_raw.net_fee.parse::<u64>().unwrap_or(0),
+            valid_until_block: tx_raw.valid_until_block as u32,
+            script: tx_raw.script.clone(),
+            signers: tx_raw.signers.iter().map(|s| s.clone()).collect(),
+            attributes: tx_raw.attributes.iter().map(|a| a.clone()).collect(),
+            witnesses: tx_raw.witnesses.iter().map(|w| w.clone()).collect(),
         })
     }
     
@@ -304,7 +301,7 @@ impl TaskSource for NeoTaskSource {
                 };
                 
                 // Try to get application log for the transaction
-                let _app_log = match self.fetch_application_log(&tx_hash).await {
+                let app_log_json = match self.fetch_application_log(&tx_hash).await {
                     Ok(log) => log,
                     Err(e) => {
                         eprintln!("Error fetching application log: {:?}", e);
@@ -312,12 +309,49 @@ impl TaskSource for NeoTaskSource {
                     }
                 };
                 
+                // Parse the application log
+                let app_log: serde_json::Value = match serde_json::from_str(&app_log_json) {
+                    Ok(log) => log,
+                    Err(e) => {
+                        eprintln!("Error parsing application log: {:?}", e);
+                        serde_json::json!({})
+                    }
+                };
+                
+                // Extract notifications from the application log
+                let notifications = if let Some(executions) = app_log.get("executions").and_then(|e| e.as_array()) {
+                    let mut all_notifications = Vec::new();
+                    
+                    for execution in executions {
+                        if let Some(notifications_array) = execution.get("notifications").and_then(|n| n.as_array()) {
+                            for notification in notifications_array {
+                                all_notifications.push(notification.clone());
+                            }
+                        }
+                    }
+                    
+                    all_notifications
+                } else {
+                    Vec::new()
+                };
+                
                 // Update trigger for next time
                 self.current_trigger = Trigger::NeoNewBlock;
                 
-                // For now, return the block as the event
-                // In a real implementation, we would parse the application log and create a specific event type
-                event::Event::NeoBlock(neo_block)
+                // Create the appropriate event based on the trigger type
+                if self.current_trigger == Trigger::NeoContractNotification && !notifications.is_empty() {
+                    // Return contract notification event
+                    event::Event::NeoContractNotification {
+                        tx_hash,
+                        notifications,
+                    }
+                } else {
+                    // Return application log event
+                    event::Event::NeoApplicationLog {
+                        tx_hash,
+                        applicationLog: app_log,
+                    }
+                }
             },
             _ => {
                 // For any other trigger type, default to NeoNewBlock
@@ -354,6 +388,107 @@ impl TaskSource for NeoTaskSource {
         Ok(Task::new(self.uid, fid, event))
     }
 
+    /// Filter events based on criteria
+    fn filter_event(&self, event: &event::Event, filter: Option<&serde_json::Value>) -> bool {
+        // If no filter is provided, return true (include all events)
+        let filter = match filter {
+            Some(f) => f,
+            None => return true,
+        };
+        
+        match event {
+            event::Event::NeoBlock(block) => {
+                // Filter by block height if specified
+                if let Some(min_height) = filter.get("min_height").and_then(|h| h.as_u64()) {
+                    if let Some(header) = &block.header {
+                        if header.height as u64 < min_height {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                
+                // Filter by block time if specified
+                if let Some(min_time) = filter.get("min_time").and_then(|t| t.as_u64()) {
+                    if let Some(header) = &block.header {
+                        if header.time < min_time {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                
+                // Filter by transaction count if specified
+                if let Some(min_tx_count) = filter.get("min_tx_count").and_then(|c| c.as_u64()) {
+                    if block.txs.len() < min_tx_count as usize {
+                        return false;
+                    }
+                }
+                
+                // Filter by transaction hash if specified
+                if let Some(tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
+                    if !block.txs.iter().any(|tx| tx.hash == tx_hash) {
+                        return false;
+                    }
+                }
+                
+                true
+            },
+            event::Event::NeoContractNotification { tx_hash, notifications } => {
+                // Filter by transaction hash if specified
+                if let Some(filter_tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
+                    if tx_hash != filter_tx_hash {
+                        return false;
+                    }
+                }
+                
+                // Filter by contract hash if specified
+                if let Some(contract_hash) = filter.get("contract_hash").and_then(|h| h.as_str()) {
+                    if !notifications.iter().any(|n| {
+                        n.get("contract").and_then(|c| c.as_str()).unwrap_or("") == contract_hash
+                    }) {
+                        return false;
+                    }
+                }
+                
+                // Filter by event name if specified
+                if let Some(event_name) = filter.get("event_name").and_then(|e| e.as_str()) {
+                    if !notifications.iter().any(|n| {
+                        n.get("eventName").and_then(|e| e.as_str()).unwrap_or("") == event_name
+                    }) {
+                        return false;
+                    }
+                }
+                
+                true
+            },
+            event::Event::NeoApplicationLog { tx_hash, applicationLog } => {
+                // Filter by transaction hash if specified
+                if let Some(filter_tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
+                    if tx_hash != filter_tx_hash {
+                        return false;
+                    }
+                }
+                
+                // Filter by execution success if specified
+                if let Some(success) = filter.get("success").and_then(|s| s.as_bool()) {
+                    if let Some(executions) = applicationLog.get("executions").and_then(|e| e.as_array()) {
+                        if !executions.iter().any(|e| e.get("vmstate").and_then(|s| s.as_str()).unwrap_or("") == "HALT") == success {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                
+                true
+            },
+            _ => true, // Include all other event types
+        }
+    }
+    
     async fn acquire_fn(&mut self, _uid: u64, _fid: u64) -> Result<Func, FuncError> {
         let code = format!(
             r#"
@@ -405,6 +540,19 @@ impl TaskSource for NeoTaskSource {
                             console.log(`Notification ${{i}} event name:`, notification.eventName);
                             console.log(`Notification ${{i}} state:`, notification.state);
                         }}
+                    }}
+                }} else if (event.notifications) {{
+                    // This is a Neo contract notification event
+                    console.log("Neo contract notification event detected");
+                    console.log("Transaction hash:", event.tx_hash);
+                    console.log("Notifications count:", event.notifications.length);
+                    
+                    // Process notifications
+                    for (let i = 0; i < Math.min(event.notifications.length, 5); i++) {{
+                        const notification = event.notifications[i];
+                        console.log(`Notification ${{i}} contract:`, notification.contract);
+                        console.log(`Notification ${{i}} event name:`, notification.eventName);
+                        console.log(`Notification ${{i}} state:`, notification.state);
                     }}
                 }} else {{
                     // Unknown event type
