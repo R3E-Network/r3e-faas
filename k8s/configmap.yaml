@@ -4,7 +4,8 @@ metadata:
   name: r3e-config
   namespace: r3e-faas
 data:
-  database_url: "postgres://postgres:postgres@postgres:5432/r3e_faas"
+  # Database connection string will be provided via environment variables
+  # to avoid storing sensitive information in ConfigMaps
   redis_url: "redis://redis:6379/0"
   neo_rpc_url: "http://neo-node:10332"
   ethereum_rpc_url: "http://ethereum-node:8545"
