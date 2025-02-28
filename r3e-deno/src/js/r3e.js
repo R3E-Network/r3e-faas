@@ -9,5 +9,13 @@ import { oracle } from "./oracle.js";
 import { tee } from "./tee.js";
 import { neoServices } from "./neo_services.js";
 import { sandbox } from "./sandbox.js";
+import * as zkModule from "./zk.js";
+import * as fheModule from "./fhe.js";
+
+// Export the ZK module as 'zk'
+export const zk = zkModule;
+
+// Export the FHE module as 'fhe'
+export const fhe = fheModule;
 
 export { defer, sleep, encode, decode, neo, oracle, tee, neoServices, sandbox };
