@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "r3e-faas.labels" . | nindent 4 }}
 data:
-  database_url: "postgres://{{ .Values.postgres.env.POSTGRES_USER }}:{{ .Values.postgres.env.POSTGRES_PASSWORD }}@{{ include "r3e-faas.fullname" . }}-postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.env.POSTGRES_DB }}"
+  database_url: "postgres://{{ .Values.postgres.env.POSTGRES_USER }}:$(POSTGRES_PASSWORD)@{{ include "r3e-faas.fullname" . }}-postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.env.POSTGRES_DB }}"
   redis_url: "redis://{{ include "r3e-faas.fullname" . }}-redis:{{ .Values.redis.service.port }}/0"
   neo_rpc_url: {{ .Values.config.neo.rpcUrl | quote }}
   ethereum_rpc_url: {{ .Values.config.ethereum.rpcUrl | quote }}

@@ -125,7 +125,7 @@ postgres:
   env:
     POSTGRES_USER: postgres
     # Password should be provided via Kubernetes secrets
-    # POSTGRES_PASSWORD: <your-secure-password>
+    # Password is managed via Kubernetes secrets
     POSTGRES_DB: r3e_faas
 
 storage:
