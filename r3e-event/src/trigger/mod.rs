@@ -2,9 +2,7 @@
 // All Rights Reserved
 
 pub mod service;
-pub mod storage;
 pub mod types;
-pub mod rocksdb;
 
-pub use service::GasBankService;
+pub use service::*;
 pub use types::*;

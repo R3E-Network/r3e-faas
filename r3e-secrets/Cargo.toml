@@ -1,0 +1,20 @@
+[package]
+name = "r3e-secrets"
+version = "0.1.0"
+edition = "2021"
+authors = ["R3E Network"]
+description = "Secret management for r3e-faas platform"
+license = "MIT"
+
+[dependencies]
+r3e-core = { path = "../r3e-core" }
+r3e-store = { path = "../r3e-store" }
+
+aes-gcm = "0.10.1"
+rand = "0.8.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+uuid = { version = "1.4", features = ["v4", "serde"] }

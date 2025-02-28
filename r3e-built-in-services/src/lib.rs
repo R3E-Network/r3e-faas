@@ -10,6 +10,7 @@ pub mod indexing;
 pub mod identity;
 pub mod bridge;
 pub mod pricing;
+pub mod auto_contract;
 
 // Error types
 #[derive(Debug, thiserror::Error)]
@@ -37,4 +38,7 @@ pub enum ServiceError {
     
     #[error("Pricing error: {0}")]
     Pricing(#[from] pricing::PricingError),
+    
+    #[error("Auto contract error: {0}")]
+    AutoContract(#[from] auto_contract::AutoContractError),
 }

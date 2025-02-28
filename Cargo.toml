@@ -11,12 +11,16 @@ members = [
     "r3e-deno",
     "r3e-event",
     # "r3e-js",
+    "r3e-neo-services",
+    "r3e-oracle",
     "r3e-proc-macros",
     "r3e-runlog",
     "r3e-runtime",
     "r3e-scheduler",
+    "r3e-secrets",
     "r3e-stock",
     "r3e-store",
+    "r3e-tee",
     "r3e-worker",
 ]
 

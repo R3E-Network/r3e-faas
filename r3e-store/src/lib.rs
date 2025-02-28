@@ -2,6 +2,7 @@
 // All Rights Reserved
 
 pub mod mem;
+pub mod rocksdb;
 
 #[cfg(test)]
 pub mod mem_test;

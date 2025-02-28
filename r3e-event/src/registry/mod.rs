@@ -3,6 +3,7 @@
 
 pub mod storage;
 pub mod service;
+pub mod rocksdb;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

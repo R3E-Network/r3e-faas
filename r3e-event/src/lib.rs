@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod source;
 pub mod registry;
+pub mod trigger;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Trigger {
