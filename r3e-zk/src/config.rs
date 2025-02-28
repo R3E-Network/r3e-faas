@@ -44,6 +44,12 @@ pub struct ZkProvidersConfig {
     pub zokrates: Option<ZokratesConfig>,
     /// Bulletproofs provider configuration.
     pub bulletproofs: Option<BulletproofsConfig>,
+    /// Circom provider configuration.
+    pub circom: Option<CircomConfig>,
+    /// Bellman provider configuration.
+    pub bellman: Option<BellmanConfig>,
+    /// Arkworks provider configuration.
+    pub arkworks: Option<ArkworksConfig>,
 }
 
 /// Zokrates provider configuration.
@@ -64,6 +70,37 @@ pub struct BulletproofsConfig {
     pub enabled: bool,
     /// Default number of generators to use.
     pub default_generators: usize,
+}
+
+/// Circom provider configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircomConfig {
+    /// Whether to enable the Circom provider.
+    pub enabled: bool,
+    /// Path to the Circom binary (if not using the embedded library).
+    pub binary_path: Option<PathBuf>,
+    /// Default witness generation strategy.
+    pub default_witness_strategy: String,
+}
+
+/// Bellman provider configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BellmanConfig {
+    /// Whether to enable the Bellman provider.
+    pub enabled: bool,
+    /// Default curve type to use.
+    pub default_curve: String,
+}
+
+/// Arkworks provider configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArkworksConfig {
+    /// Whether to enable the Arkworks provider.
+    pub enabled: bool,
+    /// Default proving system to use.
+    pub default_proving_system: String,
+    /// Default curve type to use.
+    pub default_curve: String,
 }
 
 /// Service configuration for the Zero-Knowledge computing service.
@@ -100,6 +137,20 @@ impl Default for ZkConfig {
                 bulletproofs: Some(BulletproofsConfig {
                     enabled: true,
                     default_generators: 256,
+                }),
+                circom: Some(CircomConfig {
+                    enabled: true,
+                    binary_path: None,
+                    default_witness_strategy: "wasm".to_string(),
+                }),
+                bellman: Some(BellmanConfig {
+                    enabled: true,
+                    default_curve: "bls12_381".to_string(),
+                }),
+                arkworks: Some(ArkworksConfig {
+                    enabled: true,
+                    default_proving_system: "groth16".to_string(),
+                    default_curve: "bls12_381".to_string(),
                 }),
             },
             service: ZkServiceConfig {

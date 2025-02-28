@@ -88,6 +88,10 @@ pub enum ZkPlatform {
     Libsnark,
     /// StarkWare platform.
     StarkWare,
+    /// Bellman platform.
+    Bellman,
+    /// Arkworks platform.
+    Arkworks,
 }
 
 impl fmt::Display for ZkPlatform {
@@ -98,6 +102,8 @@ impl fmt::Display for ZkPlatform {
             ZkPlatform::Circom => write!(f, "Circom"),
             ZkPlatform::Libsnark => write!(f, "libsnark"),
             ZkPlatform::StarkWare => write!(f, "StarkWare"),
+            ZkPlatform::Bellman => write!(f, "Bellman"),
+            ZkPlatform::Arkworks => write!(f, "Arkworks"),
         }
     }
 }

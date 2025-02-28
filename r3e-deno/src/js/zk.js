@@ -67,6 +67,8 @@ export const CircuitType = {
   ZOKRATES: "zokrates",
   BULLETPROOFS: "bulletproofs",
   CIRCOM: "circom",
+  BELLMAN: "bellman",
+  ARKWORKS: "arkworks",
 };
 
 /**

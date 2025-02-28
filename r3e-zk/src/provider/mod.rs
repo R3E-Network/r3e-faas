@@ -10,10 +10,16 @@ use async_trait::async_trait;
 use serde_json::Value;
 use std::fmt::Debug;
 
+mod arkworks;
+mod bellman;
 mod bulletproofs;
+mod circom;
 mod zokrates;
 
+pub use arkworks::ArkworksProvider;
+pub use bellman::BellmanProvider;
 pub use bulletproofs::BulletproofsProvider;
+pub use circom::CircomProvider;
 pub use zokrates::ZokratesProvider;
 
 /// Provider interface for Zero-Knowledge operations.

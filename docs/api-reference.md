@@ -537,7 +537,9 @@ The `r3e.zk` object provides access to Zero-Knowledge computing services:
 const circuitTypes = {
   ZOKRATES: r3e.zk.CircuitType.ZOKRATES,
   BULLETPROOFS: r3e.zk.CircuitType.BULLETPROOFS,
-  CIRCOM: r3e.zk.CircuitType.CIRCOM
+  CIRCOM: r3e.zk.CircuitType.CIRCOM,
+  BELLMAN: r3e.zk.CircuitType.BELLMAN,
+  ARKWORKS: r3e.zk.CircuitType.ARKWORKS
 };
 
 // Compile a ZK circuit
