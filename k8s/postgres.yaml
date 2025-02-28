@@ -24,7 +24,10 @@ spec:
         - name: POSTGRES_USER
           value: "postgres"
         - name: POSTGRES_PASSWORD
-          value: "postgres"
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
         - name: POSTGRES_DB
           value: "r3e_faas"
         resources:
