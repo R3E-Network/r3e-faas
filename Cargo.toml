@@ -26,7 +26,7 @@ members = [
     "r3e-store",
     "r3e-tee",
     "r3e-worker",
-    "r3e-zk",
+    # "r3e-zk", # Temporarily excluded due to zokrates_core dependency issues
 ]
 
 
