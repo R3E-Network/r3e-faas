@@ -126,17 +126,19 @@ impl ZkStorage for MemoryZkStorage {
     }
 
     async fn store_verification_key(&self, key: &ZkVerificationKey) -> ZkResult<()> {
-        let mut verification_keys = self.verification_keys.write().map_err(|e| {
-            ZkError::StorageError(format!("Failed to acquire write lock: {}", e))
-        })?;
+        let mut verification_keys = self
+            .verification_keys
+            .write()
+            .map_err(|e| ZkError::StorageError(format!("Failed to acquire write lock: {}", e)))?;
         verification_keys.insert(key.id.clone(), key.clone());
         Ok(())
     }
 
     async fn get_verification_key(&self, id: &ZkVerificationKeyId) -> ZkResult<ZkVerificationKey> {
-        let verification_keys = self.verification_keys.read().map_err(|e| {
-            ZkError::StorageError(format!("Failed to acquire read lock: {}", e))
-        })?;
+        let verification_keys = self
+            .verification_keys
+            .read()
+            .map_err(|e| ZkError::StorageError(format!("Failed to acquire read lock: {}", e)))?;
         verification_keys
             .get(id)
             .cloned()
@@ -147,9 +149,10 @@ impl ZkStorage for MemoryZkStorage {
         &self,
         circuit_id: &ZkCircuitId,
     ) -> ZkResult<Vec<ZkVerificationKey>> {
-        let verification_keys = self.verification_keys.read().map_err(|e| {
-            ZkError::StorageError(format!("Failed to acquire read lock: {}", e))
-        })?;
+        let verification_keys = self
+            .verification_keys
+            .read()
+            .map_err(|e| ZkError::StorageError(format!("Failed to acquire read lock: {}", e)))?;
         Ok(verification_keys
             .values()
             .filter(|key| key.circuit_id == *circuit_id)
@@ -158,9 +161,10 @@ impl ZkStorage for MemoryZkStorage {
     }
 
     async fn delete_verification_key(&self, id: &ZkVerificationKeyId) -> ZkResult<()> {
-        let mut verification_keys = self.verification_keys.write().map_err(|e| {
-            ZkError::StorageError(format!("Failed to acquire write lock: {}", e))
-        })?;
+        let mut verification_keys = self
+            .verification_keys
+            .write()
+            .map_err(|e| ZkError::StorageError(format!("Failed to acquire write lock: {}", e)))?;
         verification_keys.remove(id);
         Ok(())
     }

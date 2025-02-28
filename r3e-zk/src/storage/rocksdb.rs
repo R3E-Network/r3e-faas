@@ -168,7 +168,10 @@ impl ZkStorage for RocksDbZkStorage {
 
     async fn get_circuit(&self, id: &ZkCircuitId) -> ZkResult<ZkCircuit> {
         debug!("Getting circuit: {}", id);
-        match self.get::<_, ZkCircuit>(CF_CIRCUITS, id.to_string()).await? {
+        match self
+            .get::<_, ZkCircuit>(CF_CIRCUITS, id.to_string())
+            .await?
+        {
             Some(circuit) => Ok(circuit),
             None => Err(ZkError::MissingDataError(format!(
                 "Circuit not found: {}",
@@ -189,8 +192,7 @@ impl ZkStorage for RocksDbZkStorage {
 
     async fn store_proving_key(&self, key: &ZkProvingKey) -> ZkResult<()> {
         debug!("Storing proving key: {}", key.id);
-        self.store(CF_PROVING_KEYS, key.id.to_string(), key)
-            .await
+        self.store(CF_PROVING_KEYS, key.id.to_string(), key).await
     }
 
     async fn get_proving_key(&self, id: &ZkProvingKeyId) -> ZkResult<ZkProvingKey> {
@@ -271,7 +273,10 @@ impl ZkStorage for RocksDbZkStorage {
         debug!("Getting proof: {}", id);
         match self.get::<_, ZkProof>(CF_PROOFS, id.to_string()).await? {
             Some(proof) => Ok(proof),
-            None => Err(ZkError::MissingDataError(format!("Proof not found: {}", id))),
+            None => Err(ZkError::MissingDataError(format!(
+                "Proof not found: {}",
+                id
+            ))),
         }
     }
 
