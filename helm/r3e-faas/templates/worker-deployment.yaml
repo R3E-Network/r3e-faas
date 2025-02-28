@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "r3e-faas.fullname" . }}-worker
+  labels:
+    {{- include "r3e-faas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "r3e-faas.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "r3e-faas.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}-worker
+        image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+        env:
+        - name: RUST_LOG
+          value: {{ .Values.global.logLevel | quote }}
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "r3e-faas.fullname" . }}-config
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "r3e-faas.fullname" . }}-config
+              key: redis_url
+        - name: STORAGE_PATH
+          value: "/data/rocksdb"
+        - name: NEO_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "r3e-faas.fullname" . }}-config
+              key: neo_rpc_url
+        - name: ETHEREUM_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "r3e-faas.fullname" . }}-config
+              key: ethereum_rpc_url
+        - name: MAX_CONCURRENT_FUNCTIONS
+          value: {{ .Values.worker.maxConcurrentFunctions | quote }}
+        - name: FUNCTION_TIMEOUT_SECONDS
+          value: {{ .Values.worker.functionTimeoutSeconds | quote }}
+        resources:
+          {{- toYaml .Values.worker.resources | nindent 10 }}
+        volumeMounts:
+        - name: rocksdb-storage
+          mountPath: /data/rocksdb
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.worker.livenessProbe.path }}
+            port: 8081
+          initialDelaySeconds: {{ .Values.worker.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.worker.livenessProbe.periodSeconds }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.worker.readinessProbe.path }}
+            port: 8081
+          initialDelaySeconds: {{ .Values.worker.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.worker.readinessProbe.periodSeconds }}
+      volumes:
+      - name: rocksdb-storage
+        persistentVolumeClaim:
+          claimName: {{ include "r3e-faas.fullname" . }}-rocksdb-pvc
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

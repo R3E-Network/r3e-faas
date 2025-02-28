@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - worker-deployment.yaml
+  - configmap.yaml
+  - storage.yaml
+  - redis.yaml
+  - postgres.yaml
+  - ingress.yaml
+
+namespace: r3e-faas
+
+commonLabels:
+  app.kubernetes.io/part-of: r3e-faas
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: r3e-faas/api
+    newName: r3e-faas/api
+    newTag: latest
+  - name: r3e-faas/worker
+    newName: r3e-faas/worker
+    newTag: latest
