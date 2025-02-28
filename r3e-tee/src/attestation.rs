@@ -254,18 +254,80 @@ impl AttestationVerifier for SgxAttestationVerifier {
         &self,
         options: &AttestationOptions,
     ) -> Result<AttestationReport, TeeError> {
-        // Implementation for SGX attestation generation
-        // This would use the SGX SDK to generate a real attestation report
-        unimplemented!("SGX attestation generation not implemented")
+        // Generate SGX attestation report using the SGX SDK
+        let sgx_report = sgx_sdk::generate_report(options)
+            .map_err(|e| TeeError::Attestation(format!("Failed to generate SGX report: {}", e)))?;
+        
+        // Convert SGX report to our attestation format
+        Ok(AttestationReport {
+            platform: TeePlatform::Sgx,
+            security_level: TeeSecurityLevel::Production,
+            code_hash: hex::encode(sgx_report.code_hash),
+            signer_hash: hex::encode(sgx_report.signer_hash),
+            product_id: sgx_report.product_id,
+            security_version: sgx_report.security_version,
+            attributes: sgx_report.attributes,
+            extended_product_id: sgx_report.extended_product_id.clone(),
+            signature: sgx_report.signature.clone(),
+            platform_data: serde_json::to_value(sgx_report.platform_data)
+                .map_err(|e| TeeError::Attestation(format!("Failed to serialize platform data: {}", e)))?,
+        })
     }
     
     async fn verify_attestation(
         &self,
         attestation: &AttestationReport,
     ) -> Result<AttestationVerificationResult, TeeError> {
-        // Implementation for SGX attestation verification
-        // This would use the SGX SDK to verify a real attestation report
-        unimplemented!("SGX attestation verification not implemented")
+        // Verify SGX attestation report using the SGX SDK
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+            
+        // Convert our attestation format to SGX report
+        let sgx_report = sgx_sdk::Report {
+            code_hash: hex::decode(&attestation.code_hash)
+                .map_err(|e| TeeError::Attestation(format!("Invalid code hash: {}", e)))?,
+            signer_hash: hex::decode(&attestation.signer_hash)
+                .map_err(|e| TeeError::Attestation(format!("Invalid signer hash: {}", e)))?,
+            product_id: attestation.product_id,
+            security_version: attestation.security_version,
+            attributes: attestation.attributes,
+            extended_product_id: attestation.extended_product_id.clone(),
+            signature: attestation.signature.clone(),
+            platform_data: serde_json::from_value(attestation.platform_data.clone())
+                .map_err(|e| TeeError::Attestation(format!("Invalid platform data: {}", e)))?,
+        };
+        
+        // Verify the report
+        match sgx_sdk::verify_report(&sgx_report) {
+            Ok(details) => {
+                let mut verification_details = HashMap::new();
+                verification_details.insert("verifier".to_string(), "SgxAttestationVerifier".to_string());
+                verification_details.insert("platform".to_string(), "SGX".to_string());
+                verification_details.extend(details);
+                
+                Ok(AttestationVerificationResult {
+                    is_valid: true,
+                    timestamp: now,
+                    details: verification_details,
+                    error: None,
+                })
+            },
+            Err(e) => {
+                let mut verification_details = HashMap::new();
+                verification_details.insert("verifier".to_string(), "SgxAttestationVerifier".to_string());
+                verification_details.insert("platform".to_string(), "SGX".to_string());
+                verification_details.insert("error".to_string(), e.to_string());
+                
+                Ok(AttestationVerificationResult {
+                    is_valid: false,
+                    timestamp: now,
+                    details: verification_details,
+                    error: Some(e.to_string()),
+                })
+            }
+        }
     }
 }
 

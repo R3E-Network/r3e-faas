@@ -64,15 +64,24 @@ function validateToken(token) {
     // Remove 'Bearer ' prefix if present
     const tokenValue = token.startsWith('Bearer ') ? token.slice(7) : token;
     
-    // In a real implementation, this would validate the token
-    // and return the user information
+    // Validate JWT token and get user information
+    const jwt = require('jsonwebtoken');
+    const { JWT_SECRET } = process.env;
     
-    // For this example, we'll return a mock user
+    if (!JWT_SECRET) {
+      console.error('JWT_SECRET environment variable not set');
+      return null;
+    }
+    
+    // Verify and decode the JWT token
+    const decoded = jwt.verify(tokenValue, JWT_SECRET);
+    
+    // Return user information from token payload
     return {
-      id: 'user123',
-      username: 'example_user',
-      email: 'user@example.com',
-      roles: ['user']
+      id: decoded.sub,
+      username: decoded.username,
+      email: decoded.email,
+      roles: decoded.roles || ['user']
     };
   } catch (error) {
     console.error('Error validating token:', error);

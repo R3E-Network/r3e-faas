@@ -71,12 +71,18 @@ impl TfheScheme {
     
     /// Generate TFHE parameters based on the provided FheParameters.
     fn generate_tfhe_params(&self, params: &FheParameters) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to generate parameters
-        // For now, we'll create a placeholder
-        
+        // Generate TFHE parameters using the TFHE-rs library
         let security_level = params.security_level.unwrap_or(self.default_security_level);
         let polynomial_modulus_degree = params.polynomial_modulus_degree.unwrap_or(self.default_polynomial_modulus_degree);
         let plaintext_modulus = params.plaintext_modulus.unwrap_or(self.default_plaintext_modulus);
+        
+        // Create TFHE parameters
+        let tfhe_params = tfhe::ConfigBuilder::default()
+            .with_security_level(security_level)
+            .with_polynomial_size(polynomial_modulus_degree as usize)
+            .with_message_modulus(plaintext_modulus)
+            .build()
+            .map_err(|e| FheError::SchemeError(format!("Failed to generate TFHE parameters: {}", e)))?;
         
         // Serialize the parameters to a byte vector
         let mut result = Vec::new();
@@ -89,74 +95,80 @@ impl TfheScheme {
     
     /// Encrypt a plaintext using TFHE.
     fn encrypt_tfhe(&self, public_key: &[u8], plaintext: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to encrypt the plaintext
-        // For now, we'll create a placeholder
+        // Deserialize the public key and parameters
+        let tfhe_params = tfhe::Config::deserialize(&public_key[32..])
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize TFHE parameters: {}", e)))?;
         
-        // Create a simple "encryption" by XORing the plaintext with the public key
-        let mut ciphertext = Vec::with_capacity(plaintext.len());
-        for (i, &byte) in plaintext.iter().enumerate() {
-            let key_byte = public_key[i % public_key.len()];
-            ciphertext.push(byte ^ key_byte);
-        }
+        let tfhe_public_key = tfhe::PublicKey::deserialize(&public_key[..32], &tfhe_params)
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize TFHE public key: {}", e)))?;
+            
+        // Encrypt the plaintext using TFHE
+        let ciphertext = tfhe_public_key.encrypt(plaintext)
+            .map_err(|e| FheError::SchemeError(format!("Failed to encrypt plaintext: {}", e)))?;
         
         Ok(ciphertext)
     }
     
     /// Decrypt a ciphertext using TFHE.
     fn decrypt_tfhe(&self, private_key: &[u8], ciphertext: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to decrypt the ciphertext
-        // For now, we'll create a placeholder
-        
-        // Create a simple "decryption" by XORing the ciphertext with the private key
-        let mut plaintext = Vec::with_capacity(ciphertext.len());
-        for (i, &byte) in ciphertext.iter().enumerate() {
-            let key_byte = private_key[i % private_key.len()];
-            plaintext.push(byte ^ key_byte);
-        }
+        // Deserialize the private key and parameters
+        let tfhe_params = tfhe::Config::deserialize(&private_key[32..])
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize TFHE parameters: {}", e)))?;
+            
+        let tfhe_private_key = tfhe::PrivateKey::deserialize(&private_key[..32], &tfhe_params)
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize TFHE private key: {}", e)))?;
+            
+        // Decrypt the ciphertext using TFHE
+        let plaintext = tfhe_private_key.decrypt(ciphertext)
+            .map_err(|e| FheError::SchemeError(format!("Failed to decrypt ciphertext: {}", e)))?;
         
         Ok(plaintext)
     }
     
     /// Add two ciphertexts using TFHE.
     fn add_tfhe(&self, ciphertext1: &[u8], ciphertext2: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to add the ciphertexts
-        // For now, we'll create a placeholder
-        
-        // Ensure the ciphertexts have the same length
-        if ciphertext1.len() != ciphertext2.len() {
-            return Err(FheError::InvalidInputError(
-                "Ciphertexts must have the same length".into(),
-            ));
-        }
-        
-        // Create a simple "addition" by XORing the ciphertexts
-        let mut result = Vec::with_capacity(ciphertext1.len());
-        for (i, &byte) in ciphertext1.iter().enumerate() {
-            result.push(byte ^ ciphertext2[i]);
-        }
-        
-        Ok(result)
+        // Deserialize the ciphertexts and parameters
+        let tfhe_params = tfhe::Config::deserialize(&ciphertext1[32..])
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize TFHE parameters: {}", e)))?;
+            
+        let c1 = tfhe::Ciphertext::deserialize(ciphertext1, &tfhe_params)
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize first ciphertext: {}", e)))?;
+            
+        let c2 = tfhe::Ciphertext::deserialize(ciphertext2, &tfhe_params)
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize second ciphertext: {}", e)))?;
+            
+        // Add the ciphertexts using TFHE
+        let result = c1.add(&c2)
+            .map_err(|e| FheError::SchemeError(format!("Failed to add ciphertexts: {}", e)))?;
+            
+        // Serialize the result
+        let result_data = result.serialize()
+            .map_err(|e| FheError::SchemeError(format!("Failed to serialize result: {}", e)))?;
+            
+        Ok(result_data)
     }
     
     /// Subtract two ciphertexts using TFHE.
     fn subtract_tfhe(&self, ciphertext1: &[u8], ciphertext2: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to subtract the ciphertexts
-        // For now, we'll create a placeholder
-        
-        // Ensure the ciphertexts have the same length
-        if ciphertext1.len() != ciphertext2.len() {
-            return Err(FheError::InvalidInputError(
-                "Ciphertexts must have the same length".into(),
-            ));
-        }
-        
-        // Create a simple "subtraction" by XORing the ciphertexts (same as addition for XOR)
-        let mut result = Vec::with_capacity(ciphertext1.len());
-        for (i, &byte) in ciphertext1.iter().enumerate() {
-            result.push(byte ^ ciphertext2[i]);
-        }
-        
-        Ok(result)
+        // Deserialize the ciphertexts and parameters
+        let tfhe_params = tfhe::Config::deserialize(&ciphertext1[32..])
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize TFHE parameters: {}", e)))?;
+            
+        let c1 = tfhe::Ciphertext::deserialize(ciphertext1, &tfhe_params)
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize first ciphertext: {}", e)))?;
+            
+        let c2 = tfhe::Ciphertext::deserialize(ciphertext2, &tfhe_params)
+            .map_err(|e| FheError::SchemeError(format!("Failed to deserialize second ciphertext: {}", e)))?;
+            
+        // Subtract the ciphertexts using TFHE
+        let result = c1.sub(&c2)
+            .map_err(|e| FheError::SchemeError(format!("Failed to subtract ciphertexts: {}", e)))?;
+            
+        // Serialize the result
+        let result_data = result.serialize()
+            .map_err(|e| FheError::SchemeError(format!("Failed to serialize result: {}", e)))?;
+            
+        Ok(result_data)
     }
     
     /// Multiply two ciphertexts using TFHE.

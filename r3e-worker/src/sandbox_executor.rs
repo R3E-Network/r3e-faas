@@ -195,7 +195,11 @@ async fn op_set_timeout(delay_ms: u64) -> Result<(), AnyError> {
 /// Clear timeout operation
 #[op]
 fn op_clear_timeout(_timeout_id: u32) -> Result<(), AnyError> {
-    // In a real implementation, we would cancel the timeout
+    // Cancel the timeout using the runtime's timeout handler
+    let runtime = deno_core::JsRuntime::current();
+    if let Some(handler) = runtime.timeout_handler() {
+        handler.cancel_timeout(_timeout_id);
+    }
     Ok(())
 }
 

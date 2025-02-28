@@ -69,22 +69,55 @@ impl SandboxExecutor {
     
     /// Execute JavaScript code in the sandbox
     pub async fn execute(&self, code: &str) -> Result<String, String> {
-        // In a real implementation, we would execute the code in a sandbox
-        // For now, we'll just return a mock result
-        
-        // Check if execution time exceeds the limit
+        // Create a new deno runtime with sandbox configuration
+        let mut runtime = deno_core::JsRuntime::new(deno_core::RuntimeOptions {
+            module_loader: Some(std::rc::Rc::new(deno_core::FsModuleLoader)),
+            startup_snapshot: None,
+            v8_platform: None,
+            get_error_class_fn: None,
+            extensions: vec![],
+            extensions_with_js: vec![],
+            startup_script: None,
+            create_params: None,
+            js_error_create_fn: None,
+            source_map_getter: None,
+            should_break_on_first_statement: false,
+            should_wait_for_inspector_session: false,
+            heap_limits: deno_core::HeapLimits {
+                initial_heap_size_in_bytes: Some(self.config.initial_heap_size as _),
+                maximum_heap_size_in_bytes: Some(self.config.max_heap_size as _),
+            },
+            create_web_worker_cb: None,
+            maybe_inspector_server: None,
+            should_create_inspector: false,
+            stdio: Default::default(),
+        });
+
+        // Set up execution timeout
         let start_time = std::time::Instant::now();
+        let timeout = tokio::time::sleep(self.config.max_execution_time);
         
-        // Simulate execution
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        
-        // Check if execution time exceeds the limit
-        if start_time.elapsed() > self.config.max_execution_time {
-            return Err("Execution time exceeded".to_string());
+        // Execute the code in the sandbox
+        let execution = async {
+            let result = runtime.execute_script("[sandbox]", code)
+                .map_err(|e| format!("Execution error: {}", e))?;
+            
+            // Get the result value
+            let result = runtime.get_value_from_slot(result)
+                .map_err(|e| format!("Failed to get result: {}", e))?;
+            
+            // Convert the result to a string
+            let result = result.to_string(&mut runtime)
+                .map_err(|e| format!("Failed to convert result: {}", e))?;
+            
+            Ok::<String, String>(result)
+        };
+
+        // Run with timeout
+        tokio::select! {
+            result = execution => result,
+            _ = timeout => Err("Execution time exceeded".to_string()),
         }
-        
-        // Return a mock result
-        Ok(format!("Executed code: {}", code))
     }
 }
 

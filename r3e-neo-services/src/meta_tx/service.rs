@@ -68,14 +68,18 @@ impl<S: MetaTxStorage> MetaTxService<S> {
         match fee_model {
             FeeModel::Fixed(fee) => *fee,
             FeeModel::Percentage(percentage) => {
-                // In a real implementation, this would calculate a fee based on the transaction value
-                // For this example, we'll use a simple calculation based on data size
-                ((tx_data.len() as f64) * percentage / 100.0) as u64
+                // Calculate fee based on transaction value and data size
+                let tx_value = match NeoRust::prelude::Transaction::deserialize(&hex::decode(tx_data).unwrap_or_default()) {
+                    Ok(tx) => tx.get_system_fee(),
+                    Err(_) => tx_data.len() as u64 * 100000 // Fallback to data size if can't parse tx
+                };
+                ((tx_value as f64) * percentage / 100.0) as u64
             },
             FeeModel::Dynamic => {
-                // In a real implementation, this would calculate a dynamic fee based on network congestion
-                // For this example, we'll use a simple calculation based on data size
-                tx_data.len() as u64 * 10
+                // Calculate dynamic fee based on network congestion
+                let network_fee = self.rpc_client.get_network_fee().await.unwrap_or(1000);
+                let data_size_fee = tx_data.len() as u64 * network_fee / 1000;
+                data_size_fee + network_fee
             },
             FeeModel::Free => 0,
         }
@@ -83,9 +87,14 @@ impl<S: MetaTxStorage> MetaTxService<S> {
     
     /// Verify meta transaction signature
     async fn verify_signature(&self, request: &MetaTxRequest) -> Result<bool, Error> {
-        // In a real implementation, this would verify the signature against the transaction data
-        // For this example, we'll assume the signature is valid if it's not empty
-        if request.signature.is_empty() {
+        // Verify signature against transaction data
+        let signature = hex::decode(&request.signature)
+            .map_err(|_| Error::Validation("Invalid signature format".to_string()))?;
+        
+        let message = hex::decode(&request.tx_data)
+            .map_err(|_| Error::Validation("Invalid transaction data format".to_string()))?;
+            
+        if signature.is_empty() {
             return Ok(false);
         }
         
@@ -99,10 +108,13 @@ impl<S: MetaTxStorage> MetaTxService<S> {
         match (request.blockchain_type, request.signature_curve) {
             (BlockchainType::NeoN3, SignatureCurve::Secp256r1) => {
                 // Verify Neo N3 signature using secp256r1 curve
-                // This would use the NeoRust SDK to verify the signature
-                // For this example, we'll assume it's valid
+                // Use NeoRust SDK to verify secp256r1 signature
                 debug!("Verifying Neo N3 signature using secp256r1 curve");
-                Ok(true)
+                let public_key = NeoRust::prelude::PublicKey::from_address(&request.sender)
+                    .map_err(|e| Error::Validation(format!("Invalid sender address: {}", e)))?;
+                    
+                public_key.verify_signature(&message, &signature)
+                    .map_err(|e| Error::Validation(format!("Signature verification failed: {}", e)))
             },
             (BlockchainType::Ethereum, SignatureCurve::Secp256k1) => {
                 // Verify Ethereum signature using secp256k1 curve using EIP-712
@@ -228,10 +240,17 @@ impl<S: MetaTxStorage> MetaTxService<S> {
                 );
                 
                 // Create an Ethereum transaction
-                // In a production implementation, this would use the ethers crate
-                // to create and sign an Ethereum transaction
+                // Create and sign Ethereum transaction using ethers
+                use ethers::prelude::*;
+                use ethers::types::{TransactionRequest, Bytes};
                 
-                // For this implementation, we'll create a simple transaction
+                // Create transaction request
+                let tx_request = TransactionRequest::new()
+                    .from(gas_bank_account.parse::<Address>().unwrap())
+                    .to(target_contract.parse::<Address>().unwrap())
+                    .data(Bytes::from(hex::decode(&request.tx_data).unwrap()))
+                    .gas(gas_estimate)
+                    .gas_price(gas_price);
                 // and use the Gas Bank service to pay for it
                 
                 // Estimate gas for the transaction

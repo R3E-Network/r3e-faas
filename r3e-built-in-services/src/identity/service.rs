@@ -88,8 +88,11 @@ impl<S: IdentityStorage> IdentityService<S> {
     
     /// Create a new DID document
     fn create_did_document(&self, did: &str, method: DidMethod) -> serde_json::Value {
-        // This is a simplified DID document
-        // In a real implementation, this would include verification methods, services, etc.
+        // Create a comprehensive DID document with verification methods and services
+        let verification_key = self.generate_verification_key();
+        let authentication_key = self.generate_authentication_key();
+        let agreement_key = self.generate_key_agreement_key();
+        
         serde_json::json!({
             "@context": "https://www.w3.org/ns/did/v1",
             "id": did,
@@ -278,10 +281,99 @@ impl<S: IdentityStorage> IdentityServiceTrait for IdentityService<S> {
             return Err(IdentityError::Authentication("Authentication method is disabled".to_string()));
         }
         
-        // Verify the authentication data
-        // This is a simplified implementation
-        // In a real implementation, this would verify the authentication data based on the auth type
-        let success = true;
+        // Verify the authentication data based on the auth type
+        let success = match auth_method.auth_type {
+            AuthType::Password => {
+                // Verify password
+                let password_data = auth_request.data.get("password")
+                    .ok_or_else(|| IdentityError::Authentication("Password not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid password format".to_string()))?;
+                
+                // Use Argon2id for secure password verification
+                let stored_password_hash = auth_method.data.get("password_hash")
+                    .ok_or_else(|| IdentityError::Authentication("Password hash not found".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid password hash format".to_string()))?;
+                
+                // Verify password using Argon2id
+                argon2::verify_encoded(stored_password_hash, password_data.as_bytes())
+                    .map_err(|e| IdentityError::Authentication(format!("Password verification failed: {}", e)))?
+            },
+            AuthType::PublicKey => {
+                // Verify signature
+                let signature = auth_request.data.get("signature")
+                    .ok_or_else(|| IdentityError::Authentication("Signature not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid signature format".to_string()))?;
+                
+                let message = auth_request.data.get("message")
+                    .ok_or_else(|| IdentityError::Authentication("Message not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid message format".to_string()))?;
+                
+                let public_key = auth_method.data.get("public_key")
+                    .ok_or_else(|| IdentityError::Authentication("Public key not found".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid public key format".to_string()))?;
+                
+                // Verify signature using secp256k1
+                let message_hash = sha3::Keccak256::digest(message.as_bytes());
+                let signature_bytes = hex::decode(signature)
+                    .map_err(|e| IdentityError::Authentication(format!("Invalid signature format: {}", e)))?;
+                let public_key_bytes = hex::decode(public_key)
+                    .map_err(|e| IdentityError::Authentication(format!("Invalid public key format: {}", e)))?;
+                
+                secp256k1::verify(
+                    &message_hash,
+                    &secp256k1::Signature::from_slice(&signature_bytes)
+                        .map_err(|e| IdentityError::Authentication(format!("Invalid signature: {}", e)))?,
+                    &secp256k1::PublicKey::from_slice(&public_key_bytes)
+                        .map_err(|e| IdentityError::Authentication(format!("Invalid public key: {}", e)))?
+                ).map_err(|e| IdentityError::Authentication(format!("Signature verification failed: {}", e)))?
+            },
+            AuthType::Biometric => {
+                // Verify biometric data
+                let biometric_data = auth_request.data.get("biometric_data")
+                    .ok_or_else(|| IdentityError::Authentication("Biometric data not provided".to_string()))?;
+                
+                // Verify biometric data using FIDO2 WebAuthn
+                let authenticator_data = biometric_data.get("authenticator_data")
+                    .ok_or_else(|| IdentityError::Authentication("Authenticator data not provided".to_string()))?;
+                let client_data = biometric_data.get("client_data")
+                    .ok_or_else(|| IdentityError::Authentication("Client data not provided".to_string()))?;
+                let signature = biometric_data.get("signature")
+                    .ok_or_else(|| IdentityError::Authentication("Signature not provided".to_string()))?;
+                
+                webauthn_rs::verify_authentication_response(
+                    authenticator_data.as_str().unwrap_or_default(),
+                    client_data.as_str().unwrap_or_default(),
+                    signature.as_str().unwrap_or_default(),
+                    &auth_method.data
+                ).map_err(|e| IdentityError::Authentication(format!("Biometric verification failed: {}", e)))?
+            },
+            AuthType::OAuth => {
+                // Verify OAuth token
+                let token = auth_request.data.get("token")
+                    .ok_or_else(|| IdentityError::Authentication("OAuth token not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid OAuth token format".to_string()))?;
+                
+                let provider = auth_request.data.get("provider")
+                    .ok_or_else(|| IdentityError::Authentication("OAuth provider not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Authentication("Invalid OAuth provider format".to_string()))?;
+                
+                // In a production environment, this would verify the token with the OAuth provider
+                // For now, we'll simulate OAuth verification
+                !token.is_empty() && !provider.is_empty()
+            },
+            AuthType::Custom => {
+                // Verify custom authentication data
+                // This would be implemented based on the specific custom authentication method
+                true
+            },
+        };
         
         if success {
             // Update the last used timestamp
@@ -333,16 +425,226 @@ impl<S: IdentityStorage> IdentityServiceTrait for IdentityService<S> {
         
         // Create a recovery request
         let recovery_id = uuid::Uuid::new_v4().to_string();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         
-        // In a real implementation, this would store the recovery request
-        // and possibly send a verification code or notification
+        // Create recovery request data
+        let recovery_request = serde_json::json!({
+            "id": recovery_id,
+            "did": did,
+            "recovery_method_id": recovery_method_id,
+            "recovery_type": recovery_method.recovery_type.to_string(),
+            "status": "pending",
+            "created_at": now,
+            "expires_at": now + 3600, // 1 hour expiration
+            "verification_data": data
+        });
+        
+        // Store the recovery request
+        self.storage.store_recovery_request(&recovery_id, &recovery_request).await?;
+        
+        // In a production environment, this would send a verification code or notification
+        // based on the recovery method type
+        match recovery_method.recovery_type {
+            RecoveryType::Email => {
+                // Simulate sending an email with a verification code
+                let email = recovery_method.data.get("email")
+                    .ok_or_else(|| IdentityError::Recovery("Email not found in recovery method".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid email format".to_string()))?;
+                
+                log::info!("Simulating email recovery verification to: {}", email);
+            },
+            RecoveryType::Phone => {
+                // Simulate sending an SMS with a verification code
+                let phone = recovery_method.data.get("phone")
+                    .ok_or_else(|| IdentityError::Recovery("Phone not found in recovery method".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid phone format".to_string()))?;
+                
+                log::info!("Simulating SMS recovery verification to: {}", phone);
+            },
+            RecoveryType::SecurityQuestions => {
+                // No notification needed for security questions
+                log::info!("Security questions recovery initiated for DID: {}", did);
+            },
+            RecoveryType::SocialRecovery => {
+                // Simulate notifying trusted contacts
+                let contacts = recovery_method.data.get("trusted_contacts")
+                    .ok_or_else(|| IdentityError::Recovery("Trusted contacts not found in recovery method".to_string()))?
+                    .as_array()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid trusted contacts format".to_string()))?;
+                
+                log::info!("Simulating social recovery notifications to {} trusted contacts", contacts.len());
+            },
+            RecoveryType::Custom => {
+                // Custom recovery method handling
+                log::info!("Custom recovery method initiated for DID: {}", did);
+            },
+        }
         
         Ok(recovery_id)
     }
     
     async fn complete_recovery(&self, recovery_id: &str, data: serde_json::Value) -> Result<bool, IdentityError> {
-        // In a real implementation, this would verify the recovery data
-        // and update the identity profile with new authentication methods
+        // Get the recovery request
+        let recovery_request = self.storage.get_recovery_request(recovery_id).await?;
+        
+        // Verify the recovery data based on the recovery type
+        let recovery_type = recovery_request.get("recovery_type")
+            .ok_or_else(|| IdentityError::Recovery("Recovery type not found in request".to_string()))?
+            .as_str()
+            .ok_or_else(|| IdentityError::Recovery("Invalid recovery type format".to_string()))?;
+        
+        let did = recovery_request.get("did")
+            .ok_or_else(|| IdentityError::Recovery("DID not found in request".to_string()))?
+            .as_str()
+            .ok_or_else(|| IdentityError::Recovery("Invalid DID format".to_string()))?;
+        
+        // Get the identity profile
+        let mut profile = self.storage.get_identity(did).await?;
+        
+        // Verify the recovery data and update the profile
+        match recovery_type {
+            "Email" => {
+                // Verify the verification code
+                let code = data.get("verification_code")
+                    .ok_or_else(|| IdentityError::Recovery("Verification code not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid verification code format".to_string()))?;
+                
+                let expected_code = recovery_request.get("verification_data")
+                    .and_then(|d| d.get("code"))
+                    .ok_or_else(|| IdentityError::Recovery("Verification code not found in request".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid verification code format in request".to_string()))?;
+                
+                if code != expected_code {
+                    return Err(IdentityError::Recovery("Invalid verification code".to_string()));
+                }
+            },
+            "Phone" => {
+                // Verify the verification code
+                let code = data.get("verification_code")
+                    .ok_or_else(|| IdentityError::Recovery("Verification code not provided".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid verification code format".to_string()))?;
+                
+                let expected_code = recovery_request.get("verification_data")
+                    .and_then(|d| d.get("code"))
+                    .ok_or_else(|| IdentityError::Recovery("Verification code not found in request".to_string()))?
+                    .as_str()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid verification code format in request".to_string()))?;
+                
+                if code != expected_code {
+                    return Err(IdentityError::Recovery("Invalid verification code".to_string()));
+                }
+            },
+            "SecurityQuestions" => {
+                // Verify the security questions
+                let answers = data.get("answers")
+                    .ok_or_else(|| IdentityError::Recovery("Security question answers not provided".to_string()))?
+                    .as_array()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid security question answers format".to_string()))?;
+                
+                let expected_answers = recovery_request.get("verification_data")
+                    .and_then(|d| d.get("answers"))
+                    .ok_or_else(|| IdentityError::Recovery("Security question answers not found in request".to_string()))?
+                    .as_array()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid security question answers format in request".to_string()))?;
+                
+                if answers.len() != expected_answers.len() {
+                    return Err(IdentityError::Recovery("Invalid number of security question answers".to_string()));
+                }
+                
+                for (i, answer) in answers.iter().enumerate() {
+                    let expected_answer = &expected_answers[i];
+                    if answer != expected_answer {
+                        return Err(IdentityError::Recovery(format!("Invalid answer for security question {}", i + 1)));
+                    }
+                }
+            },
+            "SocialRecovery" => {
+                // Verify the social recovery signatures
+                let signatures = data.get("signatures")
+                    .ok_or_else(|| IdentityError::Recovery("Social recovery signatures not provided".to_string()))?
+                    .as_array()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid social recovery signatures format".to_string()))?;
+                
+                let min_signatures = recovery_request.get("verification_data")
+                    .and_then(|d| d.get("min_signatures"))
+                    .ok_or_else(|| IdentityError::Recovery("Minimum signatures not found in request".to_string()))?
+                    .as_u64()
+                    .ok_or_else(|| IdentityError::Recovery("Invalid minimum signatures format in request".to_string()))?;
+                
+                if signatures.len() < min_signatures as usize {
+                    return Err(IdentityError::Recovery(format!("Not enough signatures: {} < {}", signatures.len(), min_signatures)));
+                }
+                
+                // In a production environment, this would verify each signature
+                // For now, we'll just check that they exist
+            },
+            _ => {
+                return Err(IdentityError::Recovery(format!("Unsupported recovery type: {}", recovery_type)));
+            }
+        }
+        
+        // Update the profile with new authentication methods if provided
+        if let Some(new_auth_methods) = data.get("new_auth_methods") {
+            if let Some(auth_methods_array) = new_auth_methods.as_array() {
+                // Clear existing authentication methods
+                profile.auth_methods.clear();
+                
+                // Add new authentication methods
+                for auth_method_data in auth_methods_array {
+                    let auth_type_str = auth_method_data.get("auth_type")
+                        .ok_or_else(|| IdentityError::Recovery("Auth type not provided".to_string()))?
+                        .as_str()
+                        .ok_or_else(|| IdentityError::Recovery("Invalid auth type format".to_string()))?;
+                    
+                    let auth_type = match auth_type_str {
+                        "Password" => AuthType::Password,
+                        "PublicKey" => AuthType::PublicKey,
+                        "Biometric" => AuthType::Biometric,
+                        "OAuth" => AuthType::OAuth,
+                        "Custom" => AuthType::Custom,
+                        _ => return Err(IdentityError::Recovery(format!("Unsupported auth type: {}", auth_type_str))),
+                    };
+                    
+                    let auth_data = auth_method_data.get("data")
+                        .ok_or_else(|| IdentityError::Recovery("Auth data not provided".to_string()))?
+                        .clone();
+                    
+                    // Add the new authentication method
+                    let auth_method_id = uuid::Uuid::new_v4().to_string();
+                    let auth_method = crate::identity::types::AuthMethod {
+                        id: auth_method_id,
+                        auth_type,
+                        data: auth_data,
+                        enabled: true,
+                        last_used: None,
+                    };
+                    
+                    profile.auth_methods.push(auth_method);
+                }
+            }
+        }
+        
+        // Update the profile
+        profile.updated_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        self.storage.update_identity(profile).await?;
+        
+        // Update the recovery request status
+        let mut updated_request = recovery_request.clone();
+        updated_request["status"] = serde_json::json!("completed");
+        
+        self.storage.update_recovery_request(recovery_id, &updated_request).await?;
         
         Ok(true)
     }
@@ -381,20 +683,78 @@ impl<S: IdentityStorage> IdentityServiceTrait for IdentityService<S> {
             },
         };
         
-        // In a real implementation, this would store the credential
+        // Store the credential
+        self.storage.store_credential(&credential).await?;
+        
+        // Log the credential issuance
+        log::info!("Issued credential {} to subject {}", credential.id, credential.subject_did);
         
         Ok(credential)
     }
     
     async fn verify_credential(&self, credential: &IdentityCredential) -> Result<bool, IdentityError> {
-        // In a real implementation, this would verify the credential signature
-        // and check the credential status
+        // Get the issuer's identity profile
+        let issuer = self.storage.get_identity(&credential.issuer_did).await?;
         
-        Ok(true)
+        // Get the issuer's verification method
+        let verification_method = issuer.verification_methods.iter()
+            .find(|m| m.id == credential.proof.verification_method)
+            .ok_or_else(|| IdentityError::Verification("Verification method not found".to_string()))?;
+        
+        // Verify the credential signature
+        let message = serde_json::to_string(&credential.claims)
+            .map_err(|e| IdentityError::Verification(format!("Failed to serialize claims: {}", e)))?;
+        
+        let signature = hex::decode(&credential.proof.signature)
+            .map_err(|e| IdentityError::Verification(format!("Invalid signature format: {}", e)))?;
+            
+        let public_key = hex::decode(&verification_method.public_key)
+            .map_err(|e| IdentityError::Verification(format!("Invalid public key format: {}", e)))?;
+            
+        let valid = secp256k1::verify(
+            &sha3::Keccak256::digest(message.as_bytes()),
+            &secp256k1::Signature::from_slice(&signature)
+                .map_err(|e| IdentityError::Verification(format!("Invalid signature: {}", e)))?,
+            &secp256k1::PublicKey::from_slice(&public_key)
+                .map_err(|e| IdentityError::Verification(format!("Invalid public key: {}", e)))?
+        ).is_ok();
+        
+        if !valid {
+            return Ok(false);
+        }
+        
+        // Check if the credential has been revoked
+        let revocation_status = self.storage.get_credential_status(&credential.id).await?;
+        
+        Ok(!revocation_status.revoked)
     }
     
     async fn revoke_credential(&self, issuer_did: &str, credential_id: &str) -> Result<bool, IdentityError> {
-        // In a real implementation, this would update the credential status
+        // Get the credential
+        let credential = self.storage.get_credential(credential_id).await?;
+        
+        // Check if the caller is the issuer
+        if credential.issuer_did != issuer_did {
+            return Err(IdentityError::Unauthorized("Only the issuer can revoke a credential".to_string()));
+        }
+        
+        // Update the credential status
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+            
+        let status = serde_json::json!({
+            "credential_id": credential_id,
+            "revoked": true,
+            "revoked_at": now,
+            "revoked_by": issuer_did
+        });
+        
+        // Store the updated status
+        self.storage.update_credential_status(credential_id, &status).await?;
+        
+        log::info!("Credential {} revoked by issuer {}", credential_id, issuer_did);
         
         Ok(true)
     }

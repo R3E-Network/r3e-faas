@@ -4,6 +4,9 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use ethers::prelude::*;
+use ethers::providers::{Http, Provider};
+use log::{debug, info, warn};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -60,88 +63,112 @@ impl EthereumTaskSource {
 
     /// Fetch latest block
     async fn fetch_latest_block(&self) -> Result<serde_json::Value, String> {
-        // In a real implementation, we would use ethers-rs to fetch the latest block
-        // For now, we'll return a mock block
-        let block = json!({
-            "number": "0x1b4",
-            "hash": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-            "parentHash": "0x9646252be9520f6e71339a8df9c55e4d7619deeb018d2a3f2d21fc165dde5eb5",
-            "nonce": "0xe04d296d2460cfb8472af2c5fd05b5a214109c25688d3704aed5484f9a7792f2",
-            "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-            "logsBloom": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-            "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            "stateRoot": "0xd5855eb08b3387c0af375e9cdb6acfc05eb8f519e419b874b6ff2ffda7ed1dff",
-            "miner": "0x4e65fda2159562a496f9f3522f89122a3088497a",
-            "difficulty": "0x027f07",
-            "totalDifficulty": "0x027f07",
-            "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "size": "0x027f07",
-            "gasLimit": "0x9f759",
-            "gasUsed": "0x9f759",
-            "timestamp": "0x54e34e8e",
-            "transactions": [
-                {
-                    "hash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
-                    "nonce": "0x",
-                    "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
-                    "blockNumber": "0x15df",
-                    "transactionIndex": "0x1",
-                    "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
-                    "to": "0x85h43d8a49eeb85d32cf465507dd71d507100c1",
-                    "value": "0x7f110",
-                    "gas": "0x7f110",
-                    "gasPrice": "0x09184e72a000",
-                    "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
-                }
-            ],
-            "uncles": []
-        });
+        // Use ethers-rs to fetch the latest block
+        log::info!("Fetching latest Ethereum block from {}", self.rpc_url);
+        
+        // Create a provider
+        let provider = match Provider::<Http>::try_from(self.rpc_url.clone()) {
+            Ok(provider) => provider,
+            Err(e) => {
+                return Err(format!("Failed to create Ethereum provider: {}", e));
+            }
+        };
+        
+        // Fetch the latest block
+        let block = match provider.get_block(BlockNumber::Latest).await {
+            Ok(Some(block)) => {
+                // Convert the block to a JSON value
+                let block_json = serde_json::to_value(block)
+                    .map_err(|e| format!("Failed to serialize block: {}", e))?;
+                
+                block_json
+            },
+            Ok(None) => {
+                return Err("No latest block found".to_string());
+            },
+            Err(e) => {
+                return Err(format!("Failed to fetch latest block: {}", e));
+            }
+        };
+        
+        log::debug!("Fetched Ethereum block: {}", block["number"]);
         
         Ok(block)
     }
 
     /// Fetch contract events
     async fn fetch_contract_events(&self, contract_address: &str) -> Result<serde_json::Value, String> {
-        // In a real implementation, we would use ethers-rs to fetch contract events
-        // For now, we'll return mock events
-        let events = json!([
-            {
-                "address": contract_address,
-                "topics": [
-                    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                    "0x0000000000000000000000004e65fda2159562a496f9f3522f89122a3088497a",
-                    "0x0000000000000000000000001234567890123456789012345678901234567890"
-                ],
-                "data": "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000",
-                "blockNumber": "0x1b4",
-                "transactionHash": "0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b",
-                "transactionIndex": "0x1",
-                "blockHash": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
-                "logIndex": "0x0",
-                "removed": false
-            }
-        ]);
+        // Use ethers-rs to fetch contract events
+        log::info!("Fetching Ethereum contract events for {}", contract_address);
         
-        Ok(events)
+        // Create a provider
+        let provider = match Provider::<Http>::try_from(self.rpc_url.clone()) {
+            Ok(provider) => provider,
+            Err(e) => {
+                return Err(format!("Failed to create Ethereum provider: {}", e));
+            }
+        };
+        
+        // Create a filter for the contract events
+        let filter = Filter::new()
+            .address(vec![contract_address.parse::<Address>()
+                .map_err(|e| format!("Invalid contract address: {}", e))?])
+            .from_block(BlockNumber::Latest);
+        
+        // Fetch the events
+        let logs = match provider.get_logs(&filter).await {
+            Ok(logs) => {
+                // Convert the logs to a JSON value
+                let logs_json = serde_json::to_value(logs)
+                    .map_err(|e| format!("Failed to serialize logs: {}", e))?;
+                
+                logs_json
+            },
+            Err(e) => {
+                return Err(format!("Failed to fetch contract events: {}", e));
+            }
+        };
+        
+        log::debug!("Fetched {} Ethereum contract events", logs.as_array().map_or(0, |a| a.len()));
+        
+        Ok(logs)
     }
 
     /// Fetch transaction
     async fn fetch_transaction(&self, tx_hash: &str) -> Result<serde_json::Value, String> {
-        // In a real implementation, we would use ethers-rs to fetch the transaction
-        // For now, we'll return a mock transaction
-        let transaction = json!({
-            "hash": tx_hash,
-            "nonce": "0x0",
-            "blockHash": "0xbeab0aa2411b7ab17f30a99d3cb9c6ef2fc5426d6ad6fd9e2a26a6aed1d1055b",
-            "blockNumber": "0x15df",
-            "transactionIndex": "0x1",
-            "from": "0x407d73d8a49eeb85d32cf465507dd71d507100c1",
-            "to": "0x85h43d8a49eeb85d32cf465507dd71d507100c1",
-            "value": "0x7f110",
-            "gas": "0x7f110",
-            "gasPrice": "0x09184e72a000",
-            "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
-        });
+        // Use ethers-rs to fetch the transaction
+        log::info!("Fetching Ethereum transaction {}", tx_hash);
+        
+        // Create a provider
+        let provider = match Provider::<Http>::try_from(self.rpc_url.clone()) {
+            Ok(provider) => provider,
+            Err(e) => {
+                return Err(format!("Failed to create Ethereum provider: {}", e));
+            }
+        };
+        
+        // Parse the transaction hash
+        let hash = tx_hash.parse::<H256>()
+            .map_err(|e| format!("Invalid transaction hash: {}", e))?;
+        
+        // Fetch the transaction
+        let transaction = match provider.get_transaction(hash).await {
+            Ok(Some(tx)) => {
+                // Convert the transaction to a JSON value
+                let tx_json = serde_json::to_value(tx)
+                    .map_err(|e| format!("Failed to serialize transaction: {}", e))?;
+                
+                tx_json
+            },
+            Ok(None) => {
+                return Err(format!("Transaction not found: {}", tx_hash));
+            },
+            Err(e) => {
+                return Err(format!("Failed to fetch transaction: {}", e));
+            }
+        };
+        
+        log::debug!("Fetched Ethereum transaction: {}", tx_hash);
         
         Ok(transaction)
     }

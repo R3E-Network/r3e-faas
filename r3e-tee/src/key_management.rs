@@ -386,18 +386,43 @@ impl KeyManagementService for KeyManagementServiceImpl {
         // Perform encryption based on the algorithm
         match metadata.algorithm.as_str() {
             "AES" => {
-                // This is a simplified implementation
-                // In a real implementation, we would use a proper AES library
-                let mut result = Vec::new();
+                use aes::Aes256;
+                use aes::cipher::{BlockEncrypt, KeyInit};
+                use aes::cipher::generic_array::GenericArray;
+
+                // Create AES cipher
+                let cipher = Aes256::new(GenericArray::from_slice(&key_data));
                 
-                // Add IV if provided
-                if let Some(iv_data) = iv {
-                    result.extend_from_slice(iv_data);
-                }
+                // Generate IV if not provided
+                let iv = if let Some(iv_data) = iv {
+                    if iv_data.len() != 16 {
+                        return Err(TeeError::KeyManagement("Invalid IV length".to_string()));
+                    }
+                    iv_data.to_vec()
+                } else {
+                    let mut iv = vec![0u8; 16];
+                    rand::thread_rng().fill_bytes(&mut iv);
+                    iv
+                };
                 
-                // XOR the data with the key (simplified)
-                for (i, byte) in data.iter().enumerate() {
-                    result.push(byte ^ key_data[i % key_data.len()]);
+                // Pad data to block size
+                let block_size = 16;
+                let padding_len = block_size - (data.len() % block_size);
+                let mut padded_data = data.to_vec();
+                padded_data.extend(vec![padding_len as u8; padding_len]);
+                
+                // Encrypt data in blocks
+                let mut result = iv.clone();
+                let mut prev_block = GenericArray::from_slice(&iv);
+                
+                for chunk in padded_data.chunks(16) {
+                    let mut block = GenericArray::clone_from_slice(chunk);
+                    for (a, b) in block.iter_mut().zip(prev_block.iter()) {
+                        *a ^= b;
+                    }
+                    cipher.encrypt_block(&mut block);
+                    result.extend_from_slice(&block);
+                    prev_block = block;
                 }
                 
                 Ok(result)
@@ -427,20 +452,45 @@ impl KeyManagementService for KeyManagementServiceImpl {
         // Perform decryption based on the algorithm
         match metadata.algorithm.as_str() {
             "AES" => {
-                // This is a simplified implementation
-                // In a real implementation, we would use a proper AES library
-                let mut result = Vec::new();
+                use aes::Aes256;
+                use aes::cipher::{BlockDecrypt, KeyInit};
+                use aes::cipher::generic_array::GenericArray;
+
+                // Create AES cipher
+                let cipher = Aes256::new(GenericArray::from_slice(&key_data));
                 
-                // Skip IV if provided
-                let actual_data = if let Some(iv_data) = iv {
-                    &data[iv_data.len()..]
+                // Get IV and ciphertext
+                let (iv, ciphertext) = if let Some(iv_data) = iv {
+                    if iv_data.len() != 16 {
+                        return Err(TeeError::KeyManagement("Invalid IV length".to_string()));
+                    }
+                    (iv_data, data)
                 } else {
-                    data
+                    if data.len() < 16 {
+                        return Err(TeeError::KeyManagement("Data too short".to_string()));
+                    }
+                    (&data[..16], &data[16..])
                 };
                 
-                // XOR the data with the key (simplified)
-                for (i, byte) in actual_data.iter().enumerate() {
-                    result.push(byte ^ key_data[i % key_data.len()]);
+                // Decrypt data in blocks
+                let mut result = Vec::new();
+                let mut prev_block = GenericArray::from_slice(iv);
+                
+                for chunk in ciphertext.chunks(16) {
+                    let mut block = GenericArray::clone_from_slice(chunk);
+                    let saved_block = block.clone();
+                    cipher.decrypt_block(&mut block);
+                    for (a, b) in block.iter_mut().zip(prev_block.iter()) {
+                        *a ^= b;
+                    }
+                    result.extend_from_slice(&block);
+                    prev_block = saved_block;
+                }
+                
+                // Remove padding
+                let padding_len = *result.last().unwrap_or(&0) as usize;
+                if padding_len <= 16 && padding_len <= result.len() {
+                    result.truncate(result.len() - padding_len);
                 }
                 
                 Ok(result)
@@ -553,11 +603,49 @@ impl KeyManagementService for KeyManagementServiceImpl {
         // Perform key wrapping based on the algorithm
         match wrapping_metadata.algorithm.as_str() {
             "AES" => {
-                // This is a simplified implementation
-                // In a real implementation, we would use a proper key wrapping algorithm
-                let mut result = Vec::new();
+                use aes::Aes256;
+                use aes::cipher::{BlockEncrypt, KeyInit};
+                use aes::cipher::generic_array::GenericArray;
                 
-                // XOR the key data with the wrapping key (simplified)
+                // Create AES cipher for key wrapping
+                let cipher = Aes256::new(GenericArray::from_slice(&wrapping_key_data));
+                
+                // Implement AES Key Wrap (RFC 3394)
+                let mut result = vec![0xA6; 8]; // Initial Value (IV)
+                result.extend_from_slice(&key_data);
+                
+                // Pad key data to multiple of 8 bytes if needed
+                let padding_len = (8 - (result.len() % 8)) % 8;
+                result.extend(vec![0u8; padding_len]);
+                
+                // Perform key wrapping
+                let n = (result.len() - 8) / 8;
+                let mut blocks: Vec<_> = result.chunks(8).map(|c| c.to_vec()).collect();
+                
+                for j in 0..6 {
+                    for i in 0..n {
+                        let mut t = blocks[0].clone();
+                        t.extend(&blocks[i + 1]);
+                        
+                        // Encrypt block
+                        let mut block = GenericArray::from_slice(&t);
+                        cipher.encrypt_block(&mut block);
+                        
+                        // Update blocks
+                        let t = block.to_vec();
+                        blocks[0] = t[..8].to_vec();
+                        blocks[i + 1] = t[8..].to_vec();
+                        
+                        // XOR with counter
+                        let counter = ((n * j) + i + 1) as u64;
+                        for k in 0..8 {
+                            blocks[0][k] ^= ((counter >> (56 - (k * 8))) & 0xFF) as u8;
+                        }
+                    }
+                }
+                
+                // Combine blocks
+                result = blocks.into_iter().flatten().collect();
                 for (i, byte) in key_data.iter().enumerate() {
                     result.push(byte ^ wrapping_key_data[i % wrapping_key_data.len()]);
                 }
@@ -597,11 +685,53 @@ impl KeyManagementService for KeyManagementServiceImpl {
         // Perform key unwrapping based on the algorithm
         let unwrapped_key = match unwrapping_metadata.algorithm.as_str() {
             "AES" => {
-                // This is a simplified implementation
-                // In a real implementation, we would use a proper key unwrapping algorithm
-                let mut result = Vec::new();
+                use aes::Aes256;
+                use aes::cipher::{BlockDecrypt, KeyInit};
+                use aes::cipher::generic_array::GenericArray;
                 
-                // XOR the wrapped key with the unwrapping key (simplified)
+                // Create AES cipher for key unwrapping
+                let cipher = Aes256::new(GenericArray::from_slice(&unwrapping_key_data));
+                
+                // Implement AES Key Unwrap (RFC 3394)
+                if wrapped_key.len() < 24 || wrapped_key.len() % 8 != 0 {
+                    return Err(TeeError::KeyManagement("Invalid wrapped key length".to_string()));
+                }
+                
+                let n = (wrapped_key.len() - 8) / 8;
+                let mut blocks: Vec<_> = wrapped_key.chunks(8).map(|c| c.to_vec()).collect();
+                
+                // Perform key unwrapping
+                for j in (0..6).rev() {
+                    for i in (0..n).rev() {
+                        // XOR with counter
+                        let counter = ((n * j) + i + 1) as u64;
+                        for k in 0..8 {
+                            blocks[0][k] ^= ((counter >> (56 - (k * 8))) & 0xFF) as u8;
+                        }
+                        
+                        // Prepare block for decryption
+                        let mut t = blocks[0].clone();
+                        t.extend(&blocks[i + 1]);
+                        
+                        // Decrypt block
+                        let mut block = GenericArray::from_slice(&t);
+                        cipher.decrypt_block(&mut block);
+                        
+                        // Update blocks
+                        let t = block.to_vec();
+                        blocks[0] = t[..8].to_vec();
+                        blocks[i + 1] = t[8..].to_vec();
+                    }
+                }
+                
+                // Verify initial value
+                if blocks[0] != vec![0xA6; 8] {
+                    return Err(TeeError::KeyManagement("Key unwrap verification failed".to_string()));
+                }
+                
+                // Remove IV and combine remaining blocks
+                blocks.remove(0);
+                let mut result: Vec<u8> = blocks.into_iter().flatten().collect();
                 for (i, byte) in wrapped_key.iter().enumerate() {
                     result.push(byte ^ unwrapping_key_data[i % unwrapping_key_data.len()]);
                 }

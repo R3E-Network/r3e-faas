@@ -80,9 +80,14 @@ impl Worker {
                     // Create a balance service
                     let balance_storage = Arc::new(MemoryBalanceStorage::new());
                     
-                    // In a real implementation, we would get the gas bank service from somewhere
-                    // For now, we'll use a mock implementation
-                    let gas_bank_service = Arc::new(MockGasBankService::new());
+                    // Get the gas bank service from configuration
+                    let gas_bank_service = match &self.config.gas_bank_service {
+                        Some(service) => service.clone(),
+                        None => {
+                            warn!("No gas bank service configured, using mock implementation");
+                            Arc::new(MockGasBankService::new())
+                        }
+                    };
                     
                     let balance_service = Arc::new(BalanceService::new(balance_storage, gas_bank_service));
                     

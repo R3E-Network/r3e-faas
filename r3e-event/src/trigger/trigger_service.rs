@@ -531,11 +531,11 @@ impl TriggerServiceWithFunction {
                 "jsonpath" => {
                     // JSONPath match
                     if let Some(filter_str) = filter.as_str() {
-                        // In a real implementation, we would use a JSONPath library
-                        // For now, we'll just check if the filter string is "*" (match all)
+                        // Use jsonpath_lib to evaluate the JSONPath expression
                         if filter_str != "*" {
-                            // Simple check for key existence
-                            let key = filter_str.trim_start_matches("$.");
+                            // Parse and evaluate the JSONPath expression
+                            let actual_value = jsonpath_lib::select(actual, filter_str)
+                                .map_err(|e| TriggerError::InvalidParameters(format!("Invalid JSONPath: {}", e)))?;
                             let expected_value = params.get("expected_value");
                             
                             if let Some(expected) = expected_value {

@@ -129,9 +129,30 @@ impl<S: BalanceStorage, G: GasBankServiceTrait> BalanceServiceTrait for BalanceS
         
         // Process withdrawal through gas bank if it's a GAS withdrawal
         if asset_type.to_lowercase() == "gas" {
-            // In a real implementation, this would call the gas bank service to process the withdrawal
-            // For now, we'll just log it
-            println!("Processing GAS withdrawal for user {}: {} GAS", user_id, amount);
+            // Call the gas bank service to process the withdrawal
+            match self.gas_bank.withdraw(user_id.to_string(), amount).await {
+                Ok(tx_hash) => {
+                    // Update transaction with the tx hash
+                    let mut updated_tx = transaction.clone();
+                    updated_tx.tx_hash = Some(tx_hash);
+                    self.storage.update_transaction(updated_tx.clone()).await?;
+                    
+                    // Return the updated transaction
+                    return Ok(updated_tx);
+                },
+                Err(e) => {
+                    // Revert the balance change
+                    let mut reverted_balance = self.get_balance(user_id).await?;
+                    reverted_balance.gas_balance += amount;
+                    reverted_balance.updated_at = chrono::Utc::now().timestamp() as u64;
+                    self.storage.update_balance(reverted_balance).await?;
+                    
+                    // Delete the transaction
+                    self.storage.delete_transaction(&transaction.id).await?;
+                    
+                    return Err(format!("Failed to process GAS withdrawal: {}", e));
+                }
+            }
         }
         
         Ok(transaction)

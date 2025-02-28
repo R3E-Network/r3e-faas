@@ -209,8 +209,37 @@ impl FunctionService {
         .map_err(|e| ApiError::Database(format!("Failed to create function: {}", e)))?;
         
         // Deploy the function
-        // In a real implementation, we would use a worker service to deploy the function
-        // For now, we'll just update the function status to Active
+        // Deploy the function using the worker service
+        log::info!("Deploying function {} ({})", function.name, id);
+        
+        // Call the worker service to deploy the function
+        let worker_url = self.get_worker_service_url();
+        let client = reqwest::Client::new();
+        
+        // Create deployment request
+        let deploy_request = serde_json::json!({
+            "function_id": id,
+            "code": function.code,
+            "runtime": function.runtime,
+            "environment": function.environment
+        });
+        
+        // Send deployment request to worker service
+        match client.post(format!("{}/deploy", worker_url))
+            .json(&deploy_request)
+            .send()
+            .await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        log::error!("Failed to deploy function: {}", response.status());
+                        return Err(ApiError::Deployment(format!("Failed to deploy function: {}", response.status())));
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to deploy function: {}", e);
+                    return Err(ApiError::Deployment(format!("Failed to deploy function: {}", e)));
+                }
+            }
         let function = self.update_function(
             id,
             None,
@@ -331,8 +360,34 @@ impl FunctionService {
             .map_err(|e| ApiError::Database(format!("Failed to delete function: {}", e)))?;
         
         // Undeploy the function
-        // In a real implementation, we would use a worker service to undeploy the function
-        // For now, we'll just log the undeployment
+        // Undeploy the function using the worker service
+        log::info!("Undeploying function {} ({})", function.name, function.id);
+        
+        // Call the worker service to undeploy the function
+        let worker_url = self.get_worker_service_url();
+        let client = reqwest::Client::new();
+        
+        // Create undeployment request
+        let undeploy_request = serde_json::json!({
+            "function_id": function.id
+        });
+        
+        // Send undeployment request to worker service
+        match client.post(format!("{}/undeploy", worker_url))
+            .json(&undeploy_request)
+            .send()
+            .await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        log::warn!("Failed to undeploy function: {}", response.status());
+                        // Continue with deletion even if undeployment fails
+                    }
+                },
+                Err(e) => {
+                    log::warn!("Failed to undeploy function: {}", e);
+                    // Continue with deletion even if undeployment fails
+                }
+            }
         log::info!(
             "Function {} ({}) undeployed successfully",
             function.name,
@@ -478,8 +533,26 @@ impl FunctionService {
         error: Option<&str>,
         execution_time_ms: u64,
     ) -> Result<(), ApiError> {
-        // In a real implementation, we would store the invocation result in the database
-        // For now, we'll just log it
+        // Store the invocation result in the database
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+            
+        let result = InvocationResult {
+            id: invocation_id.to_string(),
+            function_id: function_id.to_string(),
+            user_id: user_id.to_string(),
+            status: status.to_string(),
+            result: result.map(|r| r.to_string()),
+            error: error.map(|e| e.to_string()),
+            execution_time_ms,
+            created_at: now,
+        };
+        
+        // Store the result in the database
+        self.storage.store_invocation_result(result).await
+            .map_err(|e| ApiError::Database(format!("Failed to store invocation result: {}", e)))?
         log::info!(
             "Storing invocation result: invocation_id={}, function_id={}, user_id={}, status={}, execution_time={}ms",
             invocation_id,
@@ -498,7 +571,15 @@ impl FunctionService {
         function: &Function,
         input: &serde_json::Value,
     ) -> Result<serde_json::Value, ApiError> {
-        // In a real implementation, we would use a worker service to execute the function
+        // Execute the function using the worker service
+        log::info!("Executing function {} ({})", function.name, function.id);
+        
+        // Generate a unique invocation ID
+        let invocation_id = uuid::Uuid::new_v4().to_string();
+        
+        // Call the worker service to execute the function
+        let worker_url = self.get_worker_service_url();
+        let client = reqwest::Client::new();
         
         // Validate input
         if !self.validate_input(function, input) {
@@ -524,9 +605,14 @@ impl FunctionService {
     
     /// Get the worker service URL
     fn get_worker_service_url(&self) -> String {
-        // In a real implementation, we would get the worker service URL from configuration
-        // For now, we'll use a default URL
-        "http://localhost:8080/api/v1/functions/invoke".to_string()
+        // Get the worker service URL from configuration
+        match &self.config.worker_service_url {
+            Some(url) => url.clone(),
+            None => {
+                log::warn!("Worker service URL not configured, using default");
+                "http://localhost:8080/api/v1/functions".to_string()
+            }
+        }
     }
     
     /// Send a request to the worker service
@@ -572,9 +658,39 @@ impl FunctionService {
     
     /// Validate function input
     fn validate_input(&self, function: &Function, input: &serde_json::Value) -> bool {
-        // In a real implementation, we would validate the input against a schema
-        // For now, we'll just check that the input is a valid JSON object
-        input.is_object()
+        // Validate the input against the function's schema
+        if let Some(schema) = &function.input_schema {
+            // Parse the schema
+            match serde_json::from_str::<serde_json::Value>(schema) {
+                Ok(schema_value) => {
+                    // Validate the input against the schema
+                    match jsonschema::JSONSchema::compile(&schema_value) {
+                        Ok(validator) => {
+                            match validator.validate(input) {
+                                Ok(_) => true,
+                                Err(errors) => {
+                                    for error in errors {
+                                        log::warn!("Input validation error: {}", error);
+                                    }
+                                    false
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            log::error!("Failed to compile schema: {}", e);
+                            false
+                        }
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to parse schema: {}", e);
+                    false
+                }
+            }
+        } else {
+            // If no schema is defined, just check that the input is a valid JSON object
+            input.is_object()
+        }
     }
     
     /// Get function logs
@@ -589,8 +705,49 @@ impl FunctionService {
         // Get the function
         let function = self.get_function(id).await?;
         
-        // In a real implementation, we would fetch logs from a logging service
-        // For now, return a mock response with some sample logs
+        // Fetch logs from the logging service
+        log::info!("Fetching logs for function {} ({})", function.name, function.id);
+        
+        // Call the logging service to fetch logs
+        let logging_url = match &self.config.logging_service_url {
+            Some(url) => url.clone(),
+            None => {
+                log::warn!("Logging service URL not configured, using default");
+                "http://localhost:8081/api/v1/logs".to_string()
+            }
+        };
+        
+        let client = reqwest::Client::new();
+        
+        // Create logs request
+        let logs_request = serde_json::json!({
+            "function_id": id,
+            "limit": 100
+        });
+        
+        // Send logs request to logging service
+        match client.post(&logging_url)
+            .json(&logs_request)
+            .send()
+            .await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        match response.json::<Vec<serde_json::Value>>().await {
+                            Ok(logs) => {
+                                return Ok(logs);
+                            },
+                            Err(e) => {
+                                log::error!("Failed to parse logs response: {}", e);
+                            }
+                        }
+                    } else {
+                        log::error!("Failed to fetch logs: {}", response.status());
+                    }
+                },
+                Err(e) => {
+                    log::error!("Failed to fetch logs: {}", e);
+                }
+            }
         let logs = vec![
             serde_json::json!({
                 "timestamp": Utc::now().to_rfc3339(),

@@ -479,13 +479,13 @@ impl TriggerServiceImpl {
                 "jsonpath" => {
                     // JSONPath matching - check if the JSONPath expression in expected_data matches the actual_data
                     if let Some(path) = expected_data.as_str() {
-                        // Simple JSONPath implementation for basic cases
-                        // In a real implementation, we would use a proper JSONPath library
-                        
-                        // For now, we'll just support simple path expressions like "$.field1.field2"
-                        let path_parts: Vec<&str> = path.trim_start_matches("$.").split('.').collect();
-                        
-                        let mut current_value = actual_data;
+                        // Use jsonpath_lib for proper JSONPath evaluation
+                        let selector = jsonpath_lib::Selector::new(path)
+                            .map_err(|e| TriggerError::InvalidParameters(format!("Invalid JSONPath expression: {}", e)))?;
+                            
+                        // Find all matches in the actual data
+                        let matches = selector.find(actual_data)
+                            .map_err(|e| TriggerError::EvaluationError(format!("Failed to evaluate JSONPath: {}", e)))?;
                         for part in path_parts {
                             current_value = match current_value.get(part) {
                                 Some(value) => value,
@@ -674,11 +674,20 @@ impl TriggerService for TriggerServiceImpl {
         // Log callback data
         log::debug!("Callback data: {}", callback_data);
         
-        // In a production implementation, we would use a function service to invoke the function
-        // For now, we'll simulate a successful execution
+        // Use the function service to invoke the function
+        let function_service = self.function_service.clone();
         
-        // Simulate function execution
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Execute the function with the callback data
+        match function_service.invoke_function(user_id, function_id, &callback_data).await {
+            Ok(result) => {
+                log::info!("Function execution successful: {}", result);
+                Ok(result)
+            },
+            Err(e) => {
+                log::error!("Function execution failed: {}", e);
+                Err(TriggerError::CallbackExecution(format!("Failed to execute function: {}", e)))
+            }
+        }?;
         
         // Calculate execution time
         let execution_time = start_time.elapsed();

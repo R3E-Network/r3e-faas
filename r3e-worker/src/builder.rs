@@ -47,8 +47,15 @@ impl TaskSourceBuilder {
                 Box::new(source)
             },
             "ethereum" => {
-                // In a real implementation, we would create an Ethereum task source
-                // For now, we'll use a placeholder implementation
+                // Create an Ethereum task source
+                log::info!("Creating Ethereum task source");
+                let ethereum_source = EthereumTaskSource::new(
+                    config.ethereum_rpc_url.clone(),
+                    config.ethereum_chain_id,
+                    config.ethereum_block_time,
+                    config.ethereum_confirmations,
+                )?;
+                Box::new(ethereum_source)
                 log::warn!("Using placeholder Ethereum task source");
                 
                 let source = EthereumTaskSource::new(sleep, uid);

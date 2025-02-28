@@ -131,26 +131,23 @@ impl NeoTaskSource {
         })?;
         
         // Get the transaction details
-        // Note: We can't directly get the transaction object, so we'll create a mock one
-        // In a real implementation, we would parse the raw transaction string
-        let _tx_raw = client.get_raw_transaction(hash).await.map_err(|e| {
+        let tx_raw = client.get_raw_transaction(hash).await.map_err(|e| {
             Box::new(e) as Box<dyn std::error::Error + Send + Sync>
         })?;
         
-        // Create a mock transaction for now
-        // In a real implementation, we would parse the raw transaction
+        // Parse the raw transaction into a NeoTx
         Ok(NeoTx {
             hash: tx_hash.to_string(),
-            size: 100,
-            version: 0,
-            nonce: 0,
-            sysfee: 0,
-            netfee: 0,
-            valid_until_block: 0,
-            script: "mock_script".to_string(),
-            signers: vec![],
-            attributes: vec![],
-            witnesses: vec![],
+            size: tx_raw.size as u32,
+            version: tx_raw.version as u32,
+            nonce: tx_raw.nonce as u32,
+            sysfee: tx_raw.sys_fee.parse::<u64>().unwrap_or(0),
+            netfee: tx_raw.net_fee.parse::<u64>().unwrap_or(0),
+            valid_until_block: tx_raw.valid_until_block as u32,
+            script: tx_raw.script.clone(),
+            signers: tx_raw.signers.iter().map(|s| s.clone()).collect(),
+            attributes: tx_raw.attributes.iter().map(|a| a.clone()).collect(),
+            witnesses: tx_raw.witnesses.iter().map(|w| w.clone()).collect(),
         })
     }
     

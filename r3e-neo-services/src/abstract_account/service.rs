@@ -77,16 +77,23 @@ impl<S: AbstractAccountStorage> AbstractAccountService<S> {
     
     /// Verify signature
     async fn verify_signature(&self, address: &str, data: &[u8], signature: &str) -> Result<bool, Error> {
-        // In a real implementation, this would verify the signature against the data
-        // For this example, we'll assume the signature is valid if it's not empty
+        // Verify the signature using NeoRust SDK
         if signature.is_empty() {
             return Ok(false);
         }
-        
-        // Verify the signature
-        // This would use the NeoRust SDK to verify the signature
-        // For this example, we'll assume it's valid
-        Ok(true)
+
+        // Parse the signature
+        let sig_bytes = hex::decode(signature.trim_start_matches("0x"))
+            .map_err(|e| Error::InvalidSignature(format!("Invalid signature format: {}", e)))?;
+
+        // Get the public key from the address
+        let public_key = self.rpc_client.get_account_publickey(address)
+            .await
+            .map_err(|e| Error::InvalidSignature(format!("Failed to get public key: {}", e)))?;
+
+        // Verify the signature using NeoRust
+        NeoRust::crypto::verify_signature(data, &sig_bytes, &public_key)
+            .map_err(|e| Error::InvalidSignature(format!("Signature verification failed: {}", e)))
     }
     
     /// Verify operation signatures
@@ -122,17 +129,102 @@ impl<S: AbstractAccountStorage> AbstractAccountService<S> {
     
     /// Deploy account contract
     async fn deploy_account_contract(&self, owner: &str, controllers: &[AccountController], policy: &AccountPolicy) -> Result<String, Error> {
-        // In a real implementation, this would deploy a new account contract
-        // For this example, we'll return a mock contract hash
-        let contract_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
+        // Deploy the account contract using NeoRust SDK
+        let factory_contract = self.rpc_client.get_contract(&self.factory_contract_hash)
+            .await
+            .map_err(|e| Error::ContractError(format!("Failed to get factory contract: {}", e)))?;
+
+        // Build deployment transaction
+        let tx = TransactionBuilder::new()
+            .script_hash(factory_contract.hash)
+            .operation("deployAccount")
+            .args(&[
+                owner.into(),
+                serde_json::to_vec(&controllers)?.into(),
+                serde_json::to_vec(&policy)?.into()
+            ])
+            .sign(&*self.factory_wallet)
+            .build()
+            .map_err(|e| Error::ContractError(format!("Failed to build deployment transaction: {}", e)))?;
+
+        // Send transaction
+        let tx_hash = self.rpc_client.send_raw_transaction(tx)
+            .await
+            .map_err(|e| Error::ContractError(format!("Failed to send deployment transaction: {}", e)))?;
+
+        // Wait for transaction to be confirmed
+        let tx_info = self.rpc_client.wait_for_transaction(&tx_hash, 60, 1)
+            .await
+            .map_err(|e| Error::ContractError(format!("Failed to confirm deployment: {}", e)))?;
+
+        // Get contract hash from transaction
+        let contract_hash = tx_info.contract_hash
+            .ok_or_else(|| Error::ContractError("No contract hash in deployment response".to_string()))?;
+
         Ok(contract_hash)
     }
     
     /// Execute operation on account contract
     async fn execute_contract_operation(&self, account: &AbstractAccount, operation: &AccountOperation) -> Result<String, Error> {
-        // In a real implementation, this would execute the operation on the account contract
-        // For this example, we'll return a mock transaction hash
-        let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
+        // Get the account contract
+        let contract = self.rpc_client.get_contract(&account.contract_hash)
+            .await
+            .map_err(|e| Error::ContractError(format!("Failed to get account contract: {}", e)))?;
+
+        // Build operation transaction based on operation type
+        let tx = match operation {
+            AccountOperation::AddController { address, weight } => {
+                TransactionBuilder::new()
+                    .script_hash(contract.hash)
+                    .operation("addController")
+                    .args(&[address.into(), (*weight as u64).into()])
+                    .sign(&*self.factory_wallet)
+                    .build()
+            },
+            AccountOperation::RemoveController { address } => {
+                TransactionBuilder::new()
+                    .script_hash(contract.hash)
+                    .operation("removeController")
+                    .args(&[address.into()])
+                    .sign(&*self.factory_wallet)
+                    .build()
+            },
+            AccountOperation::UpdatePolicy { policy } => {
+                TransactionBuilder::new()
+                    .script_hash(contract.hash)
+                    .operation("updatePolicy")
+                    .args(&[serde_json::to_vec(policy)?.into()])
+                    .sign(&*self.factory_wallet)
+                    .build()
+            },
+            AccountOperation::Recover { new_owner } => {
+                TransactionBuilder::new()
+                    .script_hash(contract.hash)
+                    .operation("recover")
+                    .args(&[new_owner.into()])
+                    .sign(&*self.factory_wallet)
+                    .build()
+            },
+            AccountOperation::Custom { method, args } => {
+                TransactionBuilder::new()
+                    .script_hash(contract.hash)
+                    .operation(method)
+                    .args(args)
+                    .sign(&*self.factory_wallet)
+                    .build()
+            },
+        }.map_err(|e| Error::ContractError(format!("Failed to build operation transaction: {}", e)))?;
+
+        // Send transaction
+        let tx_hash = self.rpc_client.send_raw_transaction(tx)
+            .await
+            .map_err(|e| Error::ContractError(format!("Failed to send operation transaction: {}", e)))?;
+
+        // Wait for transaction to be confirmed
+        self.rpc_client.wait_for_transaction(&tx_hash, 60, 1)
+            .await
+            .map_err(|e| Error::ContractError(format!("Failed to confirm operation: {}", e)))?;
+
         Ok(tx_hash)
     }
 }
