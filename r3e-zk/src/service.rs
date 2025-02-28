@@ -4,7 +4,10 @@
 //! Service implementation for the Zero-Knowledge computing service.
 
 use crate::{
-    provider::{BulletproofsProvider, ZkProvider, ZokratesProvider},
+    provider::{
+        ArkworksProvider, BellmanProvider, BulletproofsProvider, CircomProvider, ZkProvider,
+        ZokratesProvider,
+    },
     storage::{MemoryZkStorage, RocksDbZkStorage, ZkStorage},
     ZkCircuit, ZkCircuitId, ZkConfig, ZkError, ZkPlatform, ZkProof, ZkProofId, ZkProvingKey,
     ZkProvingKeyId, ZkResult, ZkStorageType, ZkVerificationKey, ZkVerificationKeyId,
@@ -56,6 +59,33 @@ impl ZkService {
             if bulletproofs_config.enabled {
                 let provider = BulletproofsProvider::new(bulletproofs_config.default_generators);
                 providers.insert(ZkPlatform::Bulletproofs, Arc::new(provider));
+            }
+        }
+
+        // Add Circom provider if enabled
+        if let Some(circom_config) = &config.providers.circom {
+            if circom_config.enabled {
+                let provider = CircomProvider::new(circom_config.default_witness_strategy.clone());
+                providers.insert(ZkPlatform::Circom, Arc::new(provider));
+            }
+        }
+
+        // Add Bellman provider if enabled
+        if let Some(bellman_config) = &config.providers.bellman {
+            if bellman_config.enabled {
+                let provider = BellmanProvider::new(bellman_config.default_curve.clone());
+                providers.insert(ZkPlatform::Bellman, Arc::new(provider));
+            }
+        }
+
+        // Add Arkworks provider if enabled
+        if let Some(arkworks_config) = &config.providers.arkworks {
+            if arkworks_config.enabled {
+                let provider = ArkworksProvider::new(
+                    arkworks_config.default_proving_system.clone(),
+                    arkworks_config.default_curve.clone(),
+                );
+                providers.insert(ZkPlatform::Arkworks, Arc::new(provider));
             }
         }
 

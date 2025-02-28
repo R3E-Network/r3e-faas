@@ -132,7 +132,7 @@ The Automatic Smart Contract Service enables automatic invocation of smart contr
 
 The Zero-Knowledge Computing Service provides cryptographic proof generation and verification:
 
-- **Multiple ZK Solutions**: Support for ZoKrates, Bulletproofs, and Circom
+- **Multiple ZK Solutions**: Support for ZoKrates, Bulletproofs, Circom, Bellman, and Arkworks
 - **Circuit Compilation**: Compile ZK circuits from source code
 - **Key Generation**: Generate proving and verification keys
 - **Proof Generation**: Create ZK proofs with public and private inputs

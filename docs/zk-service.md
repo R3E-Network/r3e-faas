@@ -12,6 +12,8 @@ Zero-Knowledge proofs allow one party (the prover) to prove to another party (th
   - ZoKrates: A toolbox for zkSNARKs on Ethereum
   - Bulletproofs: Short non-interactive zero-knowledge proofs without a trusted setup
   - Circom: A circuit compiler for zkSNARKs
+  - Bellman: A Rust library for zkSNARK implementations
+  - Arkworks: A comprehensive ecosystem for zkSNARK development
 
 - **Circuit Compilation**: Compile ZK circuits from source code
 - **Key Generation**: Generate proving and verification keys
@@ -35,6 +37,8 @@ The service supports multiple circuit types:
 zk.CircuitType.ZOKRATES    // ZoKrates circuits
 zk.CircuitType.BULLETPROOFS // Bulletproofs circuits
 zk.CircuitType.CIRCOM      // Circom circuits
+zk.CircuitType.BELLMAN     // Bellman circuits
+zk.CircuitType.ARKWORKS    // Arkworks circuits
 ```
 
 ### Compiling Circuits
@@ -213,3 +217,5 @@ console.log(`Merkle proof valid: ${isValid}`);
 - [ZoKrates Documentation](https://zokrates.github.io/)
 - [Bulletproofs Paper](https://eprint.iacr.org/2017/1066.pdf)
 - [Circom Documentation](https://docs.circom.io/)
+- [Bellman GitHub Repository](https://github.com/zkcrypto/bellman)
+- [Arkworks Documentation](https://arkworks.rs/)
