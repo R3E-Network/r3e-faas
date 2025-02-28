@@ -71,6 +71,8 @@ pub fn op_neo_gas_bank_create_account(#[serde] request: GasBankAccountRequest) -
         request.fee_value,
         request.credit_limit,
     ).await?;
+    
+    let account = GasBankAccount {
         address: request.address,
         balance: 0,
         fee_model: match request.fee_model.as_str() {
@@ -94,6 +96,7 @@ pub fn op_neo_gas_bank_get_account(address: String) -> Result<String, AnyError> 
     // Get a gas bank account using the NeoRust SDK
     let gas_bank_service = GasBankService::new()?;
     let account = gas_bank_service.get_account(&address).await?;
+    let account = GasBankAccount {
         address,
         balance: 1000,
         fee_model: FeeModel::Fixed(10),
@@ -116,6 +119,8 @@ pub fn op_neo_gas_bank_deposit(#[serde] request: GasBankDepositRequest) -> Resul
         &request.address,
         request.amount,
     ).await?;
+    
+    let deposit = GasBankDeposit {
         tx_hash: request.tx_hash,
         address: request.address,
         amount: request.amount,
@@ -135,6 +140,8 @@ pub fn op_neo_gas_bank_withdraw(#[serde] request: GasBankWithdrawRequest) -> Res
         &request.address,
         request.amount,
     ).await?;
+    
+    let withdrawal = GasBankWithdrawal {
         tx_hash: format!("0x{}", hex::encode([0u8; 32])),
         address: request.address,
         amount: request.amount,
@@ -156,6 +163,8 @@ pub fn op_neo_gas_bank_pay_gas(#[serde] request: GasBankPayGasRequest) -> Result
         &request.address,
         request.amount,
     ).await?;
+    
+    let transaction = GasBankTransaction {
         tx_hash: request.tx_hash,
         address: request.address,
         tx_type: "gas_payment".to_string(),
@@ -204,6 +213,8 @@ pub fn op_neo_meta_tx_submit(#[serde] request: MetaTxSubmitRequest) -> Result<St
         &request.fee_model,
         request.fee_amount,
     ).await?;
+    
+    let fee_model = match request.fee_model.as_str() {
         "fixed" => FeeModel::Fixed(request.fee_amount),
         "percentage" => FeeModel::Percentage(request.fee_amount as f64),
         "dynamic" => FeeModel::Dynamic,
