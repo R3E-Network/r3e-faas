@@ -1,618 +1,564 @@
-# API Reference
+# R3E FaaS API Reference
 
-This document provides a reference for the R3E FaaS platform's HTTP API and JavaScript API.
-
-## HTTP API
-
-The R3E FaaS platform provides a RESTful HTTP API for managing functions, triggers, and other resources.
-
-### Base URL
-
-```
-http://localhost:8080/api/v1
-```
-
-### Authentication
-
-Most API endpoints require authentication. You can authenticate using an API key in the `Authorization` header:
-
-```
-Authorization: Bearer your-api-key
-```
-
-### Functions
-
-#### List Functions
-
-```
-GET /functions
-```
-
-Response:
-
-```json
-{
-  "functions": [
-    {
-      "id": "function-id",
-      "name": "function-name",
-      "created_at": "2023-01-01T00:00:00Z",
-      "updated_at": "2023-01-01T00:00:00Z"
-    }
-  ]
-}
-```
-
-#### Get Function
-
-```
-GET /functions/{function_id}
-```
-
-Response:
-
-```json
-{
-  "id": "function-id",
-  "name": "function-name",
-  "code": "export default function(event) { return { hello: 'world' }; }",
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:00:00Z"
-}
-```
-
-#### Create Function
-
-```
-POST /functions
-```
-
-Request:
-
-```json
-{
-  "name": "function-name",
-  "code": "export default function(event) { return { hello: 'world' }; }"
-}
-```
-
-Response:
-
-```json
-{
-  "id": "function-id",
-  "name": "function-name",
-  "created_at": "2023-01-01T00:00:00Z",
-  "updated_at": "2023-01-01T00:00:00Z"
-}
-```
-
-#### Update Function
-
-```
-PUT /functions/{function_id}
-```
-
-Request:
-
-```json
-{
-  "code": "export default function(event) { return { hello: 'updated' }; }"
-}
-```
-
-Response:
-
-```json
-{
-  "id": "function-id",
-  "name": "function-name",
-  "updated_at": "2023-01-01T00:00:00Z"
-}
-```
-
-#### Delete Function
-
-```
-DELETE /functions/{function_id}
-```
-
-Response:
-
-```json
-{
-  "success": true
-}
-```
-
-#### Invoke Function
-
-```
-POST /functions/{function_id}/invoke
-```
-
-Request:
-
-```json
-{
-  "data": {
-    "key": "value"
-  }
-}
-```
-
-Response:
-
-```json
-{
-  "result": {
-    "hello": "world"
-  },
-  "execution_time_ms": 5
-}
-```
-
-### Triggers
-
-#### List Triggers
-
-```
-GET /triggers
-```
-
-Response:
-
-```json
-{
-  "triggers": [
-    {
-      "id": "trigger-id",
-      "function_id": "function-id",
-      "type": "blockchain",
-      "event": "NeoNewBlock",
-      "created_at": "2023-01-01T00:00:00Z"
-    }
-  ]
-}
-```
-
-#### Create Trigger
-
-```
-POST /triggers
-```
-
-Request:
-
-```json
-{
-  "function_id": "function-id",
-  "type": "blockchain",
-  "event": "NeoNewBlock"
-}
-```
-
-Response:
-
-```json
-{
-  "id": "trigger-id",
-  "function_id": "function-id",
-  "type": "blockchain",
-  "event": "NeoNewBlock",
-  "created_at": "2023-01-01T00:00:00Z"
-}
-```
-
-#### Delete Trigger
-
-```
-DELETE /triggers/{trigger_id}
-```
-
-Response:
-
-```json
-{
-  "success": true
-}
-```
-
-### Account
-
-#### Get Account Info
-
-```
-GET /account
-```
-
-Response:
-
-```json
-{
-  "address": "NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv",
-  "neo_balance": "10.0",
-  "gas_balance": "5.0"
-}
-```
-
-#### Withdraw Tokens
-
-```
-POST /account/withdraw
-```
-
-Request:
-
-```json
-{
-  "token": "GAS",
-  "amount": "1.0",
-  "address": "NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv"
-}
-```
-
-Response:
-
-```json
-{
-  "tx_hash": "0x1234567890abcdef",
-  "amount": "1.0",
-  "token": "GAS"
-}
-```
-
-### Secrets
-
-#### List Secrets
-
-```
-GET /secrets
-```
-
-Response:
-
-```json
-{
-  "secrets": [
-    {
-      "name": "API_KEY",
-      "created_at": "2023-01-01T00:00:00Z"
-    }
-  ]
-}
-```
-
-#### Set Secret
-
-```
-POST /secrets
-```
-
-Request:
-
-```json
-{
-  "name": "API_KEY",
-  "value": "your-api-key"
-}
-```
-
-Response:
-
-```json
-{
-  "name": "API_KEY",
-  "created_at": "2023-01-01T00:00:00Z"
-}
-```
-
-#### Delete Secret
-
-```
-DELETE /secrets/{secret_name}
-```
-
-Response:
-
-```json
-{
-  "success": true
-}
-```
+This document provides a comprehensive reference for the R3E FaaS platform API, including JavaScript functions, built-in services, and configuration options.
 
 ## JavaScript API
 
-The R3E FaaS platform provides a JavaScript API for use within functions.
+The R3E FaaS platform provides a rich JavaScript API for interacting with the platform's services. This API is available in all JavaScript functions deployed to the platform.
 
-### Event Object
+### Global Objects
 
-Functions receive an event object as their first argument:
+The following global objects are available in all JavaScript functions:
+
+- `r3e`: The main object for accessing platform services
+- `console`: Standard console object for logging
+- `fetch`: Standard fetch API for making HTTP requests
+- `crypto`: Standard Web Crypto API for cryptographic operations
+
+### r3e Object
+
+The `r3e` object provides access to all platform services:
 
 ```javascript
-export default function(event) {
-  console.log(event);
-  return event;
-}
+// Access Oracle service
+const price = await r3e.oracle.getPrice("NEO/USD");
+
+// Access Neo services
+const balance = await r3e.neoServices.getBalance();
+
+// Access Secret management
+const apiKey = await r3e.secrets.get("API_KEY");
+
+// Access Trigger management
+const trigger = await r3e.trigger.create({ type: "blockchain", event: "NeoNewBlock" });
+
+// Access Auto Contract service
+const contract = await r3e.autoContract.create({ /* ... */ });
+
+// Access Zero-Knowledge Computing
+const circuitId = await r3e.zk.compileCircuit(/* ... */);
+
+// Access Fully Homomorphic Encryption
+const keyPairId = await r3e.fhe.generateKeys(/* ... */);
+
+// Access TEE service
+const attestation = await r3e.tee.getAttestation();
 ```
 
-The event object has the following structure:
+## Oracle Service API
 
-```javascript
-{
-  // Event context
-  context: {
-    trigger: "NeoNewBlock", // Trigger type
-    triggered_time: 1672531200, // Unix timestamp
-    source: "Neo" // Event source
-  },
-  
-  // Event data
-  data: {
-    id: "event-id",
-    payload: {
-      // Event-specific payload
-      block_number: 12345,
-      block_hash: "0x1234567890abcdef"
-    }
-  }
-}
-```
+The Oracle Service provides access to external data sources.
 
-### r3e.oracle
-
-The `r3e.oracle` object provides access to oracle services:
+### Price Data
 
 ```javascript
 // Get cryptocurrency price
 const neoPrice = await r3e.oracle.getPrice("NEO/USD");
+const gasPrice = await r3e.oracle.getPrice("GAS/USD");
+const btcPrice = await r3e.oracle.getPrice("BTC/USD");
+const ethPrice = await r3e.oracle.getPrice("ETH/USD");
 
-// Get random number
+// Get price with options
+const neoPriceWithOptions = await r3e.oracle.getPrice("NEO/USD", {
+  source: "coinmarketcap",  // Specific data source
+  timeout: 5000,            // Timeout in milliseconds
+  cache: true,              // Use cached data if available
+  cacheTtl: 60              // Cache TTL in seconds
+});
+```
+
+### Random Numbers
+
+```javascript
+// Get random number between min and max (inclusive)
 const randomNumber = await r3e.oracle.getRandom(1, 100);
 
-// Get weather data
-const weather = await r3e.oracle.getWeather("New York");
+// Get random number with options
+const randomNumberWithOptions = await r3e.oracle.getRandom(1, 100, {
+  seed: "custom-seed",      // Custom seed for deterministic randomness
+  secure: true,             // Use cryptographically secure randomness
+  verifiable: true          // Generate verifiable random number
+});
 
-// Get data from HTTP endpoint
-const data = await r3e.oracle.getHttp("https://api.example.com/data");
+// Get random bytes
+const randomBytes = await r3e.oracle.getRandomBytes(32);
 ```
 
-### r3e.neoServices
-
-The `r3e.neoServices` object provides access to Neo N3 blockchain services:
+### Custom Data
 
 ```javascript
-// Get balance
-const balance = await r3e.neoServices.getBalance();
-
-// Transfer GAS
-const result = await r3e.neoServices.transferGas(
-  "NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv", // recipient address
-  5 // amount
-);
-
-// Invoke smart contract
-const invokeResult = await r3e.neoServices.invokeContract(
-  "0x1234567890abcdef", // script hash
-  "transfer", // method
-  ["NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv", 5] // parameters
-);
+// Get custom data from HTTP endpoint
+const weatherData = await r3e.oracle.getCustomData("https://api.weather.com/data", {
+  method: "GET",
+  headers: {
+    "Authorization": "Bearer token"
+  },
+  timeout: 5000
+});
 ```
 
-### r3e.tee
+## Neo Services API
 
-The `r3e.tee` object provides access to Trusted Execution Environment services:
+The Neo Services provide integration with the Neo N3 blockchain.
+
+### Gas Bank
 
 ```javascript
-// Execute code in TEE
-const result = await r3e.tee.execute(
-  "function secureOperation(data) { return data * 2; }", // code
-  [42] // arguments
-);
+// Create a gas bank account
+const account = await r3e.neoServices.gasBank.createAccount({
+  address: "neo1abc123def456",
+  feeModel: "fixed",
+  feeValue: 10,
+  creditLimit: 1000
+});
 
-// Verify attestation
-const isValid = await r3e.tee.verifyAttestation(attestationData);
+// Get a gas bank account
+const account = await r3e.neoServices.gasBank.getAccount("neo1abc123def456");
+
+// Deposit gas to an account
+const deposit = await r3e.neoServices.gasBank.deposit({
+  txHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  address: "neo1abc123def456",
+  amount: 1000
+});
+
+// Withdraw gas from an account
+const withdrawal = await r3e.neoServices.gasBank.withdraw({
+  address: "neo1abc123def456",
+  amount: 500
+});
+
+// Pay gas for a transaction
+const transaction = await r3e.neoServices.gasBank.payGas({
+  txHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  address: "neo1abc123def456",
+  amount: 10
+});
+
+// Get current gas price
+const gasPrice = await r3e.neoServices.gasBank.getGasPrice();
 ```
 
-### r3e.secrets
-
-The `r3e.secrets` object provides access to secret management:
+### Meta Transactions
 
 ```javascript
-// Get secret
+// Submit a meta transaction
+const metaTx = await r3e.neoServices.metaTx.submit({
+  txData: "0x1234567890abcdef",
+  sender: "neo1abc123def456",
+  signature: "0xsignature",
+  nonce: 1,
+  deadline: Math.floor(Date.now() / 1000) + 3600,
+  feeModel: "fixed",
+  feeAmount: 10
+});
+
+// Get meta transaction status
+const status = await r3e.neoServices.metaTx.getStatus("request-id");
+
+// Get meta transaction details
+const transaction = await r3e.neoServices.metaTx.getTransaction("request-id");
+
+// Get next nonce for a sender
+const nonce = await r3e.neoServices.metaTx.getNextNonce("neo1abc123def456");
+```
+
+### Ethereum Meta Transactions (EIP-712)
+
+```javascript
+// Create an EIP-712 typed data
+const typedData = await r3e.neoServices.metaTx.createEIP712TypedData({
+  domain: {
+    name: "My App",
+    version: "1",
+    chainId: 1,
+    verifyingContract: "0x1234567890abcdef1234567890abcdef12345678"
+  },
+  types: {
+    Person: [
+      { name: "name", type: "string" },
+      { name: "wallet", type: "address" }
+    ],
+    Mail: [
+      { name: "from", type: "Person" },
+      { name: "to", type: "Person" },
+      { name: "contents", type: "string" }
+    ]
+  },
+  primaryType: "Mail",
+  message: {
+    from: {
+      name: "Alice",
+      wallet: "0x1234567890abcdef1234567890abcdef12345678"
+    },
+    to: {
+      name: "Bob",
+      wallet: "0xabcdef1234567890abcdef1234567890abcdef12"
+    },
+    contents: "Hello, Bob!"
+  }
+});
+
+// Submit an EIP-712 meta transaction
+const metaTx = await r3e.neoServices.metaTx.submitEIP712({
+  typedData: typedData,
+  signature: "0xsignature",
+  sender: "0x1234567890abcdef1234567890abcdef12345678",
+  nonce: 1,
+  deadline: Math.floor(Date.now() / 1000) + 3600,
+  feeModel: "fixed",
+  feeAmount: 10
+});
+```
+
+## Secret Management API
+
+The Secret Management Service provides secure storage and access to sensitive data.
+
+```javascript
+// Store a secret
+await r3e.secrets.set("API_KEY", "your-api-key");
+
+// Get a secret
 const apiKey = await r3e.secrets.get("API_KEY");
 
-// Set secret
-await r3e.secrets.set("NEW_SECRET", "secret-value");
+// Delete a secret
+await r3e.secrets.delete("API_KEY");
 
-// Delete secret
-await r3e.secrets.delete("OLD_SECRET");
-```
+// List all secrets
+const secrets = await r3e.secrets.list();
 
-### r3e.sandbox
-
-The `r3e.sandbox` object provides access to sandbox management:
-
-```javascript
-// Request permission
-await r3e.sandbox.requestPermission("net");
-
-// Check permission
-const hasPermission = await r3e.sandbox.hasPermission("fs");
-```
-
-### r3e.indexing
-
-The `r3e.indexing` object provides access to data indexing services:
-
-```javascript
-// Create collection
-await r3e.indexing.createCollection("users");
-
-// Insert document
-await r3e.indexing.insertDocument("users", {
-  id: "user-1",
-  name: "John Doe",
-  email: "john@example.com"
-});
-
-// Query documents
-const users = await r3e.indexing.queryDocuments("users", {
-  name: "John Doe"
+// Store a secret with options
+await r3e.secrets.set("API_KEY", "your-api-key", {
+  ttl: 3600,                // Time-to-live in seconds
+  functionScoped: true,     // Only accessible by this function
+  encrypted: true           // Encrypt the secret (default)
 });
 ```
 
-### r3e.identity
+## Trigger API
 
-The `r3e.identity` object provides access to identity services:
+The Trigger Service enables setting up triggers for automatic function execution.
 
 ```javascript
-// Create DID
-const did = await r3e.identity.createDid();
+// Create a blockchain event trigger
+const trigger = await r3e.trigger.create({
+  type: "blockchain",
+  name: "New Block Trigger",
+  description: "Trigger on new Neo blocks",
+  blockchain: "neo",
+  event: "NewBlock"
+});
 
-// Issue credential
-const credential = await r3e.identity.issueCredential(
-  did,
-  {
-    name: "John Doe",
-    email: "john@example.com"
-  }
-);
+// Create a time-based trigger
+const timeTrigger = await r3e.trigger.create({
+  type: "time",
+  name: "Hourly Trigger",
+  description: "Trigger every hour",
+  schedule: "0 * * * *",    // Cron expression
+  timezone: "UTC"
+});
 
-// Verify credential
-const isValid = await r3e.identity.verifyCredential(credential);
+// Create a market price trigger
+const priceTrigger = await r3e.trigger.create({
+  type: "market",
+  name: "NEO Price Trigger",
+  description: "Trigger when NEO price changes significantly",
+  assetPair: "NEO/USD",
+  condition: "change",
+  threshold: 5,             // 5% change
+  direction: "any"          // "up", "down", or "any"
+});
+
+// Get a trigger
+const trigger = await r3e.trigger.get("trigger-id");
+
+// Update a trigger
+await r3e.trigger.update("trigger-id", {
+  name: "Updated Trigger Name",
+  description: "Updated description",
+  enabled: false
+});
+
+// Delete a trigger
+await r3e.trigger.delete("trigger-id");
+
+// List all triggers
+const triggers = await r3e.trigger.list();
+
+// List triggers by type
+const blockchainTriggers = await r3e.trigger.list({ type: "blockchain" });
 ```
 
-### r3e.bridge
+## Auto Contract API
 
-The `r3e.bridge` object provides access to cross-chain bridge services:
-
-```javascript
-// Transfer tokens
-const result = await r3e.bridge.transferTokens(
-  "Neo", // source chain
-  "Ethereum", // target chain
-  "GAS", // token
-  "0x1234567890abcdef", // recipient address
-  5 // amount
-);
-
-// Get transaction status
-const status = await r3e.bridge.getTransactionStatus(result.tx_hash);
-```
-
-### r3e.autoContract
-
-The `r3e.autoContract` object provides access to automatic smart contract services:
+The Auto Contract Service enables automatic smart contract execution based on triggers.
 
 ```javascript
-// Create automatic contract
+// Create an automatic contract
 const contract = await r3e.autoContract.create({
   trigger: {
     type: "price",
-    asset: "NEO/USD",
+    assetPair: "NEO/USD",
     condition: "above",
     threshold: 50
   },
   action: {
-    contract: "0x1234567890abcdef",
+    blockchain: "neo",
+    contract: "0x1234567890abcdef1234567890abcdef12345678",
     method: "transfer",
-    params: ["NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv", 5]
-  }
+    params: [
+      { type: "Hash160", value: "NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv" },
+      { type: "Integer", value: 5 }
+    ]
+  },
+  maxGas: 10,
+  priority: 1
 });
 
-// Get contract status
-const status = await r3e.autoContract.getStatus(contract.id);
+// Get an automatic contract
+const contract = await r3e.autoContract.get("contract-id");
 
-// Delete contract
-await r3e.autoContract.delete(contract.id);
+// Update an automatic contract
+await r3e.autoContract.update("contract-id", {
+  maxGas: 20,
+  priority: 2,
+  enabled: false
+});
+
+// Delete an automatic contract
+await r3e.autoContract.delete("contract-id");
+
+// List all automatic contracts
+const contracts = await r3e.autoContract.list();
+
+// Get execution history
+const history = await r3e.autoContract.getHistory("contract-id");
 ```
 
-### r3e.zk
+## Zero-Knowledge Computing API
 
-The `r3e.zk` object provides access to Zero-Knowledge computing services:
+The Zero-Knowledge Computing Service provides cryptographic proof generation and verification.
 
 ```javascript
-// Available circuit types
-const circuitTypes = {
-  ZOKRATES: r3e.zk.CircuitType.ZOKRATES,
-  BULLETPROOFS: r3e.zk.CircuitType.BULLETPROOFS,
-  CIRCOM: r3e.zk.CircuitType.CIRCOM,
-  BELLMAN: r3e.zk.CircuitType.BELLMAN,
-  ARKWORKS: r3e.zk.CircuitType.ARKWORKS
-};
-
-// Compile a ZK circuit
+// Compile a ZoKrates circuit
 const circuitSource = `
   def main(private field a, private field b, field c) -> bool:
     return a * b == c
 `;
-const circuitId = r3e.zk.compileCircuit(
-  circuitSource,
-  r3e.zk.CircuitType.ZOKRATES,
-  "multiply"
-);
+const circuitId = await r3e.zk.compileCircuit(circuitSource, r3e.zk.CircuitType.ZOKRATES, "multiply");
 
 // Generate keys
-const { provingKeyId, verificationKeyId } = r3e.zk.generateKeys(circuitId);
+const { provingKeyId, verificationKeyId } = await r3e.zk.generateKeys(circuitId);
 
 // Generate a proof
-const publicInputs = ["6"]; // Public inputs (visible to verifier)
-const privateInputs = ["2", "3"]; // Private inputs (hidden from verifier)
-const proofId = r3e.zk.generateProof(
-  circuitId,
-  provingKeyId,
-  publicInputs,
-  privateInputs
-);
+const publicInputs = ["6"]; // The public value c = 6
+const privateInputs = ["2", "3"]; // The private values a = 2, b = 3
+const proofId = await r3e.zk.generateProof(circuitId, provingKeyId, publicInputs, privateInputs);
 
 // Verify a proof
-const isValid = r3e.zk.verifyProof(
-  proofId,
-  verificationKeyId,
-  publicInputs
-);
+const isValid = await r3e.zk.verifyProof(proofId, verificationKeyId, publicInputs);
+
+// List available circuits
+const circuits = await r3e.zk.listCircuits();
+
+// Get circuit details
+const circuit = await r3e.zk.getCircuit(circuitId);
+
+// Delete a circuit
+await r3e.zk.deleteCircuit(circuitId);
 ```
 
-### r3e.fhe
-
-The `r3e.fhe` object provides access to Fully Homomorphic Encryption services:
+### Circom/SnarkJS Integration
 
 ```javascript
-// Available scheme types
-const schemeTypes = {
-  TFHE: r3e.fhe.SchemeType.TFHE,
-  OPENFHE: r3e.fhe.SchemeType.OPENFHE,
-  SEAL: r3e.fhe.SchemeType.SEAL,
-  HELIB: r3e.fhe.SchemeType.HELIB,
-  LATTIGO: r3e.fhe.SchemeType.LATTIGO
-};
+// Compile a Circom circuit
+const circuitSource = `
+  pragma circom 2.0.0;
+  
+  template Multiplier() {
+    signal input a;
+    signal input b;
+    signal output c;
+    
+    c <== a * b;
+  }
+  
+  component main = Multiplier();
+`;
+const circuitId = await r3e.zk.compileCircuit(circuitSource, r3e.zk.CircuitType.CIRCOM, "multiplier");
 
-// Generate a key pair
-const keyPairId = r3e.fhe.generateKeys(r3e.fhe.SchemeType.TFHE, {
-  securityLevel: 128,
-  polynomialModulusDegree: 4096,
-  plaintextModulus: 1024
+// Generate a proof with Circom/SnarkJS
+const publicInputs = { c: "6" };
+const privateInputs = { a: "2", b: "3" };
+const proofId = await r3e.zk.generateProof(circuitId, provingKeyId, publicInputs, privateInputs);
+```
+
+### Bulletproofs Integration
+
+```javascript
+// Create a Bulletproofs range proof
+const commitment = await r3e.zk.createRangeProof({
+  value: 42,
+  min: 0,
+  max: 100,
+  blindingFactor: "random" // or provide a specific blinding factor
 });
 
-// For demonstration purposes, we assume we have access to the public and private keys
+// Verify a Bulletproofs range proof
+const isValid = await r3e.zk.verifyRangeProof(commitment.proof, commitment.commitment, 0, 100);
+```
+
+## Fully Homomorphic Encryption API
+
+The Fully Homomorphic Encryption Service enables computation on encrypted data.
+
+```javascript
+// Generate FHE keys
+const keyPairId = await r3e.fhe.generateKeys(r3e.fhe.SchemeType.TFHE);
 const publicKeyId = `${keyPairId}_public`;
 const privateKeyId = `${keyPairId}_private`;
 
 // Encrypt data
-const ciphertext1Id = r3e.fhe.encrypt(publicKeyId, "42");
-const ciphertext2Id = r3e.fhe.encrypt(publicKeyId, "8");
+const ciphertext1Id = await r3e.fhe.encrypt(publicKeyId, "42");
+const ciphertext2Id = await r3e.fhe.encrypt(publicKeyId, "8");
 
-// Perform homomorphic operations
-const addResultId = r3e.fhe.add(ciphertext1Id, ciphertext2Id);
-const subtractResultId = r3e.fhe.subtract(ciphertext1Id, ciphertext2Id);
-const multiplyResultId = r3e.fhe.multiply(ciphertext1Id, ciphertext2Id);
-const negateResultId = r3e.fhe.negate(ciphertext1Id);
+// Perform homomorphic addition
+const addResultId = await r3e.fhe.add(ciphertext1Id, ciphertext2Id);
+
+// Perform homomorphic multiplication
+const multiplyResultId = await r3e.fhe.multiply(ciphertext1Id, ciphertext2Id);
 
 // Decrypt results
-const addResult = r3e.fhe.decrypt(privateKeyId, addResultId, true);
-const multiplyResult = r3e.fhe.decrypt(privateKeyId, multiplyResultId, true);
+const addResult = await r3e.fhe.decrypt(privateKeyId, addResultId);
+const multiplyResult = await r3e.fhe.decrypt(privateKeyId, multiplyResultId);
 
-// Check noise budget
-const noiseBudget = r3e.fhe.estimateNoiseBudget(multiplyResultId);
+// List available keys
+const keys = await r3e.fhe.listKeys();
+
+// Delete keys
+await r3e.fhe.deleteKey(publicKeyId);
+await r3e.fhe.deleteKey(privateKeyId);
 ```
+
+## TEE Service API
+
+The Trusted Execution Environment Service provides secure execution for sensitive operations.
+
+```javascript
+// Get attestation report
+const attestation = await r3e.tee.getAttestation();
+
+// Verify attestation
+const isValid = await r3e.tee.verifyAttestation(attestation);
+
+// Encrypt data for TEE
+const encryptedData = await r3e.tee.encrypt("sensitive data");
+
+// Decrypt data in TEE
+const decryptedData = await r3e.tee.decrypt(encryptedData);
+
+// Generate a key in TEE
+const keyId = await r3e.tee.generateKey("aes-256-gcm");
+
+// Encrypt data with TEE key
+const encryptedData = await r3e.tee.encryptWithKey(keyId, "sensitive data");
+
+// Decrypt data with TEE key
+const decryptedData = await r3e.tee.decryptWithKey(keyId, encryptedData);
+
+// Sign data in TEE
+const signature = await r3e.tee.sign("data to sign");
+
+// Verify signature in TEE
+const isValid = await r3e.tee.verify("data to sign", signature);
+```
+
+## Balance Management API
+
+The Balance Management Service provides functions for managing user balances.
+
+```javascript
+// Get account balance
+const balance = await r3e.balance.getBalance();
+
+// Get transaction history
+const history = await r3e.balance.getTransactionHistory();
+
+// Get transaction details
+const transaction = await r3e.balance.getTransaction("transaction-id");
+
+// Withdraw funds
+const withdrawal = await r3e.balance.withdraw({
+  amount: 100,
+  destination: "neo1abc123def456"
+});
+```
+
+## Configuration
+
+The R3E FaaS platform can be configured using environment variables or configuration files.
+
+### Environment Variables
+
+- `R3E_FAAS__GENERAL__ENVIRONMENT`: Environment (development, production)
+- `R3E_FAAS__GENERAL__LOG_LEVEL`: Log level (debug, info, warn, error)
+- `R3E_FAAS__API__PORT`: API server port
+- `R3E_FAAS__API__HOST`: API server host
+- `R3E_FAAS__STORAGE__TYPE`: Storage type (memory, rocksdb)
+- `R3E_FAAS__STORAGE__PATH`: Storage path for RocksDB
+- `R3E_FAAS__NEO__RPC_URL`: Neo N3 RPC URL
+- `R3E_FAAS__NEO__NETWORK`: Neo N3 network (mainnet, testnet)
+- `R3E_FAAS__ETHEREUM__RPC_URL`: Ethereum RPC URL
+- `R3E_FAAS__ETHEREUM__NETWORK`: Ethereum network (mainnet, goerli, sepolia)
+
+### Configuration File
+
+Configuration can also be provided in a YAML file:
+
+```yaml
+general:
+  environment: production
+  log_level: info
+
+api:
+  port: 8080
+  host: 0.0.0.0
+
+storage:
+  type: rocksdb
+  path: /data/rocksdb
+
+neo:
+  rpc_url: https://rpc.neo.org
+  network: mainnet
+
+ethereum:
+  rpc_url: https://mainnet.infura.io/v3/your-api-key
+  network: mainnet
+```
+
+## Error Handling
+
+All API functions return promises that may be rejected with errors. It's recommended to use try/catch blocks to handle errors:
+
+```javascript
+try {
+  const price = await r3e.oracle.getPrice("NEO/USD");
+  console.log(`NEO price: ${price}`);
+} catch (error) {
+  console.error(`Error getting NEO price: ${error.message}`);
+}
+```
+
+Common error types:
+
+- `ValidationError`: Invalid input parameters
+- `AuthenticationError`: Authentication failed
+- `AuthorizationError`: Insufficient permissions
+- `ResourceNotFoundError`: Requested resource not found
+- `RateLimitError`: Rate limit exceeded
+- `BlockchainError`: Blockchain-related error
+- `ServiceError`: Internal service error
+- `TimeoutError`: Operation timed out
+- `NetworkError`: Network-related error

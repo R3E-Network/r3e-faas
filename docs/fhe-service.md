@@ -1,263 +1,369 @@
 # Fully Homomorphic Encryption Service
 
-The Fully Homomorphic Encryption (FHE) Service in R3E FaaS enables computation on encrypted data without decryption. This powerful cryptographic technique allows developers to build privacy-preserving applications that can process sensitive data while maintaining confidentiality.
+The R3E FaaS platform provides a comprehensive Fully Homomorphic Encryption (FHE) Service that enables computation on encrypted data without decryption.
 
 ## Overview
 
-Fully Homomorphic Encryption allows computations to be performed on encrypted data, producing an encrypted result that, when decrypted, matches the result of the operations as if they had been performed on the plaintext. The R3E FaaS platform supports multiple FHE schemes, including TFHE, OpenFHE, SEAL, HElib, and Lattigo.
+Fully Homomorphic Encryption (FHE) is a form of encryption that allows computations to be performed directly on encrypted data without requiring decryption first. This enables secure processing of sensitive data while maintaining privacy and confidentiality.
+
+The R3E FaaS FHE Service supports multiple FHE schemes:
+
+- **TFHE**: A fast fully homomorphic encryption library over the torus
+- **OpenFHE**: An open-source FHE library with multiple schemes
 
 ## Features
 
-- **Multiple FHE Schemes**: Support for various FHE libraries
-  - TFHE: Fast Fully Homomorphic Encryption over the Torus
-  - OpenFHE: Open-source FHE library
-  - SEAL: Simple Encrypted Arithmetic Library
-  - HElib: Homomorphic Encryption library
-  - Lattigo: Lattice-based cryptographic library
-
-- **Key Management**: Generate and manage FHE key pairs
-- **Homomorphic Operations**: Perform addition, subtraction, multiplication on encrypted data
-- **Noise Budget Management**: Track and manage noise budget for operations
-- **Secure Computation**: Compute on encrypted data without decryption
+- **Multiple FHE Schemes**: Choose from various FHE implementations based on your needs
+- **Key Generation**: Generate encryption and evaluation keys
+- **Encryption/Decryption**: Encrypt and decrypt data
+- **Homomorphic Operations**: Perform operations on encrypted data
+  - Addition
+  - Subtraction
+  - Multiplication
+  - Comparison
+  - Boolean operations
+- **Secure Storage**: Store keys and encrypted data securely
+- **JavaScript API**: Easy-to-use JavaScript API for FHE operations
 
 ## JavaScript API
 
-The Fully Homomorphic Encryption Service is accessible through the `fhe` module in the R3E JavaScript API:
+The FHE Service is accessible through the JavaScript API:
 
 ```javascript
-import { fhe } from "r3e";
+// Access the FHE service
+const fhe = r3e.fhe;
 ```
 
-### Scheme Types
-
-The service supports multiple FHE schemes:
+### Key Generation
 
 ```javascript
-// Available scheme types
-fhe.SchemeType.TFHE     // TFHE scheme
-fhe.SchemeType.OPENFHE  // OpenFHE scheme
-fhe.SchemeType.SEAL     // SEAL scheme
-fhe.SchemeType.HELIB    // HElib scheme
-fhe.SchemeType.LATTIGO  // Lattigo scheme
-```
-
-### Generating Keys
-
-Generate a key pair for FHE operations:
-
-```javascript
-const keyPairId = fhe.generateKeys(fhe.SchemeType.TFHE, {
-  securityLevel: 128,
-  polynomialModulusDegree: 4096,
-  plaintextModulus: 1024
-});
-
-// For demonstration purposes, we assume we have access to the public and private keys
+// Generate FHE keys
+const keyPairId = await fhe.generateKeys(fhe.SchemeType.TFHE);
 const publicKeyId = `${keyPairId}_public`;
 const privateKeyId = `${keyPairId}_private`;
+
+// Generate keys with specific parameters
+const keyPairId = await fhe.generateKeys(fhe.SchemeType.TFHE, {
+  securityLevel: "128",
+  polyModulusDegree: 4096,
+  plainModulus: 1024
+});
 ```
 
-### Encrypting Data
-
-Encrypt data using a public key:
+### Encryption and Decryption
 
 ```javascript
-const plaintext = "42"; // We'll encrypt the number 42
-const ciphertextId = fhe.encrypt(publicKeyId, plaintext);
+// Encrypt data
+const ciphertext1Id = await fhe.encrypt(publicKeyId, "42");
+const ciphertext2Id = await fhe.encrypt(publicKeyId, "8");
+
+// Decrypt data
+const decryptedValue = await fhe.decrypt(privateKeyId, ciphertext1Id);
+console.log(`Decrypted value: ${decryptedValue}`); // 42
 ```
 
 ### Homomorphic Operations
 
-Perform operations on encrypted data:
-
 ```javascript
-// Encrypt two values
-const ciphertext1Id = fhe.encrypt(publicKeyId, "42");
-const ciphertext2Id = fhe.encrypt(publicKeyId, "8");
-
 // Addition
-const addResultId = fhe.add(ciphertext1Id, ciphertext2Id);
+const addResultId = await fhe.add(ciphertext1Id, ciphertext2Id);
+const addResult = await fhe.decrypt(privateKeyId, addResultId);
+console.log(`Addition result: ${addResult}`); // 50
 
 // Subtraction
-const subtractResultId = fhe.subtract(ciphertext1Id, ciphertext2Id);
+const subResultId = await fhe.subtract(ciphertext1Id, ciphertext2Id);
+const subResult = await fhe.decrypt(privateKeyId, subResultId);
+console.log(`Subtraction result: ${subResult}`); // 34
 
 // Multiplication
-const multiplyResultId = fhe.multiply(ciphertext1Id, ciphertext2Id);
+const multiplyResultId = await fhe.multiply(ciphertext1Id, ciphertext2Id);
+const multiplyResult = await fhe.decrypt(privateKeyId, multiplyResultId);
+console.log(`Multiplication result: ${multiplyResult}`); // 336
 
-// Negation
-const negateResultId = fhe.negate(ciphertext1Id);
+// Comparison
+const isGreaterThanId = await fhe.greaterThan(ciphertext1Id, ciphertext2Id);
+const isGreaterThan = await fhe.decrypt(privateKeyId, isGreaterThanId);
+console.log(`Is greater than: ${isGreaterThan}`); // 1 (true)
+
+// Boolean operations
+const andResultId = await fhe.and(ciphertext1Id, ciphertext2Id);
+const andResult = await fhe.decrypt(privateKeyId, andResultId);
+console.log(`AND result: ${andResult}`);
+
+const orResultId = await fhe.or(ciphertext1Id, ciphertext2Id);
+const orResult = await fhe.decrypt(privateKeyId, orResultId);
+console.log(`OR result: ${orResult}`);
+
+const notResultId = await fhe.not(ciphertext1Id);
+const notResult = await fhe.decrypt(privateKeyId, notResultId);
+console.log(`NOT result: ${notResult}`);
 ```
 
-### Decrypting Results
-
-Decrypt the results using a private key:
+### Key Management
 
 ```javascript
-const addResult = fhe.decrypt(privateKeyId, addResultId, true);
-console.log(`Addition result: ${addResult}`); // Should be 50 (42 + 8)
+// List available keys
+const keys = await fhe.listKeys();
 
-const multiplyResult = fhe.decrypt(privateKeyId, multiplyResultId, true);
-console.log(`Multiplication result: ${multiplyResult}`); // Should be 336 (42 * 8)
+// Get key details
+const keyDetails = await fhe.getKey(publicKeyId);
+
+// Delete keys
+await fhe.deleteKey(publicKeyId);
+await fhe.deleteKey(privateKeyId);
 ```
 
-### Noise Budget Management
-
-Check the noise budget of a ciphertext:
+### Ciphertext Management
 
 ```javascript
-const noiseBudget = fhe.estimateNoiseBudget(multiplyResultId);
-console.log(`Noise budget after multiplication: ${noiseBudget}`);
+// List available ciphertexts
+const ciphertexts = await fhe.listCiphertexts();
+
+// Get ciphertext details
+const ciphertextDetails = await fhe.getCiphertext(ciphertext1Id);
+
+// Delete ciphertext
+await fhe.deleteCiphertext(ciphertext1Id);
+```
+
+## Scheme-Specific Features
+
+### TFHE
+
+```javascript
+// Get TFHE-specific options
+const tfheOptions = await fhe.getSchemeOptions(fhe.SchemeType.TFHE);
+
+// Generate TFHE keys with specific options
+const keyPairId = await fhe.generateKeys(fhe.SchemeType.TFHE, {
+  securityLevel: "128",
+  bootstrapKey: true,
+  keySwitch: true
+});
+
+// Perform TFHE-specific operations
+const bootstrappedId = await fhe.bootstrap(ciphertext1Id);
+```
+
+### OpenFHE
+
+```javascript
+// Get OpenFHE-specific options
+const openFheOptions = await fhe.getSchemeOptions(fhe.SchemeType.OPENFHE);
+
+// Generate OpenFHE keys with specific options
+const keyPairId = await fhe.generateKeys(fhe.SchemeType.OPENFHE, {
+  scheme: "CKKS",
+  ringDim: 8192,
+  mulDepth: 3,
+  scalingModSize: 50,
+  batchSize: 4096
+});
+
+// Perform OpenFHE-specific operations
+const rotatedId = await fhe.rotate(ciphertext1Id, 1);
 ```
 
 ## Use Cases
 
-### Private Information Retrieval
+### Private Data Analysis
 
-Retrieve data from a database without revealing which record is being accessed:
+FHE can be used to analyze sensitive data without exposing the raw data:
 
 ```javascript
 // Generate keys
-const keyPairId = fhe.generateKeys(fhe.SchemeType.TFHE);
+const keyPairId = await fhe.generateKeys(fhe.SchemeType.TFHE);
 const publicKeyId = `${keyPairId}_public`;
 const privateKeyId = `${keyPairId}_private`;
 
-// Simulate a database
-const database = [
-  "Record 1: User data",
-  "Record 2: Financial information",
-  "Record 3: Medical history",
-  "Record 4: Personal preferences"
-];
+// Encrypt sensitive data
+const salaries = [50000, 75000, 60000, 90000, 65000];
+const encryptedSalaries = [];
 
-// Encrypt the query index (we want to retrieve Record 3)
-const queryIndex = "2"; // 0-based index for Record 3
-const encryptedQueryId = fhe.encrypt(publicKeyId, queryIndex);
-
-// Server processes the encrypted query without knowing which record is requested
-// This is a simplified example - in practice, more complex FHE operations would be used
-const resultIds = [];
-for (let i = 0; i < database.length; i++) {
-  // Create a selector and process each entry
-  // In a real implementation, this would use homomorphic operations
-  const resultId = `result_${i}_${encryptedQueryId}`;
-  resultIds.push(resultId);
+for (const salary of salaries) {
+  const encryptedSalary = await fhe.encrypt(publicKeyId, salary.toString());
+  encryptedSalaries.push(encryptedSalary);
 }
 
-// Combine results
-let combinedResultId = resultIds[0];
-for (let i = 1; i < resultIds.length; i++) {
-  combinedResultId = fhe.add(combinedResultId, resultIds[i]);
+// Compute average salary on encrypted data
+let sumId = await fhe.encrypt(publicKeyId, "0");
+for (const encryptedSalary of encryptedSalaries) {
+  sumId = await fhe.add(sumId, encryptedSalary);
 }
+
+// Create encrypted divisor
+const countId = await fhe.encrypt(publicKeyId, salaries.length.toString());
+
+// Compute average (this is simplified; real FHE division is more complex)
+const averageId = await fhe.divide(sumId, countId);
 
 // Decrypt the result
-const retrievedRecord = fhe.decrypt(privateKeyId, combinedResultId, true);
-console.log(`Retrieved record: ${retrievedRecord}`);
+const average = await fhe.decrypt(privateKeyId, averageId);
+console.log(`Average salary: ${average}`);
 ```
 
-### Secure Multi-Party Computation
+### Secure Multi-party Computation
 
-Compute the average of salaries without revealing individual salaries:
+FHE can be used for secure multi-party computation:
 
 ```javascript
 // Party A generates keys
-const keyPairIdA = fhe.generateKeys(fhe.SchemeType.TFHE);
+const keyPairIdA = await fhe.generateKeys(fhe.SchemeType.TFHE);
 const publicKeyIdA = `${keyPairIdA}_public`;
 const privateKeyIdA = `${keyPairIdA}_private`;
 
-// Party A encrypts their salary
-const salaryA = "120000"; // $120,000
-const encryptedSalaryAId = fhe.encrypt(publicKeyIdA, salaryA);
+// Party B generates keys
+const keyPairIdB = await fhe.generateKeys(fhe.SchemeType.TFHE);
+const publicKeyIdB = `${keyPairIdB}_public`;
+const privateKeyIdB = `${keyPairIdB}_private`;
 
-// Party B encrypts their salary using Party A's public key
-const salaryB = "95000"; // $95,000
-const encryptedSalaryBId = fhe.encrypt(publicKeyIdA, salaryB);
+// Party A encrypts their data
+const dataA = 42;
+const encryptedDataA = await fhe.encrypt(publicKeyIdA, dataA.toString());
 
-// Compute the sum of salaries homomorphically
-const sumSalariesId = fhe.add(encryptedSalaryAId, encryptedSalaryBId);
+// Party B encrypts their data
+const dataB = 8;
+const encryptedDataB = await fhe.encrypt(publicKeyIdB, dataB.toString());
 
-// Party A decrypts the sum
-const sumSalaries = fhe.decrypt(privateKeyIdA, sumSalariesId, true);
+// Party C (the compute party) performs computation on encrypted data
+// First, re-encrypt Party B's data under Party A's public key
+const reencryptedDataB = await fhe.reencrypt(encryptedDataB, publicKeyIdB, publicKeyIdA);
 
-// Calculate average
-const averageSalary = parseInt(sumSalaries) / 2;
-console.log(`Average salary: ${averageSalary}`); // $107,500
+// Now compute on data encrypted under the same key
+const resultId = await fhe.add(encryptedDataA, reencryptedDataB);
+
+// Party A decrypts the result
+const result = await fhe.decrypt(privateKeyIdA, resultId);
+console.log(`Computation result: ${result}`); // 50
 ```
 
-### Encrypted Machine Learning
+### Private Machine Learning
 
-Perform machine learning on encrypted data:
+FHE can be used for privacy-preserving machine learning:
 
 ```javascript
 // Generate keys
-const keyPairId = fhe.generateKeys(fhe.SchemeType.TFHE);
+const keyPairId = await fhe.generateKeys(fhe.SchemeType.OPENFHE, {
+  scheme: "CKKS",
+  ringDim: 16384,
+  mulDepth: 10,
+  scalingModSize: 50,
+  batchSize: 8192
+});
 const publicKeyId = `${keyPairId}_public`;
 const privateKeyId = `${keyPairId}_private`;
 
 // Encrypt training data
 const encryptedFeatures = [];
-const features = [
-  [1.2, 3.4, 2.1],
-  [2.3, 1.8, 0.9],
-  [3.1, 2.2, 1.5]
-];
-
-for (const feature of features) {
-  const encryptedFeature = feature.map(value => 
-    fhe.encrypt(publicKeyId, value.toString())
-  );
+for (const feature of trainingFeatures) {
+  const encryptedFeature = await fhe.encrypt(publicKeyId, JSON.stringify(feature));
   encryptedFeatures.push(encryptedFeature);
 }
 
 // Encrypt model weights
-const weights = [0.5, 0.3, 0.2];
-const encryptedWeights = weights.map(weight => 
-  fhe.encrypt(publicKeyId, weight.toString())
-);
+const encryptedWeights = [];
+for (const weight of modelWeights) {
+  const encryptedWeight = await fhe.encrypt(publicKeyId, weight.toString());
+  encryptedWeights.push(encryptedWeight);
+}
 
-// Compute predictions homomorphically
+// Perform private inference
 const encryptedPredictions = [];
 for (const encryptedFeature of encryptedFeatures) {
-  // Compute weighted sum
-  let encryptedSum = fhe.encrypt(publicKeyId, "0");
-  for (let i = 0; i < encryptedFeature.length; i++) {
-    const encryptedProduct = fhe.multiply(encryptedFeature[i], encryptedWeights[i]);
-    encryptedSum = fhe.add(encryptedSum, encryptedProduct);
+  // Compute dot product of feature and weights
+  let dotProductId = await fhe.encrypt(publicKeyId, "0");
+  for (let i = 0; i < encryptedWeights.length; i++) {
+    const featureValue = JSON.parse(await fhe.decrypt(privateKeyId, encryptedFeature))[i];
+    const featureValueId = await fhe.encrypt(publicKeyId, featureValue.toString());
+    const productId = await fhe.multiply(featureValueId, encryptedWeights[i]);
+    dotProductId = await fhe.add(dotProductId, productId);
   }
-  encryptedPredictions.push(encryptedSum);
+  
+  // Apply activation function (simplified)
+  const predictionId = await fhe.sigmoid(dotProductId);
+  encryptedPredictions.push(predictionId);
 }
 
 // Decrypt predictions
-const predictions = encryptedPredictions.map(encryptedPrediction => 
-  fhe.decrypt(privateKeyId, encryptedPrediction, true)
-);
-console.log("Predictions:", predictions);
+const predictions = [];
+for (const encryptedPrediction of encryptedPredictions) {
+  const prediction = await fhe.decrypt(privateKeyId, encryptedPrediction);
+  predictions.push(parseFloat(prediction));
+}
+console.log(`Predictions: ${predictions}`);
+```
+
+## Configuration
+
+The FHE Service can be configured using environment variables or configuration files:
+
+### Environment Variables
+
+- `R3E_FAAS__FHE__SCHEME`: Default FHE scheme (tfhe, openfhe)
+- `R3E_FAAS__FHE__STORAGE_TYPE`: Storage type for FHE data (memory, rocksdb)
+- `R3E_FAAS__FHE__STORAGE_PATH`: Storage path for RocksDB
+- `R3E_FAAS__FHE__MAX_CIPHERTEXT_SIZE`: Maximum ciphertext size in bytes
+- `R3E_FAAS__FHE__TIMEOUT`: Timeout for FHE operations in seconds
+
+### Configuration File
+
+Configuration can also be provided in a YAML file:
+
+```yaml
+fhe:
+  scheme: tfhe
+  storage_type: rocksdb
+  storage_path: /data/fhe
+  max_ciphertext_size: 10485760 # 10 MB
+  timeout: 300 # 5 minutes
+```
+
+## Error Handling
+
+The FHE Service provides detailed error messages for various failure scenarios:
+
+```javascript
+try {
+  const keyPairId = await fhe.generateKeys(fhe.SchemeType.TFHE);
+} catch (error) {
+  console.error(`Error generating keys: ${error.message}`);
+  
+  if (error.code === "KEY_GENERATION_ERROR") {
+    console.error(`Key generation error: ${error.details}`);
+  } else if (error.code === "INVALID_SCHEME_TYPE") {
+    console.error(`Invalid scheme type: ${error.details}`);
+  } else if (error.code === "SCHEME_ERROR") {
+    console.error(`Scheme error: ${error.details}`);
+  }
+}
 ```
 
 ## Performance Considerations
 
+- **Computational Intensity**: FHE operations are computationally intensive
+- **Memory Usage**: FHE requires significant memory for key generation and operations
+- **Operation Depth**: Complex operations may require bootstrapping or key switching
 - **Scheme Selection**: Different schemes have different performance characteristics
-- **Parameter Selection**: Parameters affect security, performance, and noise growth
-- **Operation Complexity**: Homomorphic operations have varying computational costs
-- **Noise Growth**: Noise grows with each operation, limiting the number of operations
+- **Parameter Selection**: Parameter selection affects security, performance, and functionality
 
 ## Security Considerations
 
-- **Key Management**: Securely store private keys
-- **Parameter Selection**: Proper parameter selection is crucial for security
-- **Implementation**: Use the provided APIs rather than custom implementations
-- **Side-Channel Attacks**: Be aware of potential side-channel vulnerabilities
+- **Key Management**: Encryption and evaluation keys must be managed securely
+- **Parameter Selection**: Parameter selection affects security level
+- **Noise Growth**: Operations on ciphertexts increase noise, which may affect decryption
+- **Side-Channel Attacks**: Implementations should be resistant to side-channel attacks
+- **Bootstrapping**: Bootstrapping may be required for deep circuits
 
 ## Limitations
 
-- **Performance Overhead**: FHE operations are computationally expensive
-- **Noise Growth**: Noise accumulates with operations, limiting computation depth
-- **Operation Support**: Not all operations are efficiently supported in FHE
-- **Parameter Selection**: Balancing security, performance, and functionality
+- **Performance**: FHE operations are significantly slower than plaintext operations
+- **Memory Usage**: FHE requires significant memory for key generation and operations
+- **Operation Support**: Not all operations are efficiently supported in all schemes
+- **Parameter Selection**: Parameter selection is complex and affects security, performance, and functionality
+- **Division**: Division is not directly supported in most FHE schemes and requires approximation
 
-## Further Reading
+## Examples
 
-- [TFHE Library](https://tfhe.github.io/tfhe/)
-- [OpenFHE Library](https://openfhe.org/)
-- [Microsoft SEAL](https://github.com/microsoft/SEAL)
-- [HElib](https://github.com/homenc/HElib)
-- [Lattigo](https://github.com/tuneinsight/lattigo)
+See the [examples](../examples/) directory for more examples of using the FHE Service:
+
+- [FHE Computing Example](../examples/fhe_computing.js)
