@@ -13,6 +13,7 @@ r3e-deno = { path = "../r3e-deno" }
 r3e-neo-services = { path = "../r3e-neo-services" }
 r3e-oracle = { path = "../r3e-oracle" }
 r3e-tee = { path = "../r3e-tee" }
+r3e-store = { path = "../r3e-store" }
 
 # Dependencies
 NeoRust = { path = "../../NeoRust" }
