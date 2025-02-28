@@ -1,5 +1,19 @@
 # R3E Neo Service Layer
 
+<div align="center">
+  <p>
+    <img src="assets/images/neo-logo.png" alt="Neo Logo" width="125" align="middle"/>&nbsp;&nbsp;&nbsp;&nbsp;
+    <img src="assets/images/neo-x-logo.png" alt="Neo X Logo" width="80" align="middle"/>&nbsp;&nbsp;&nbsp;&nbsp;
+    <img src="assets/images/r3e-logo.png" alt="R3E Logo" width="300" align="middle"/>
+  </p>
+</div>
+
+[![Rust](https://github.com/R3E-Network/r3e-faas/actions/workflows/rust.yml/badge.svg)](https://github.com/R3E-Network/r3e-faas/actions/workflows/rust.yml)
+[![Crates.io](https://img.shields.io/crates/v/r3e-faas.svg)](https://crates.io/crates/r3e-faas)
+[![Documentation](https://docs.rs/r3e-faas/badge.svg)](https://docs.rs/r3e-faas)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 The R3E Neo Service Layer is a comprehensive blockchain service infrastructure designed specifically for Neo N3 and Ethereum applications. It enables developers to deploy and execute JavaScript functions in a secure, scalable, and cost-effective environment, with built-in support for advanced blockchain services and cryptographic capabilities.
 
 ## Architecture Overview
