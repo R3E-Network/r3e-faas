@@ -77,6 +77,40 @@ class Oracle {
   }
   
   /**
+   * Get price data by index
+   * @param {number} index - Price index (0 for NEO/USD, 1 for GAS/USD, 2 for BTC/USD, 3 for ETH/USD)
+   * @param {string[]} [sources=[]] - Preferred price sources
+   * @param {string} requesterId - Requester ID
+   * @returns {Promise<string>} Request ID
+   */
+  static async getPriceByIndex(index, sources = [], requesterId) {
+    const config = {
+      index,
+      sources,
+      requester_id: requesterId,
+    };
+    
+    const result = Deno.core.ops.op_oracle_get_price_by_index(config);
+    return result.request_id;
+  }
+  
+  /**
+   * Update price data on the blockchain
+   * @param {string} symbol - Asset symbol (e.g., "NEO", "GAS")
+   * @param {string} requesterId - Requester ID
+   * @returns {Promise<string>} Transaction hash
+   */
+  static async updatePriceOnBlockchain(symbol, requesterId) {
+    const config = {
+      symbol,
+      requester_id: requesterId,
+    };
+    
+    const result = Deno.core.ops.op_oracle_update_price_on_blockchain(config);
+    return result.tx_hash;
+  }
+  
+  /**
    * Get random numbers
    * @param {Object} options - Random number options
    * @param {number} [options.min=0] - Minimum value (inclusive)
@@ -150,6 +184,51 @@ class Oracle {
   static async getGasPrice(currency = "USD", sources = [], requesterId) {
     const requestId = await Oracle.getPrice("GAS", currency, sources, requesterId);
     return await Oracle.waitForResponse(requestId);
+  }
+  
+  /**
+   * Get price data by index from the blockchain
+   * @param {number} index - Price index (0 for NEO/USD, 1 for GAS/USD, 2 for BTC/USD, 3 for ETH/USD)
+   * @param {string} requesterId - Requester ID
+   * @returns {Promise<Object>} Price data
+   */
+  static async getPriceFromBlockchain(index, requesterId) {
+    const config = {
+      index,
+      requester_id: requesterId,
+    };
+    
+    return Deno.core.ops.op_oracle_get_price_from_blockchain(config);
+  }
+  
+  /**
+   * Update price data on the blockchain
+   * @param {string} symbol - Asset symbol (e.g., "NEO", "GAS")
+   * @param {string} requesterId - Requester ID
+   * @returns {Promise<Object>} Transaction result
+   */
+  static async updatePriceOnBlockchain(symbol, requesterId) {
+    const config = {
+      symbol,
+      requester_id: requesterId,
+    };
+    
+    return Deno.core.ops.op_oracle_update_price_on_blockchain(config);
+  }
+  
+  /**
+   * Update price data by index on the blockchain
+   * @param {number} index - Price index (0 for NEO/USD, 1 for GAS/USD, 2 for BTC/USD, 3 for ETH/USD)
+   * @param {string} requesterId - Requester ID
+   * @returns {Promise<Object>} Transaction result
+   */
+  static async updatePriceByIndexOnBlockchain(index, requesterId) {
+    const config = {
+      index,
+      requester_id: requesterId,
+    };
+    
+    return Deno.core.ops.op_oracle_update_price_by_index_on_blockchain(config);
   }
   
   /**

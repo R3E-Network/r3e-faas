@@ -4,6 +4,42 @@
 use serde::{Deserialize, Serialize};
 use crate::types::FeeModel;
 
+/// Blockchain type for meta transactions
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlockchainType {
+    /// Neo N3 blockchain
+    #[serde(rename = "neo")]
+    NeoN3,
+    
+    /// Ethereum blockchain
+    #[serde(rename = "ethereum")]
+    Ethereum,
+}
+
+impl Default for BlockchainType {
+    fn default() -> Self {
+        BlockchainType::NeoN3
+    }
+}
+
+/// Signature curve type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SignatureCurve {
+    /// secp256r1 (used by Neo)
+    #[serde(rename = "secp256r1")]
+    Secp256r1,
+    
+    /// secp256k1 (used by Ethereum)
+    #[serde(rename = "secp256k1")]
+    Secp256k1,
+}
+
+impl Default for SignatureCurve {
+    fn default() -> Self {
+        SignatureCurve::Secp256r1
+    }
+}
+
 /// Meta transaction request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaTxRequest {
@@ -23,6 +59,14 @@ pub struct MetaTxRequest {
     pub fee_amount: u64,
     /// Timestamp
     pub timestamp: u64,
+    /// Blockchain type (neo or ethereum)
+    #[serde(default)]
+    pub blockchain_type: BlockchainType,
+    /// Signature curve (secp256r1 or secp256k1)
+    #[serde(default)]
+    pub signature_curve: SignatureCurve,
+    /// Target contract address
+    pub target_contract: Option<String>,
 }
 
 /// Meta transaction response

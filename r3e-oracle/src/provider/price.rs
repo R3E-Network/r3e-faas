@@ -13,6 +13,7 @@ use tokio::sync::RwLock;
 
 use crate::{OracleError, OracleProvider, OracleRequest, OracleRequestType, OracleResponse};
 use crate::types::{PriceData, PriceRequest, PriceResponse};
+use crate::registry::PriceIndexRegistry;
 
 /// Price feed provider for cryptocurrency price data
 pub struct PriceProvider {
@@ -24,15 +25,19 @@ pub struct PriceProvider {
     
     /// Cache expiration time in seconds
     cache_expiration: u64,
+    
+    /// Price index registry
+    index_registry: Arc<PriceIndexRegistry>,
 }
 
 impl PriceProvider {
     /// Create a new price provider
-    pub fn new(cache_expiration: u64) -> Self {
+    pub fn new(cache_expiration: u64, index_registry: Arc<PriceIndexRegistry>) -> Self {
         Self {
             client: Client::new(),
             cache: Arc::new(RwLock::new(HashMap::new())),
             cache_expiration,
+            index_registry,
         }
     }
     
@@ -71,11 +76,15 @@ impl PriceProvider {
             .unwrap_or_default()
             .as_secs();
         
+        // Look up index for symbol
+        let index = self.index_registry.get_index(&format!("{}/USD", symbol.to_uppercase())).await;
+        
         Ok(PriceData {
             symbol: symbol.to_string(),
             price_usd: price,
             source: "coingecko".to_string(),
             timestamp: now,
+            index,
         })
     }
     
@@ -121,11 +130,15 @@ impl PriceProvider {
             .unwrap_or_default()
             .as_secs();
         
+        // Look up index for symbol
+        let index = self.index_registry.get_index(&format!("{}/USD", symbol.to_uppercase())).await;
+        
         Ok(PriceData {
             symbol: symbol.to_string(),
             price_usd: price,
             source: "binance".to_string(),
             timestamp: now,
+            index,
         })
     }
     

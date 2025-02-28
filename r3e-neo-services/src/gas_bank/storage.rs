@@ -34,6 +34,12 @@ pub trait GasBankStorage: Send + Sync {
     
     /// Add gas bank transaction
     async fn add_transaction(&self, transaction: GasBankTransaction) -> Result<(), Error>;
+    
+    /// Get contract account mapping
+    async fn get_contract_account_mapping(&self, contract_hash: &str) -> Result<Option<String>, Error>;
+    
+    /// Set contract account mapping
+    async fn set_contract_account_mapping(&self, contract_hash: &str, address: &str) -> Result<(), Error>;
 }
 
 /// In-memory gas bank storage implementation
@@ -42,6 +48,7 @@ pub struct InMemoryGasBankStorage {
     deposits: tokio::sync::RwLock<Vec<GasBankDeposit>>,
     withdrawals: tokio::sync::RwLock<Vec<GasBankWithdrawal>>,
     transactions: tokio::sync::RwLock<Vec<GasBankTransaction>>,
+    contract_mappings: tokio::sync::RwLock<std::collections::HashMap<String, String>>,
 }
 
 impl InMemoryGasBankStorage {
@@ -52,6 +59,7 @@ impl InMemoryGasBankStorage {
             deposits: tokio::sync::RwLock::new(Vec::new()),
             withdrawals: tokio::sync::RwLock::new(Vec::new()),
             transactions: tokio::sync::RwLock::new(Vec::new()),
+            contract_mappings: tokio::sync::RwLock::new(std::collections::HashMap::new()),
         }
     }
 }
@@ -112,6 +120,17 @@ impl GasBankStorage for InMemoryGasBankStorage {
     async fn add_transaction(&self, transaction: GasBankTransaction) -> Result<(), Error> {
         let mut transactions = self.transactions.write().await;
         transactions.push(transaction);
+        Ok(())
+    }
+    
+    async fn get_contract_account_mapping(&self, contract_hash: &str) -> Result<Option<String>, Error> {
+        let mappings = self.contract_mappings.read().await;
+        Ok(mappings.get(contract_hash).cloned())
+    }
+    
+    async fn set_contract_account_mapping(&self, contract_hash: &str, address: &str) -> Result<(), Error> {
+        let mut mappings = self.contract_mappings.write().await;
+        mappings.insert(contract_hash.to_string(), address.to_string());
         Ok(())
     }
 }

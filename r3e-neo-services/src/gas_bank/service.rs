@@ -39,6 +39,15 @@ pub trait GasBankServiceTrait: Send + Sync {
     
     /// Get account transactions
     async fn get_transactions(&self, address: &str) -> Result<Vec<GasBankTransaction>, Error>;
+    
+    /// Get gas bank account for contract
+    async fn get_account_for_contract(&self, contract_hash: &str) -> Result<Option<GasBankAccount>, Error>;
+    
+    /// Set gas bank account for contract
+    async fn set_account_for_contract(&self, contract_hash: &str, address: &str) -> Result<(), Error>;
+    
+    /// Pay for Ethereum meta transaction
+    async fn pay_for_ethereum_meta_tx(&self, tx_hash: &str, contract_hash: &str, amount: u64) -> Result<GasBankTransaction, Error>;
 }
 
 /// Gas bank service implementation
@@ -300,5 +309,58 @@ impl<S: GasBankStorage> GasBankServiceTrait for GasBankService<S> {
     
     async fn get_transactions(&self, address: &str) -> Result<Vec<GasBankTransaction>, Error> {
         self.storage.get_transactions(address).await
+    }
+    
+    async fn get_account_for_contract(&self, contract_hash: &str) -> Result<Option<GasBankAccount>, Error> {
+        // In a real implementation, this would retrieve the mapping from contract hash to account address
+        // from a storage mechanism, and then retrieve the account
+        
+        // For this example, we'll use a simple mock implementation
+        // In a production environment, this would be stored in a database or on-chain
+        
+        // Check if we have a mapping for this contract
+        let address = match self.storage.get_contract_account_mapping(contract_hash).await? {
+            Some(address) => address,
+            None => return Ok(None),
+        };
+        
+        // Get the account for this address
+        self.get_account(&address).await
+    }
+    
+    async fn set_account_for_contract(&self, contract_hash: &str, address: &str) -> Result<(), Error> {
+        // In a real implementation, this would store the mapping from contract hash to account address
+        // in a storage mechanism
+        
+        // For this example, we'll use a simple mock implementation
+        // In a production environment, this would be stored in a database or on-chain
+        
+        // Check if the account exists
+        if let None = self.get_account(address).await? {
+            return Err(Error::NotFound(format!("Account not found for address: {}", address)));
+        }
+        
+        // Store the mapping
+        self.storage.set_contract_account_mapping(contract_hash, address).await?;
+        
+        info!("Set Gas Bank account {} for contract {}", address, contract_hash);
+        
+        Ok(())
+    }
+    
+    async fn pay_for_ethereum_meta_tx(&self, tx_hash: &str, contract_hash: &str, amount: u64) -> Result<GasBankTransaction, Error> {
+        // Get the Gas Bank account for this contract
+        let account_address = match self.get_account_for_contract(contract_hash).await? {
+            Some(account) => account.address,
+            None => return Err(Error::NotFound(format!("No Gas Bank account found for contract: {}", contract_hash))),
+        };
+        
+        // Pay for the transaction using the contract's Gas Bank account
+        let transaction = self.pay_gas_for_transaction(tx_hash, &account_address, amount).await?;
+        
+        info!("Paid for Ethereum meta transaction {} using Gas Bank account {} for contract {}", 
+              tx_hash, account_address, contract_hash);
+        
+        Ok(transaction)
     }
 }
