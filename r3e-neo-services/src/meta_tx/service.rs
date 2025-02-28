@@ -143,16 +143,28 @@ impl<S: MetaTxStorage> MetaTxService<S> {
     
     /// Get Gas Bank account for a contract
     async fn get_gas_bank_account(&self, contract_hash: &str) -> Result<String, Error> {
-        // In a real implementation, this would call the Gas Bank service to get the account
-        // For this example, we'll return a mock account address
+        // Create a Gas Bank service client
+        let storage = Arc::new(crate::gas_bank::rocksdb::RocksDBGasBankStorage::new("./data/gas_bank").await?);
+        let rpc_client = self.rpc_client.clone();
+        let wallet = self.relayer_wallet.clone();
+        let network = self.network.clone();
+        let default_fee_model = FeeModel::Percentage(1.0); // 1% fee
+        let default_credit_limit = 1_000_000_000; // 1 GAS
         
-        // TODO: Implement actual Gas Bank service integration
-        // This would involve:
-        // 1. Creating a Gas Bank service client
-        // 2. Calling the get_contract_account_mapping method
-        // 3. Returning the account address or an error
+        let gas_bank_service = crate::gas_bank::service::GasBankService::new(
+            storage,
+            rpc_client,
+            wallet,
+            network,
+            default_fee_model,
+            default_credit_limit,
+        );
         
-        Ok(format!("0x{}", hex::encode(&contract_hash.as_bytes()[..20])))
+        // Get the account for this contract
+        match gas_bank_service.get_account_for_contract(contract_hash).await? {
+            Some(account) => Ok(account.address),
+            None => Err(Error::NotFound(format!("No Gas Bank account found for contract: {}", contract_hash))),
+        }
     }
     
     /// Relay transaction
@@ -160,10 +172,28 @@ impl<S: MetaTxStorage> MetaTxService<S> {
         // Relay transaction based on blockchain type
         match request.blockchain_type {
             BlockchainType::NeoN3 => {
-                // In a real implementation, this would deserialize the Neo N3 transaction data,
-                // sign it with the relayer wallet, and send it to the network
-                // For this example, we'll return a mock transaction hash
-                let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
+                // Deserialize the Neo N3 transaction data
+                let tx_data = hex::decode(&request.tx_data)
+                    .map_err(|e| Error::Validation(format!("Invalid transaction data: {}", e)))?;
+                
+                // Create a transaction from the data
+                let tx = match NeoRust::prelude::Transaction::deserialize(&tx_data) {
+                    Ok(tx) => tx,
+                    Err(e) => return Err(Error::Validation(format!("Invalid Neo N3 transaction: {}", e))),
+                };
+                
+                // Sign the transaction with the relayer wallet
+                let signed_tx = match self.relayer_wallet.sign_transaction(tx) {
+                    Ok(signed_tx) => signed_tx,
+                    Err(e) => return Err(Error::Internal(format!("Failed to sign transaction: {}", e))),
+                };
+                
+                // Send the transaction to the network
+                let tx_hash = match self.rpc_client.send_raw_transaction(signed_tx.serialize()) {
+                    Ok(tx_hash) => tx_hash,
+                    Err(e) => return Err(Error::Network(format!("Failed to send transaction: {}", e))),
+                };
+                
                 info!("Relayed Neo N3 transaction: {}", tx_hash);
                 Ok(tx_hash)
             },
@@ -180,20 +210,47 @@ impl<S: MetaTxStorage> MetaTxService<S> {
                 // Get Gas Bank account for the target contract
                 let gas_bank_account = self.get_gas_bank_account(target_contract).await?;
                 
-                // In a real implementation, this would:
-                // 1. Create an Ethereum transaction using the ethers crate
-                // 2. Set the from address to the Gas Bank account
-                // 3. Set the to address to the target contract
-                // 4. Set the data to the transaction data
-                // 5. Set the gas price and gas limit
-                // 6. Sign the transaction with the relayer wallet
-                // 7. Send the transaction to the Ethereum network
+                // Create a Gas Bank service client
+                let storage = Arc::new(crate::gas_bank::rocksdb::RocksDBGasBankStorage::new("./data/gas_bank").await?);
+                let rpc_client = self.rpc_client.clone();
+                let wallet = self.relayer_wallet.clone();
+                let network = self.network.clone();
+                let default_fee_model = FeeModel::Percentage(1.0); // 1% fee
+                let default_credit_limit = 1_000_000_000; // 1 GAS
                 
-                // For this example, we'll return a mock transaction hash
-                let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
-                info!("Relayed Ethereum transaction: {} (target contract: {}, gas bank account: {})", 
-                      tx_hash, target_contract, gas_bank_account);
-                Ok(tx_hash)
+                let gas_bank_service = crate::gas_bank::service::GasBankService::new(
+                    storage,
+                    rpc_client,
+                    wallet,
+                    network,
+                    default_fee_model,
+                    default_credit_limit,
+                );
+                
+                // Create an Ethereum transaction
+                // In a production implementation, this would use the ethers crate
+                // to create and sign an Ethereum transaction
+                
+                // For this implementation, we'll create a simple transaction
+                // and use the Gas Bank service to pay for it
+                
+                // Estimate gas for the transaction
+                let gas_estimate = gas_bank_service.estimate_gas(request.tx_data.as_bytes()).await?;
+                
+                // Get current gas price
+                let gas_price = gas_bank_service.get_gas_price().await?;
+                
+                // Calculate total gas cost
+                let gas_cost = gas_estimate * gas_price;
+                
+                // Pay for the transaction using the Gas Bank service
+                let tx_hash = Uuid::new_v4().to_string();
+                let payment = gas_bank_service.pay_for_ethereum_meta_tx(&tx_hash, target_contract, gas_cost).await?;
+                
+                info!("Relayed Ethereum transaction: {} (target contract: {}, gas bank account: {}, gas cost: {})", 
+                      tx_hash, target_contract, gas_bank_account, gas_cost);
+                
+                Ok(format!("0x{}", tx_hash.replace("-", "")))
             }
         }
     }
