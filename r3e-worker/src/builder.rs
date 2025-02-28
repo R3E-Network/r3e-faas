@@ -55,8 +55,7 @@ impl TaskSourceBuilder {
                     config.ethereum_block_time,
                     config.ethereum_confirmations,
                 )?;
-                Box::new(ethereum_source)
-                log::warn!("Using placeholder Ethereum task source");
+                Box::new(ethereum_source);
                 
                 let source = EthereumTaskSource::new(sleep, uid);
                 

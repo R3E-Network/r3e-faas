@@ -42,7 +42,7 @@ impl CircomProvider {
         let temp_dir = TempDir::new().map_err(|e| {
             ZkError::Provider(format!("Failed to create temporary directory: {}", e))
         })?;
-        
+
         Ok(Self {
             default_witness_strategy,
             temp_dir,
@@ -57,30 +57,29 @@ impl CircomProvider {
             .unwrap_or_default()
             .as_secs()
     }
-    
+
     /// Get a temporary file path.
     fn get_temp_file_path(&self, name: &str) -> PathBuf {
         self.temp_dir.path().join(name)
     }
-    
+
     /// Write data to a temporary file.
     fn write_temp_file(&self, name: &str, data: &[u8]) -> ZkResult<PathBuf> {
         let path = self.get_temp_file_path(name);
-        std::fs::write(&path, data).map_err(|e| {
-            ZkError::Provider(format!("Failed to write temporary file: {}", e))
-        })?;
+        std::fs::write(&path, data)
+            .map_err(|e| ZkError::Provider(format!("Failed to write temporary file: {}", e)))?;
         Ok(path)
     }
-    
+
     /// Run the Circom compiler.
     async fn run_circom_compiler(&self, source_path: &Path) -> ZkResult<PathBuf> {
         let output_dir = self.get_temp_file_path("output");
-        fs::create_dir_all(&output_dir).await.map_err(|e| {
-            ZkError::Provider(format!("Failed to create output directory: {}", e))
-        })?;
-        
+        fs::create_dir_all(&output_dir)
+            .await
+            .map_err(|e| ZkError::Provider(format!("Failed to create output directory: {}", e)))?;
+
         let output_path = output_dir.join("circuit.r1cs");
-        
+
         // Run the Circom compiler
         let status = Command::new("circom")
             .arg(source_path)
@@ -88,27 +87,25 @@ impl CircomProvider {
             .arg("--output")
             .arg(&output_dir)
             .status()
-            .map_err(|e| {
-                ZkError::Compilation(format!("Failed to run Circom compiler: {}", e))
-            })?;
-        
+            .map_err(|e| ZkError::Compilation(format!("Failed to run Circom compiler: {}", e)))?;
+
         if !status.success() {
             return Err(ZkError::Compilation(format!(
                 "Circom compiler exited with status: {}",
                 status
             )));
         }
-        
+
         Ok(output_path)
     }
-    
+
     /// Generate a witness for a circuit.
     async fn generate_witness(&self, r1cs_path: &Path, inputs: &Value) -> ZkResult<CircomWitness> {
         // Write inputs to a JSON file
         let inputs_path = self.write_temp_file("inputs.json", inputs.to_string().as_bytes())?;
-        
+
         let witness_path = self.get_temp_file_path("witness.wtns");
-        
+
         // Run the witness generator
         let status = Command::new("snarkjs")
             .arg("wtns")
@@ -117,60 +114,52 @@ impl CircomProvider {
             .arg(&inputs_path)
             .arg(&witness_path)
             .status()
-            .map_err(|e| {
-                ZkError::Provider(format!("Failed to run witness generator: {}", e))
-            })?;
-        
+            .map_err(|e| ZkError::Provider(format!("Failed to run witness generator: {}", e)))?;
+
         if !status.success() {
             return Err(ZkError::Provider(format!(
                 "Witness generator exited with status: {}",
                 status
             )));
         }
-        
+
         // Read the witness file
-        let witness_data = std::fs::read(&witness_path).map_err(|e| {
-            ZkError::Provider(format!("Failed to read witness file: {}", e))
-        })?;
-        
+        let witness_data = std::fs::read(&witness_path)
+            .map_err(|e| ZkError::Provider(format!("Failed to read witness file: {}", e)))?;
+
         // Parse the witness
-        let witness = CircomWitness::from_binary(&witness_data).map_err(|e| {
-            ZkError::Provider(format!("Failed to parse witness: {}", e))
-        })?;
-        
+        let witness = CircomWitness::from_binary(&witness_data)
+            .map_err(|e| ZkError::Provider(format!("Failed to parse witness: {}", e)))?;
+
         Ok(witness)
     }
-    
+
     /// Parse a circuit from R1CS file.
     fn parse_circuit(&self, r1cs_path: &Path) -> ZkResult<CircomCircuit> {
         // Read the R1CS file
-        let r1cs_data = std::fs::read(r1cs_path).map_err(|e| {
-            ZkError::Provider(format!("Failed to read R1CS file: {}", e))
-        })?;
-        
+        let r1cs_data = std::fs::read(r1cs_path)
+            .map_err(|e| ZkError::Provider(format!("Failed to read R1CS file: {}", e)))?;
+
         // Parse the circuit
-        let circuit = CircomCircuit::from_r1cs(&r1cs_data).map_err(|e| {
-            ZkError::Provider(format!("Failed to parse R1CS: {}", e))
-        })?;
-        
+        let circuit = CircomCircuit::from_r1cs(&r1cs_data)
+            .map_err(|e| ZkError::Provider(format!("Failed to parse R1CS: {}", e)))?;
+
         Ok(circuit)
     }
-    
+
     /// Serialize a proof to bytes.
     fn serialize_proof(&self, proof: &CircomProof) -> ZkResult<Vec<u8>> {
-        let serialized = serde_json::to_vec(proof).map_err(|e| {
-            ZkError::Provider(format!("Failed to serialize proof: {}", e))
-        })?;
-        
+        let serialized = serde_json::to_vec(proof)
+            .map_err(|e| ZkError::Provider(format!("Failed to serialize proof: {}", e)))?;
+
         Ok(serialized)
     }
-    
+
     /// Deserialize a proof from bytes.
     fn deserialize_proof(&self, data: &[u8]) -> ZkResult<CircomProof> {
-        let proof: CircomProof = serde_json::from_slice(data).map_err(|e| {
-            ZkError::Provider(format!("Failed to deserialize proof: {}", e))
-        })?;
-        
+        let proof: CircomProof = serde_json::from_slice(data)
+            .map_err(|e| ZkError::Provider(format!("Failed to deserialize proof: {}", e)))?;
+
         Ok(proof)
     }
 }
@@ -191,21 +180,20 @@ impl ZkProvider for CircomProvider {
 
         // Write the code to a temporary file
         let source_path = self.write_temp_file("circuit.circom", code.as_bytes())?;
-        
+
         // Run the Circom compiler
         let r1cs_path = self.run_circom_compiler(&source_path).await?;
-        
+
         // Read the compiled circuit
-        let r1cs_data = std::fs::read(&r1cs_path).map_err(|e| {
-            ZkError::Provider(format!("Failed to read R1CS file: {}", e))
-        })?;
-        
+        let r1cs_data = std::fs::read(&r1cs_path)
+            .map_err(|e| ZkError::Provider(format!("Failed to read R1CS file: {}", e)))?;
+
         // Parse the circuit to get metadata
         let circuit = self.parse_circuit(&r1cs_path)?;
-        
+
         let circuit_id = ZkCircuitId::new();
         let timestamp = Self::current_timestamp();
-        
+
         // Create metadata
         let metadata = ZkCircuitMetadata {
             name: Some("Circom Circuit".to_string()),
@@ -239,32 +227,31 @@ impl ZkProvider for CircomProvider {
 
         // Write the R1CS data to a temporary file
         let r1cs_path = self.write_temp_file("circuit.r1cs", &circuit.compiled_data)?;
-        
+
         // Parse the circuit
         let circom_circuit = self.parse_circuit(&r1cs_path)?;
-        
+
         // Create a config for the setup
         let config = CircomConfig {
             proving_system: self.proving_system,
             curve: "bn128".to_string(),
         };
-        
+
         // Generate the keys
-        let (pk, vk) = circom_circuit.setup(&config).map_err(|e| {
-            ZkError::Provider(format!("Failed to generate keys: {}", e))
-        })?;
-        
+        let (pk, vk) = circom_circuit
+            .setup(&config)
+            .map_err(|e| ZkError::Provider(format!("Failed to generate keys: {}", e)))?;
+
         // Serialize the keys
-        let proving_key_data = serde_json::to_vec(&pk).map_err(|e| {
-            ZkError::Provider(format!("Failed to serialize proving key: {}", e))
-        })?;
-        
+        let proving_key_data = serde_json::to_vec(&pk)
+            .map_err(|e| ZkError::Provider(format!("Failed to serialize proving key: {}", e)))?;
+
         let verification_key_data = serde_json::to_vec(&vk).map_err(|e| {
             ZkError::Provider(format!("Failed to serialize verification key: {}", e))
         })?;
-        
+
         let timestamp = Self::current_timestamp();
-        
+
         let proving_key = ZkProvingKey {
             id: ZkProvingKeyId::new(),
             circuit_id: circuit.id.clone(),
@@ -295,34 +282,33 @@ impl ZkProvider for CircomProvider {
 
         // Write the R1CS data to a temporary file
         let r1cs_path = self.write_temp_file("circuit.r1cs", &circuit.compiled_data)?;
-        
+
         // Parse the circuit
         let circom_circuit = self.parse_circuit(&r1cs_path)?;
-        
+
         // Generate a witness
         let witness = self.generate_witness(&r1cs_path, inputs).await?;
-        
+
         // Deserialize the proving key
-        let pk = serde_json::from_slice(&proving_key.key_data).map_err(|e| {
-            ZkError::Provider(format!("Failed to deserialize proving key: {}", e))
-        })?;
-        
+        let pk = serde_json::from_slice(&proving_key.key_data)
+            .map_err(|e| ZkError::Provider(format!("Failed to deserialize proving key: {}", e)))?;
+
         // Create a config for the proof generation
         let config = CircomConfig {
             proving_system: self.proving_system,
             curve: "bn128".to_string(),
         };
-        
+
         // Generate the proof
-        let circom_proof = circom_circuit.prove(&witness, &pk, &config).map_err(|e| {
-            ZkError::Provider(format!("Failed to generate proof: {}", e))
-        })?;
-        
+        let circom_proof = circom_circuit
+            .prove(&witness, &pk, &config)
+            .map_err(|e| ZkError::Provider(format!("Failed to generate proof: {}", e)))?;
+
         // Serialize the proof
         let proof_data = self.serialize_proof(&circom_proof)?;
-        
+
         let timestamp = Self::current_timestamp();
-        
+
         let proof = ZkProof {
             id: ZkProofId::new(),
             circuit_id: circuit.id.clone(),
@@ -342,27 +328,24 @@ impl ZkProvider for CircomProvider {
         verification_key: &ZkVerificationKey,
     ) -> ZkResult<bool> {
         info!("Verifying proof with Circom provider");
-        debug!(
-            "Proof ID: {}, Public inputs: {}",
-            proof.id, public_inputs
-        );
+        debug!("Proof ID: {}, Public inputs: {}", proof.id, public_inputs);
 
         // Deserialize the verification key
         let vk = serde_json::from_slice(&verification_key.key_data).map_err(|e| {
             ZkError::Provider(format!("Failed to deserialize verification key: {}", e))
         })?;
-        
+
         // Deserialize the proof
         let circom_proof = self.deserialize_proof(&proof.proof_data)?;
-        
+
         // Create a verifier
         let verifier = CircomVerifier::new();
-        
+
         // Verify the proof
-        let result = verifier.verify(&circom_proof, &vk, public_inputs).map_err(|e| {
-            ZkError::Provider(format!("Failed to verify proof: {}", e))
-        })?;
-        
+        let result = verifier
+            .verify(&circom_proof, &vk, public_inputs)
+            .map_err(|e| ZkError::Provider(format!("Failed to verify proof: {}", e)))?;
+
         Ok(result)
     }
 }

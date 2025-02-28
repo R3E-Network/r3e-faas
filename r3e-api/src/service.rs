@@ -552,7 +552,7 @@ impl FunctionService {
         
         // Store the result in the database
         self.storage.store_invocation_result(result).await
-            .map_err(|e| ApiError::Database(format!("Failed to store invocation result: {}", e)))?
+            .map_err(|e| ApiError::Database(format!("Failed to store invocation result: {}", e)))?;
         log::info!(
             "Storing invocation result: invocation_id={}, function_id={}, user_id={}, status={}, execution_time={}ms",
             invocation_id,

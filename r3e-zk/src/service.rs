@@ -34,11 +34,9 @@ impl ZkService {
         let storage: Arc<dyn ZkStorage> = match config.storage.storage_type {
             ZkStorageType::Memory => Arc::new(MemoryZkStorage::new()),
             ZkStorageType::RocksDb => {
-                let path = config
-                    .storage
-                    .rocksdb_path
-                    .as_ref()
-                    .ok_or_else(|| ZkError::ConfigurationError("RocksDB path not specified".into()))?;
+                let path = config.storage.rocksdb_path.as_ref().ok_or_else(|| {
+                    ZkError::ConfigurationError("RocksDB path not specified".into())
+                })?;
                 Arc::new(RocksDbZkStorage::new(path)?)
             }
         };
@@ -105,18 +103,13 @@ impl ZkService {
 
     /// Get a provider for a ZK platform.
     fn get_provider(&self, platform: ZkPlatform) -> ZkResult<Arc<dyn ZkProvider>> {
-        self.providers
-            .get(&platform)
-            .cloned()
-            .ok_or_else(|| ZkError::UnsupportedPlatformError(format!("Unsupported platform: {}", platform)))
+        self.providers.get(&platform).cloned().ok_or_else(|| {
+            ZkError::UnsupportedPlatformError(format!("Unsupported platform: {}", platform))
+        })
     }
 
     /// Compile a circuit from source code.
-    pub async fn compile_circuit(
-        &self,
-        code: &str,
-        platform: ZkPlatform,
-    ) -> ZkResult<ZkCircuitId> {
+    pub async fn compile_circuit(&self, code: &str, platform: ZkPlatform) -> ZkResult<ZkCircuitId> {
         info!("Compiling circuit for platform: {}", platform);
         debug!("Circuit code length: {}", code.len());
 
@@ -150,7 +143,9 @@ impl ZkService {
 
         // Store the keys
         self.storage.store_proving_key(&proving_key).await?;
-        self.storage.store_verification_key(&verification_key).await?;
+        self.storage
+            .store_verification_key(&verification_key)
+            .await?;
 
         Ok((proving_key.id, verification_key.id))
     }
@@ -207,7 +202,10 @@ impl ZkService {
         let proof = self.storage.get_proof(proof_id).await?;
 
         // Get the verification key
-        let verification_key = self.storage.get_verification_key(verification_key_id).await?;
+        let verification_key = self
+            .storage
+            .get_verification_key(verification_key_id)
+            .await?;
 
         // Ensure the verification key is for the correct circuit
         if verification_key.circuit_id != proof.circuit_id {
@@ -266,10 +264,7 @@ impl ZkService {
     }
 
     /// List all proving keys for a circuit.
-    pub async fn list_proving_keys(
-        &self,
-        circuit_id: &ZkCircuitId,
-    ) -> ZkResult<Vec<ZkProvingKey>> {
+    pub async fn list_proving_keys(&self, circuit_id: &ZkCircuitId) -> ZkResult<Vec<ZkProvingKey>> {
         self.storage.list_proving_keys(circuit_id).await
     }
 
