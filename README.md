@@ -75,6 +75,104 @@ The Neo Service Layer architecture consists of several key components:
 
 4. **Neo N3 Blockchain**: The underlying blockchain platform that the service layer integrates with.
 
+## Application Interaction Flow
+
+The following diagram illustrates how applications interact with the Neo Service Layer:
+
+```
++-----------------------------------------------------------------------------------+
+|                    Neo Service Layer Application Interaction                      |
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+|  +----------------+                                                               |
+|  | Applications   |                                                               |
+|  | - dApps        |                                                               |
+|  | - Wallets      |                                                               |
+|  | - User         |                                                               |
+|  |   Interfaces   |                                                               |
+|  +-------+--------+                                                               |
+|          |                                                                        |
+|          | 1. API Requests (REST/GraphQL/WebSockets)                             |
+|          v                                                                        |
+|  +----------------+                                                               |
+|  | API Layer      |                                                               |
+|  | (r3e-api)      |                                                               |
+|  +-------+--------+                                                               |
+|          |                                                                        |
+|          | 2. Service Requests                                                    |
+|          v                                                                        |
+|  +----------------+     +----------------+     +----------------+                 |
+|  | Neo Services   |     | Oracle Service |     | TEE Service    |                 |
+|  | - Gas Bank     |     | - Price Data   |     | - Secure       |                 |
+|  | - Meta Tx      |     | - Random       |     |   Computation  |                 |
+|  | - Abstract     |     | - Custom Data  |     | - Attestation  |                 |
+|  |   Account      |     |                |     |                |                 |
+|  +-------+--------+     +-------+--------+     +-------+--------+                 |
+|          |                      |                      |                          |
+|          | 3. Process           | 3. Process           | 3. Process               |
+|          |    Requests          |    Requests          |    Requests              |
+|          v                      v                      v                          |
+|  +----------------+     +----------------+     +----------------+                 |
+|  | Event          |     | Worker         |     | Cryptographic  |                 |
+|  | Processing     |     | - Execute      |     | Services       |                 |
+|  | - Triggers     |     |   Functions    |     | - FHE          |                 |
+|  | - Notifications|     | - Process      |     | - ZK           |                 |
+|  |                |     |   Events       |     |                |                 |
+|  +-------+--------+     +-------+--------+     +-------+--------+                 |
+|          |                      |                      |                          |
+|          | 4. Blockchain        | 4. Blockchain        | 4. Blockchain            |
+|          |    Integration       |    Integration       |    Integration           |
+|          v                      v                      v                          |
+|  +------------------------------------------------------------------+            |
+|  | Integration Layer                                                 |            |
+|  | - Blockchain Connectors                                           |            |
+|  | - State Synchronization                                           |            |
+|  | - Event Monitoring                                                |            |
+|  +---------------------------+----------------------------------+----+            |
+|                              |                                                    |
+|                              | 5. Blockchain Transactions                         |
+|                              v                                                    |
+|                     +----------------+                                            |
+|                     | Neo N3         |                                            |
+|                     | Blockchain     |                                            |
+|                     +----------------+                                            |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
+```
+
+### How Applications Interact with the Neo Service Layer
+
+1. **Application Entry Points**:
+   - **dApps**: Decentralized applications built on Neo N3 blockchain
+   - **Wallets**: Neo-compatible wallets that integrate with the service layer
+   - **User Interfaces**: Custom frontends that leverage Neo services
+
+2. **API Interaction Methods**:
+   - **REST API**: Standard HTTP endpoints for synchronous operations
+   - **GraphQL**: Flexible query language for complex data requirements
+   - **WebSockets**: Real-time event streaming and notifications
+
+3. **Interaction Flow**:
+   - Applications send requests to the API Layer using REST, GraphQL, or WebSockets
+   - The API Layer authenticates, validates, and routes requests to appropriate services
+   - Service components process requests and interact with the blockchain as needed
+   - Results are returned to applications through the same communication channel
+   - Real-time updates are pushed to applications via WebSocket connections
+
+4. **Common Application Scenarios**:
+   - **Gas Management**: Applications use the Gas Bank service to manage transaction fees
+   - **Meta Transactions**: Applications enable gasless transactions for improved UX
+   - **Data Feeds**: Applications consume oracle data for price information and external data
+   - **Secure Computation**: Applications leverage TEE for confidential operations
+   - **Event Monitoring**: Applications subscribe to blockchain events and triggers
+   - **Privacy-Preserving Operations**: Applications use ZK and FHE services for private data
+
+5. **Developer Experience**:
+   - SDKs available for JavaScript, Python, and Rust
+   - Comprehensive API documentation with examples
+   - Local development environment with blockchain simulators
+   - Testnet integration for pre-production testing
+
 ## Key Features
 
 - **Comprehensive Neo N3 Services**: Specialized services designed for Neo N3 blockchain applications
