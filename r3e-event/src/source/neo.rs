@@ -401,7 +401,7 @@ impl TaskSource for NeoTaskSource {
                 // Filter by block height if specified
                 if let Some(min_height) = filter.get("min_height").and_then(|h| h.as_u64()) {
                     if let Some(header) = &block.header {
-                        if header.height as u64 < min_height {
+                        if (header.height as u64) < min_height {
                             return false;
                         }
                     } else {
