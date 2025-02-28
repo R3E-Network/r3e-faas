@@ -11,6 +11,8 @@ pub mod identity;
 pub mod bridge;
 pub mod pricing;
 pub mod auto_contract;
+pub mod zk;
+pub mod fhe;
 
 // Error types
 #[derive(Debug, thiserror::Error)]
@@ -41,4 +43,10 @@ pub enum ServiceError {
     
     #[error("Auto contract error: {0}")]
     AutoContract(#[from] auto_contract::AutoContractError),
+    
+    #[error("Zero-Knowledge error: {0}")]
+    Zk(#[from] zk::ZkError),
+    
+    #[error("Fully Homomorphic Encryption error: {0}")]
+    Fhe(#[from] fhe::FheError),
 }

@@ -527,3 +527,90 @@ const status = await r3e.autoContract.getStatus(contract.id);
 // Delete contract
 await r3e.autoContract.delete(contract.id);
 ```
+
+### r3e.zk
+
+The `r3e.zk` object provides access to Zero-Knowledge computing services:
+
+```javascript
+// Available circuit types
+const circuitTypes = {
+  ZOKRATES: r3e.zk.CircuitType.ZOKRATES,
+  BULLETPROOFS: r3e.zk.CircuitType.BULLETPROOFS,
+  CIRCOM: r3e.zk.CircuitType.CIRCOM
+};
+
+// Compile a ZK circuit
+const circuitSource = `
+  def main(private field a, private field b, field c) -> bool:
+    return a * b == c
+`;
+const circuitId = r3e.zk.compileCircuit(
+  circuitSource,
+  r3e.zk.CircuitType.ZOKRATES,
+  "multiply"
+);
+
+// Generate keys
+const { provingKeyId, verificationKeyId } = r3e.zk.generateKeys(circuitId);
+
+// Generate a proof
+const publicInputs = ["6"]; // Public inputs (visible to verifier)
+const privateInputs = ["2", "3"]; // Private inputs (hidden from verifier)
+const proofId = r3e.zk.generateProof(
+  circuitId,
+  provingKeyId,
+  publicInputs,
+  privateInputs
+);
+
+// Verify a proof
+const isValid = r3e.zk.verifyProof(
+  proofId,
+  verificationKeyId,
+  publicInputs
+);
+```
+
+### r3e.fhe
+
+The `r3e.fhe` object provides access to Fully Homomorphic Encryption services:
+
+```javascript
+// Available scheme types
+const schemeTypes = {
+  TFHE: r3e.fhe.SchemeType.TFHE,
+  OPENFHE: r3e.fhe.SchemeType.OPENFHE,
+  SEAL: r3e.fhe.SchemeType.SEAL,
+  HELIB: r3e.fhe.SchemeType.HELIB,
+  LATTIGO: r3e.fhe.SchemeType.LATTIGO
+};
+
+// Generate a key pair
+const keyPairId = r3e.fhe.generateKeys(r3e.fhe.SchemeType.TFHE, {
+  securityLevel: 128,
+  polynomialModulusDegree: 4096,
+  plaintextModulus: 1024
+});
+
+// For demonstration purposes, we assume we have access to the public and private keys
+const publicKeyId = `${keyPairId}_public`;
+const privateKeyId = `${keyPairId}_private`;
+
+// Encrypt data
+const ciphertext1Id = r3e.fhe.encrypt(publicKeyId, "42");
+const ciphertext2Id = r3e.fhe.encrypt(publicKeyId, "8");
+
+// Perform homomorphic operations
+const addResultId = r3e.fhe.add(ciphertext1Id, ciphertext2Id);
+const subtractResultId = r3e.fhe.subtract(ciphertext1Id, ciphertext2Id);
+const multiplyResultId = r3e.fhe.multiply(ciphertext1Id, ciphertext2Id);
+const negateResultId = r3e.fhe.negate(ciphertext1Id);
+
+// Decrypt results
+const addResult = r3e.fhe.decrypt(privateKeyId, addResultId, true);
+const multiplyResult = r3e.fhe.decrypt(privateKeyId, multiplyResultId, true);
+
+// Check noise budget
+const noiseBudget = r3e.fhe.estimateNoiseBudget(multiplyResultId);
+```

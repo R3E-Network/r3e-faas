@@ -128,6 +128,26 @@ The Automatic Smart Contract Service enables automatic invocation of smart contr
 - **Execution Tracking**: Track execution history and status
 - **Contract Management**: Create, update, and delete automatic contracts
 
+### Zero-Knowledge Computing Service
+
+The Zero-Knowledge Computing Service provides cryptographic proof generation and verification:
+
+- **Multiple ZK Solutions**: Support for ZoKrates, Bulletproofs, and Circom
+- **Circuit Compilation**: Compile ZK circuits from source code
+- **Key Generation**: Generate proving and verification keys
+- **Proof Generation**: Create ZK proofs with public and private inputs
+- **Proof Verification**: Verify ZK proofs without revealing private inputs
+
+### Fully Homomorphic Encryption Service
+
+The Fully Homomorphic Encryption Service enables computation on encrypted data:
+
+- **Multiple FHE Schemes**: Support for TFHE, OpenFHE, SEAL, HElib, and Lattigo
+- **Key Management**: Generate and manage FHE key pairs
+- **Homomorphic Operations**: Perform addition, subtraction, multiplication on encrypted data
+- **Noise Budget Management**: Track and manage noise budget for operations
+- **Secure Computation**: Compute on encrypted data without decryption
+
 ## Token Deposit and Balance Management
 
 ### How It Works
@@ -266,6 +286,52 @@ const contract = await r3e.autoContract.create({
     params: ["NbnjKGMBJzJ6j5PHeYhjJDaQ5Vy5UYu4Fv", 5]
   }
 });
+```
+
+### Using Zero-Knowledge Computing
+
+```javascript
+// Compile a ZoKrates circuit for proving knowledge of factors
+const circuitSource = `
+  def main(private field a, private field b, field c) -> bool:
+    return a * b == c
+`;
+const circuitId = zk.compileCircuit(circuitSource, zk.CircuitType.ZOKRATES, "multiply");
+
+// Generate keys
+const { provingKeyId, verificationKeyId } = zk.generateKeys(circuitId);
+
+// Generate a proof (proving we know factors of 6 without revealing them)
+const publicInputs = ["6"]; // The public value c = 6
+const privateInputs = ["2", "3"]; // The private values a = 2, b = 3
+const proofId = zk.generateProof(circuitId, provingKeyId, publicInputs, privateInputs);
+
+// Verify the proof
+const isValid = zk.verifyProof(proofId, verificationKeyId, publicInputs);
+console.log(`Proof is valid: ${isValid}`);
+```
+
+### Using Fully Homomorphic Encryption
+
+```javascript
+// Generate FHE keys
+const keyPairId = fhe.generateKeys(fhe.SchemeType.TFHE);
+const publicKeyId = `${keyPairId}_public`;
+const privateKeyId = `${keyPairId}_private`;
+
+// Encrypt data
+const ciphertext1Id = fhe.encrypt(publicKeyId, "42");
+const ciphertext2Id = fhe.encrypt(publicKeyId, "8");
+
+// Perform homomorphic operations
+const addResultId = fhe.add(ciphertext1Id, ciphertext2Id);
+const multiplyResultId = fhe.multiply(ciphertext1Id, ciphertext2Id);
+
+// Decrypt results
+const addResult = fhe.decrypt(privateKeyId, addResultId, true);
+const multiplyResult = fhe.decrypt(privateKeyId, multiplyResultId, true);
+console.log(`Addition result: ${addResult}`); // 50
+console.log(`Multiplication result: ${multiplyResult}`); // 336
 ```
 
 ## Business Model

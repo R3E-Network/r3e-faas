@@ -25,6 +25,8 @@ members = [
     "r3e-store",
     "r3e-tee",
     "r3e-worker",
+    "r3e-zk",
+    "r3e-fhe",
 ]
 
 

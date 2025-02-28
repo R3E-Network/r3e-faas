@@ -7,6 +7,8 @@ pub mod oracle;
 pub mod tee;
 pub mod sandbox_permissions;
 pub mod neo_services;
+pub mod zk;
+pub mod fhe;
 
 use deno_core::extension;
 
@@ -17,6 +19,8 @@ use neo::{op_neo_create_key_pair, op_neo_create_rpc_client, op_neo_create_transa
 use oracle::{op_oracle_submit_request, op_oracle_get_request_status, op_oracle_get_response, op_oracle_cancel_request, op_oracle_get_price, op_oracle_get_random};
 use tee::{op_tee_execute, op_tee_generate_attestation, op_tee_verify_attestation, op_neo_tee_execute};
 use sandbox_permissions::op_request_permission;
+use zk::{op_zk_compile_circuit, op_zk_generate_keys, op_zk_generate_proof, op_zk_verify_proof};
+use fhe::{op_fhe_generate_keys, op_fhe_encrypt, op_fhe_decrypt, op_fhe_add, op_fhe_subtract, op_fhe_multiply, op_fhe_negate, op_fhe_get_ciphertext, op_fhe_estimate_noise_budget};
 use neo_services::{
     op_neo_gas_bank_create_account, op_neo_gas_bank_get_account, op_neo_gas_bank_deposit, 
     op_neo_gas_bank_withdraw, op_neo_gas_bank_pay_gas, op_neo_gas_bank_get_gas_price,
@@ -59,9 +63,22 @@ extension!(
         op_neo_abstract_account_get_operation_status,
         op_neo_abstract_account_get_next_nonce,
         op_request_permission,
+        op_zk_compile_circuit,
+        op_zk_generate_keys,
+        op_zk_generate_proof,
+        op_zk_verify_proof,
+        op_fhe_generate_keys,
+        op_fhe_encrypt,
+        op_fhe_decrypt,
+        op_fhe_add,
+        op_fhe_subtract,
+        op_fhe_multiply,
+        op_fhe_negate,
+        op_fhe_get_ciphertext,
+        op_fhe_estimate_noise_budget,
     ],
     esm_entry_point = "ext:r3e/r3e.js",
-    esm = [dir "src/js", "r3e.js", "encoding.js", "infra.js", "time.js", "neo.js", "oracle.js", "tee.js", "neo_services.js"],
+    esm = [dir "src/js", "r3e.js", "encoding.js", "infra.js", "time.js", "neo.js", "oracle.js", "tee.js", "neo_services.js", "zk.js", "fhe.js"],
     state = |state| {
         state.put(Arc::new(Mutex::new(SandboxConfig::default())));
         Ok(())
