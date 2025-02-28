@@ -17,6 +17,7 @@ pub struct RocksDBGasBankStorage {
     deposits_cf: String,
     withdrawals_cf: String,
     transactions_cf: String,
+    contract_mappings_cf: String,
 }
 
 impl RocksDBGasBankStorage {
@@ -29,6 +30,7 @@ impl RocksDBGasBankStorage {
         let deposits_cf = "gas_bank_deposits".to_string();
         let withdrawals_cf = "gas_bank_withdrawals".to_string();
         let transactions_cf = "gas_bank_transactions".to_string();
+        let contract_mappings_cf = "gas_bank_contract_mappings".to_string();
         
         Ok(Self {
             db: Arc::new(db),
@@ -36,6 +38,7 @@ impl RocksDBGasBankStorage {
             deposits_cf,
             withdrawals_cf,
             transactions_cf,
+            contract_mappings_cf,
         })
     }
 }
@@ -224,6 +227,36 @@ impl GasBankStorage for RocksDBGasBankStorage {
         
         self.db.put(&self.transactions_cf, input)
             .map_err(|e| Error::Storage(format!("Failed to add transaction: {}", e)))?;
+        
+        Ok(())
+    }
+    
+    async fn get_contract_account_mapping(&self, contract_hash: &str) -> Result<Option<String>, Error> {
+        let key = contract_hash.as_bytes();
+        
+        match self.db.get(&self.contract_mappings_cf, key) {
+            Ok(value) => {
+                let address = String::from_utf8(value)
+                    .map_err(|e| Error::Storage(format!("Failed to deserialize address: {}", e)))?;
+                Ok(Some(address))
+            },
+            Err(r3e_store::GetError::NoSuchKey) => Ok(None),
+            Err(e) => Err(Error::Storage(format!("Failed to get contract mapping: {}", e))),
+        }
+    }
+    
+    async fn set_contract_account_mapping(&self, contract_hash: &str, address: &str) -> Result<(), Error> {
+        let key = contract_hash.as_bytes();
+        let value = address.as_bytes();
+        
+        let input = r3e_store::PutInput {
+            key,
+            value,
+            if_not_exists: false, // Allow overwriting existing mappings
+        };
+        
+        self.db.put(&self.contract_mappings_cf, input)
+            .map_err(|e| Error::Storage(format!("Failed to set contract mapping: {}", e)))?;
         
         Ok(())
     }

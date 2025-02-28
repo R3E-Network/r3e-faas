@@ -17,6 +17,9 @@ pub struct PriceData {
     
     /// Timestamp of the price data
     pub timestamp: u64,
+    
+    /// Price index for blockchain storage (e.g., 0 for NEO/USD, 1 for GAS/USD)
+    pub index: Option<u8>,
 }
 
 /// Price request parameters

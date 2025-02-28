@@ -81,9 +81,39 @@ export class GasBankService {
 
 /**
  * Meta Transaction Service
- * Provides gasless transaction services for Neo N3 blockchain
+ * Provides gasless transaction services for Neo N3 and Ethereum blockchains
  */
 export class MetaTxService {
+  /**
+   * Blockchain types for meta transactions
+   */
+  static BlockchainType = {
+    /**
+     * Neo N3 blockchain
+     */
+    NEO_N3: "neo",
+    
+    /**
+     * Ethereum blockchain
+     */
+    ETHEREUM: "ethereum"
+  };
+  
+  /**
+   * Signature curve types
+   */
+  static SignatureCurve = {
+    /**
+     * secp256r1 curve (used by Neo)
+     */
+    SECP256R1: "secp256r1",
+    
+    /**
+     * secp256k1 curve (used by Ethereum)
+     */
+    SECP256K1: "secp256k1"
+  };
+
   /**
    * Submits a meta transaction
    * @param {Object} request - Meta transaction request
@@ -94,11 +124,61 @@ export class MetaTxService {
    * @param {number} request.deadline - Transaction deadline (timestamp)
    * @param {string} request.fee_model - Fee model (fixed, percentage, dynamic, free)
    * @param {number} request.fee_amount - Fee amount
+   * @param {string} [request.blockchain_type] - Blockchain type (neo or ethereum, defaults to neo)
+   * @param {string} [request.signature_curve] - Signature curve (secp256r1 or secp256k1, defaults to secp256r1)
+   * @param {string} [request.target_contract] - Target contract address (required for Ethereum transactions)
    * @returns {Object} Meta transaction response
    */
   static submit(request) {
     const result = Deno.core.ops.op_neo_meta_tx_submit(request);
     return JSON.parse(result);
+  }
+
+  /**
+   * Submits a Neo N3 meta transaction
+   * @param {Object} request - Meta transaction request
+   * @param {string} request.tx_data - Transaction data
+   * @param {string} request.sender - Sender address
+   * @param {string} request.signature - Transaction signature
+   * @param {number} request.nonce - Transaction nonce
+   * @param {number} request.deadline - Transaction deadline (timestamp)
+   * @param {string} request.fee_model - Fee model (fixed, percentage, dynamic, free)
+   * @param {number} request.fee_amount - Fee amount
+   * @returns {Object} Meta transaction response
+   */
+  static submitNeoTx(request) {
+    const neoRequest = {
+      ...request,
+      blockchain_type: MetaTxService.BlockchainType.NEO_N3,
+      signature_curve: MetaTxService.SignatureCurve.SECP256R1
+    };
+    return MetaTxService.submit(neoRequest);
+  }
+
+  /**
+   * Submits an Ethereum meta transaction
+   * @param {Object} request - Meta transaction request
+   * @param {string} request.tx_data - Transaction data
+   * @param {string} request.sender - Sender address
+   * @param {string} request.signature - Transaction signature
+   * @param {number} request.nonce - Transaction nonce
+   * @param {number} request.deadline - Transaction deadline (timestamp)
+   * @param {string} request.fee_model - Fee model (fixed, percentage, dynamic, free)
+   * @param {number} request.fee_amount - Fee amount
+   * @param {string} request.target_contract - Target contract address
+   * @returns {Object} Meta transaction response
+   */
+  static submitEthereumTx(request) {
+    if (!request.target_contract) {
+      throw new Error("Target contract is required for Ethereum transactions");
+    }
+    
+    const ethRequest = {
+      ...request,
+      blockchain_type: MetaTxService.BlockchainType.ETHEREUM,
+      signature_curve: MetaTxService.SignatureCurve.SECP256K1
+    };
+    return MetaTxService.submit(ethRequest);
   }
 
   /**

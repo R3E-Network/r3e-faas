@@ -6,7 +6,7 @@ use NeoRust::prelude::{Wallet, Transaction, TransactionBuilder, RpcClient, Signe
 use crate::Error;
 use crate::types::FeeModel;
 use super::storage::MetaTxStorage;
-use super::types::{MetaTxRequest, MetaTxResponse, MetaTxRecord, MetaTxStatus};
+use super::types::{MetaTxRequest, MetaTxResponse, MetaTxRecord, MetaTxStatus, BlockchainType, SignatureCurve};
 use std::sync::Arc;
 use log::{debug, info, warn, error};
 use uuid::Uuid;
@@ -94,19 +94,65 @@ impl<S: MetaTxStorage> MetaTxService<S> {
             return Ok(false);
         }
         
-        // Verify the signature
-        // This would use the NeoRust SDK to verify the signature
-        // For this example, we'll assume it's valid
-        Ok(true)
+        // Verify the signature based on blockchain type and signature curve
+        match (request.blockchain_type, request.signature_curve) {
+            (BlockchainType::NeoN3, SignatureCurve::Secp256r1) => {
+                // Verify Neo N3 signature using secp256r1 curve
+                // This would use the NeoRust SDK to verify the signature
+                // For this example, we'll assume it's valid
+                debug!("Verifying Neo N3 signature using secp256r1 curve");
+                Ok(true)
+            },
+            (BlockchainType::Ethereum, SignatureCurve::Secp256k1) => {
+                // Verify Ethereum signature using secp256k1 curve
+                // This would use an Ethereum SDK to verify the signature
+                // For this example, we'll assume it's valid
+                debug!("Verifying Ethereum signature using secp256k1 curve");
+                Ok(true)
+            },
+            (blockchain_type, signature_curve) => {
+                // Invalid combination
+                error!("Invalid blockchain type and signature curve combination: {:?}, {:?}", 
+                      blockchain_type, signature_curve);
+                Ok(false)
+            }
+        }
     }
     
     /// Relay transaction
-    async fn relay_transaction(&self, tx_data: &str) -> Result<String, Error> {
-        // In a real implementation, this would deserialize the transaction data,
-        // sign it with the relayer wallet, and send it to the network
-        // For this example, we'll return a mock transaction hash
-        let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
-        Ok(tx_hash)
+    async fn relay_transaction(&self, request: &MetaTxRequest) -> Result<String, Error> {
+        // Relay transaction based on blockchain type
+        match request.blockchain_type {
+            BlockchainType::NeoN3 => {
+                // In a real implementation, this would deserialize the Neo N3 transaction data,
+                // sign it with the relayer wallet, and send it to the network
+                // For this example, we'll return a mock transaction hash
+                let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
+                info!("Relayed Neo N3 transaction: {}", tx_hash);
+                Ok(tx_hash)
+            },
+            BlockchainType::Ethereum => {
+                // For Ethereum transactions, we need to use the Gas Bank account
+                // specified by the target contract to pay for the transaction fees
+                
+                // Get target contract
+                let target_contract = match &request.target_contract {
+                    Some(contract) => contract,
+                    None => return Err(Error::Validation("Target contract is required for Ethereum transactions".to_string())),
+                };
+                
+                // In a real implementation, this would:
+                // 1. Get the Gas Bank account for the target contract
+                // 2. Use the Gas Bank account to pay for the transaction fees
+                // 3. Sign the transaction with the relayer wallet
+                // 4. Send the transaction to the Ethereum network
+                
+                // For this example, we'll return a mock transaction hash
+                let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
+                info!("Relayed Ethereum transaction: {} (target contract: {})", tx_hash, target_contract);
+                Ok(tx_hash)
+            }
+        }
     }
 }
 
@@ -157,7 +203,7 @@ impl<S: MetaTxStorage> MetaTxServiceTrait for MetaTxService<S> {
         }
         
         // Relay transaction
-        match self.relay_transaction(&request.tx_data).await {
+        match self.relay_transaction(&request).await {
             Ok(relayed_hash) => {
                 response.relayed_hash = Some(relayed_hash);
                 response.status = MetaTxStatus::Submitted.to_string();
