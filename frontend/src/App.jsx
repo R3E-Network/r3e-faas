@@ -10,6 +10,12 @@ import HomePage from './pages/HomePage';
 import ServicesPage from './pages/ServicesPage';
 import WalletPage from './pages/WalletPage';
 import MetaTxPage from './pages/MetaTxPage';
+import FunctionsPage from './pages/FunctionsPage';
+import FunctionDetailPage from './pages/FunctionDetailPage';
+import FunctionNewPage from './pages/FunctionNewPage';
+import FunctionEditPage from './pages/FunctionEditPage';
+import FunctionInvokePage from './pages/FunctionInvokePage';
+import GasBankPage from './pages/GasBankPage';
 
 // Components
 import Navbar from './components/Navbar';
@@ -34,6 +40,12 @@ const App = () => {
                 <Route path="/services" element={<ServicesPage />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/meta-tx" element={<MetaTxPage />} />
+                <Route path="/functions" element={<FunctionsPage />} />
+                <Route path="/functions/new" element={<FunctionNewPage />} />
+                <Route path="/functions/:id" element={<FunctionDetailPage />} />
+                <Route path="/functions/:id/edit" element={<FunctionEditPage />} />
+                <Route path="/functions/:id/invoke" element={<FunctionInvokePage />} />
+                <Route path="/gas-bank" element={<GasBankPage />} />
               </Routes>
             </main>
             <Footer />
