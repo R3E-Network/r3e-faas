@@ -213,41 +213,48 @@ pub fn create_meta_tx_typed_data(
     
     // Add the EIP712Domain type
     let domain_type = vec![
-        EIP712Type { name: "name".to_string(), r#type: "string".to_string() },
-        EIP712Type { name: "version".to_string(), r#type: "string".to_string() },
-        EIP712Type { name: "chainId".to_string(), r#type: "uint256".to_string() },
-        EIP712Type { name: "verifyingContract".to_string(), r#type: "address".to_string() },
-        EIP712Type { name: "salt".to_string(), r#type: "bytes32".to_string() },
+        EIP712Field { name: "name".to_string(), type_name: "string".to_string() },
+        EIP712Field { name: "version".to_string(), type_name: "string".to_string() },
+        EIP712Field { name: "chainId".to_string(), type_name: "uint256".to_string() },
+        EIP712Field { name: "verifyingContract".to_string(), type_name: "address".to_string() },
     ];
+    
+    // Add salt field if present
+    let domain_type = if domain.salt.is_some() {
+        let mut dt = domain_type;
+        dt.push(EIP712Field { name: "salt".to_string(), type_name: "bytes32".to_string() });
+        dt
+    } else {
+        domain_type
+    };
+    
     types.insert("EIP712Domain".to_string(), domain_type);
     
     // Add the MetaTransaction type
     let meta_tx_type = vec![
-        EIP712Type { name: "from".to_string(), r#type: "address".to_string() },
-        EIP712Type { name: "to".to_string(), r#type: "address".to_string() },
-        EIP712Type { name: "data".to_string(), r#type: "bytes".to_string() },
-        EIP712Type { name: "nonce".to_string(), r#type: "uint256".to_string() },
-        EIP712Type { name: "deadline".to_string(), r#type: "uint256".to_string() },
-        EIP712Type { name: "fee_model".to_string(), r#type: "string".to_string() },
-        EIP712Type { name: "fee_amount".to_string(), r#type: "uint256".to_string() },
+        EIP712Field { name: "from".to_string(), type_name: "address".to_string() },
+        EIP712Field { name: "to".to_string(), type_name: "address".to_string() },
+        EIP712Field { name: "value".to_string(), type_name: "uint256".to_string() },
+        EIP712Field { name: "gas".to_string(), type_name: "uint256".to_string() },
+        EIP712Field { name: "nonce".to_string(), type_name: "uint256".to_string() },
+        EIP712Field { name: "data".to_string(), type_name: "bytes".to_string() },
     ];
     types.insert("MetaTransaction".to_string(), meta_tx_type);
     
     // Create the message map
-    let mut message_map = HashMap::new();
+    let mut message_map = serde_json::Map::new();
     message_map.insert("from".to_string(), serde_json::Value::String(message.from));
     message_map.insert("to".to_string(), serde_json::Value::String(message.to));
+    message_map.insert("value".to_string(), serde_json::Value::String(message.value));
+    message_map.insert("gas".to_string(), serde_json::Value::String(message.gas));
+    message_map.insert("nonce".to_string(), serde_json::Value::String(message.nonce));
     message_map.insert("data".to_string(), serde_json::Value::String(message.data));
-    message_map.insert("nonce".to_string(), serde_json::Value::Number(serde_json::Number::from(message.nonce)));
-    message_map.insert("deadline".to_string(), serde_json::Value::Number(serde_json::Number::from(message.deadline)));
-    message_map.insert("fee_model".to_string(), serde_json::Value::String(message.fee_model));
-    message_map.insert("fee_amount".to_string(), serde_json::Value::Number(serde_json::Number::from(message.fee_amount)));
     
     // Create the typed data
     Ok(EIP712TypedData {
         domain,
         primary_type: "MetaTransaction".to_string(),
         types,
-        message: message_map,
+        message: serde_json::Value::Object(message_map),
     })
 }
