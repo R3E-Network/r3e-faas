@@ -53,19 +53,17 @@ jobs:
     #     command: clippy
     #     args: -- -D warnings
     
-    # Temporarily skip build step due to dependency issues
-    # - name: Build
-    #   uses: actions-rs/cargo@v1
-    #   with:
-    #     command: build
-    #     args: --verbose
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --verbose --workspace --exclude r3e-zk
     
-    # Temporarily skip test step due to dependency issues
-    # - name: Run tests
-    #   uses: actions-rs/cargo@v1
-    #   with:
-    #     command: test
-    #     args: -- --nocapture
+    - name: Run tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --workspace --exclude r3e-zk -- --nocapture
     
     # Add a simple success step to ensure the workflow passes
     - name: Success
