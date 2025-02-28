@@ -52,6 +52,15 @@ pub enum TeePlatform {
     /// ARM TrustZone
     TrustZone,
     
+    /// AWS Nitro Enclaves
+    Nitro,
+    
+    /// Google Cloud Confidential Computing
+    GoogleConfidential,
+    
+    /// Azure Confidential Computing
+    AzureConfidential,
+    
     /// Simulated TEE (for development and testing)
     Simulated,
 }
