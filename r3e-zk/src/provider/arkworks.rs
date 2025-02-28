@@ -18,16 +18,16 @@ use tempfile::TempDir;
 use tokio::fs;
 
 // Arkworks-specific imports
+use ark_bls12_381::{Bls12_381, Fr as Fr381};
 use ark_ff::{Field, PrimeField};
-use ark_relations::{
-    lc,
-    r1cs::{ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError},
-};
 use ark_groth16::{
     create_random_proof, generate_random_parameters, prepare_verifying_key, verify_proof,
     ProvingKey, VerifyingKey,
 };
-use ark_bls12_381::{Bls12_381, Fr as Fr381};
+use ark_relations::{
+    lc,
+    r1cs::{ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError},
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use rand::rngs::OsRng;
 
@@ -58,9 +58,7 @@ impl<F: Field> ConstraintSynthesizer<F> for ExampleCircuit<F> {
         // Create variables for inputs
         let mut variables = Vec::new();
         for (i, input) in self.inputs.iter().enumerate() {
-            let var = cs.new_witness_variable(|| {
-                input.ok_or(SynthesisError::AssignmentMissing)
-            })?;
+            let var = cs.new_witness_variable(|| input.ok_or(SynthesisError::AssignmentMissing))?;
             variables.push(var);
         }
 
@@ -83,7 +81,7 @@ impl ArkworksProvider {
         let temp_dir = TempDir::new().map_err(|e| {
             ZkError::Provider(format!("Failed to create temporary directory: {}", e))
         })?;
-        
+
         Ok(Self {
             default_proving_system,
             default_curve,
@@ -98,25 +96,24 @@ impl ArkworksProvider {
             .unwrap_or_default()
             .as_secs()
     }
-    
+
     /// Get a temporary file path.
     fn get_temp_file_path(&self, name: &str) -> PathBuf {
         self.temp_dir.path().join(name)
     }
-    
+
     /// Write data to a temporary file.
     fn write_temp_file(&self, name: &str, data: &[u8]) -> ZkResult<PathBuf> {
         let path = self.get_temp_file_path(name);
-        std::fs::write(&path, data).map_err(|e| {
-            ZkError::Provider(format!("Failed to write temporary file: {}", e))
-        })?;
+        std::fs::write(&path, data)
+            .map_err(|e| ZkError::Provider(format!("Failed to write temporary file: {}", e)))?;
         Ok(path)
     }
-    
+
     /// Parse inputs from a JSON value.
     fn parse_inputs(&self, inputs: &Value) -> ZkResult<Vec<Option<Fr381>>> {
         let mut result = Vec::new();
-        
+
         if let Value::Array(arr) = inputs {
             for val in arr {
                 if val.is_null() {
@@ -130,103 +127,100 @@ impl ArkworksProvider {
                     let fe = Fr381::from(num);
                     result.push(Some(fe));
                 } else {
-                    return Err(ZkError::Validation(format!(
-                        "Invalid input value: {}", val
-                    )));
+                    return Err(ZkError::Validation(format!("Invalid input value: {}", val)));
                 }
             }
         } else {
-            return Err(ZkError::Validation(
-                "Inputs must be an array".to_string()
-            ));
+            return Err(ZkError::Validation("Inputs must be an array".to_string()));
         }
-        
+
         Ok(result)
     }
-    
+
     /// Parse a field element from a string.
     fn parse_field_element(&self, s: &str) -> ZkResult<Fr381> {
         // For simplicity, we'll just parse decimal numbers
-        let num = s.parse::<u64>().map_err(|e| {
-            ZkError::Validation(format!("Failed to parse field element: {}", e))
-        })?;
-        
+        let num = s
+            .parse::<u64>()
+            .map_err(|e| ZkError::Validation(format!("Failed to parse field element: {}", e)))?;
+
         Ok(Fr381::from(num))
     }
-    
+
     /// Create a circuit from the compiled data.
-    fn create_circuit(&self, compiled_data: &[u8], inputs: &Value) -> ZkResult<ExampleCircuit<Fr381>> {
+    fn create_circuit(
+        &self,
+        compiled_data: &[u8],
+        inputs: &Value,
+    ) -> ZkResult<ExampleCircuit<Fr381>> {
         // Parse the compiled data
         let num_constraints = u32::from_le_bytes(
-            compiled_data.get(0..4)
+            compiled_data
+                .get(0..4)
                 .ok_or_else(|| ZkError::Provider("Invalid compiled data".to_string()))?
                 .try_into()
-                .map_err(|_| ZkError::Provider("Failed to parse constraint count".to_string()))?
+                .map_err(|_| ZkError::Provider("Failed to parse constraint count".to_string()))?,
         ) as usize;
-        
+
         // Parse the inputs
         let inputs = self.parse_inputs(inputs)?;
-        
+
         Ok(ExampleCircuit {
             inputs,
             num_constraints,
         })
     }
-    
+
     /// Serialize a proving key to bytes.
     fn serialize_proving_key(&self, pk: &ProvingKey<Bls12_381>) -> ZkResult<Vec<u8>> {
         let mut buffer = Vec::new();
-        pk.serialize(&mut buffer).map_err(|e| {
-            ZkError::Provider(format!("Failed to serialize proving key: {}", e))
-        })?;
-        
+        pk.serialize(&mut buffer)
+            .map_err(|e| ZkError::Provider(format!("Failed to serialize proving key: {}", e)))?;
+
         Ok(buffer)
     }
-    
+
     /// Deserialize a proving key from bytes.
     fn deserialize_proving_key(&self, data: &[u8]) -> ZkResult<ProvingKey<Bls12_381>> {
-        let pk = ProvingKey::<Bls12_381>::deserialize(data).map_err(|e| {
-            ZkError::Provider(format!("Failed to deserialize proving key: {}", e))
-        })?;
-        
+        let pk = ProvingKey::<Bls12_381>::deserialize(data)
+            .map_err(|e| ZkError::Provider(format!("Failed to deserialize proving key: {}", e)))?;
+
         Ok(pk)
     }
-    
+
     /// Serialize a verifying key to bytes.
     fn serialize_verifying_key(&self, vk: &VerifyingKey<Bls12_381>) -> ZkResult<Vec<u8>> {
         let mut buffer = Vec::new();
-        vk.serialize(&mut buffer).map_err(|e| {
-            ZkError::Provider(format!("Failed to serialize verifying key: {}", e))
-        })?;
-        
+        vk.serialize(&mut buffer)
+            .map_err(|e| ZkError::Provider(format!("Failed to serialize verifying key: {}", e)))?;
+
         Ok(buffer)
     }
-    
+
     /// Deserialize a verifying key from bytes.
     fn deserialize_verifying_key(&self, data: &[u8]) -> ZkResult<VerifyingKey<Bls12_381>> {
         let vk = VerifyingKey::<Bls12_381>::deserialize(data).map_err(|e| {
             ZkError::Provider(format!("Failed to deserialize verifying key: {}", e))
         })?;
-        
+
         Ok(vk)
     }
-    
+
     /// Serialize a proof to bytes.
     fn serialize_proof<P: CanonicalSerialize>(&self, proof: &P) -> ZkResult<Vec<u8>> {
         let mut buffer = Vec::new();
-        proof.serialize(&mut buffer).map_err(|e| {
-            ZkError::Provider(format!("Failed to serialize proof: {}", e))
-        })?;
-        
+        proof
+            .serialize(&mut buffer)
+            .map_err(|e| ZkError::Provider(format!("Failed to serialize proof: {}", e)))?;
+
         Ok(buffer)
     }
-    
+
     /// Deserialize a proof from bytes.
     fn deserialize_proof<P: CanonicalDeserialize>(&self, data: &[u8]) -> ZkResult<P> {
-        let proof = P::deserialize(data).map_err(|e| {
-            ZkError::Provider(format!("Failed to deserialize proof: {}", e))
-        })?;
-        
+        let proof = P::deserialize(data)
+            .map_err(|e| ZkError::Provider(format!("Failed to deserialize proof: {}", e)))?;
+
         Ok(proof)
     }
 }
@@ -251,27 +245,27 @@ impl ZkProvider for ArkworksProvider {
         //   "num_constraints": 10,
         //   "input_count": 3
         // }
-        
+
         let circuit_description: Value = serde_json::from_str(code).map_err(|e| {
             ZkError::Compilation(format!("Failed to parse circuit description: {}", e))
         })?;
-        
+
         // Extract the number of constraints
         let num_constraints = circuit_description
             .get("num_constraints")
             .and_then(|v| v.as_u64())
             .unwrap_or(10) as u32;
-        
+
         // Extract the input count
         let input_count = circuit_description
             .get("input_count")
             .and_then(|v| v.as_u64())
             .unwrap_or(3) as u32;
-        
+
         // Create compiled data (just store the number of constraints for now)
         let mut compiled_data = Vec::new();
         compiled_data.extend_from_slice(&num_constraints.to_le_bytes());
-        
+
         let circuit_id = ZkCircuitId::new();
         let timestamp = Self::current_timestamp();
 
@@ -311,24 +305,20 @@ impl ZkProvider for ArkworksProvider {
             inputs: Vec::new(), // No inputs needed for key generation
             num_constraints: circuit.metadata.constraint_count,
         };
-        
+
         // Generate parameters (proving key and verification key)
-        let params = generate_random_parameters::<Bls12_381, _, _>(
-            example_circuit,
-            &mut OsRng,
-        ).map_err(|e| {
-            ZkError::Provider(format!("Failed to generate parameters: {}", e))
-        })?;
-        
+        let params = generate_random_parameters::<Bls12_381, _, _>(example_circuit, &mut OsRng)
+            .map_err(|e| ZkError::Provider(format!("Failed to generate parameters: {}", e)))?;
+
         // Extract the verification key
         let vk = params.vk.clone();
-        
+
         // Serialize the parameters and verification key
         let proving_key_data = self.serialize_proving_key(&params)?;
         let verification_key_data = self.serialize_verifying_key(&vk)?;
-        
+
         let timestamp = Self::current_timestamp();
-        
+
         let proving_key = ZkProvingKey {
             id: ZkProvingKeyId::new(),
             circuit_id: circuit.id.clone(),
@@ -359,24 +349,19 @@ impl ZkProvider for ArkworksProvider {
 
         // Create a circuit instance from the compiled data and inputs
         let example_circuit = self.create_circuit(&circuit.compiled_data, inputs)?;
-        
+
         // Deserialize the proving key
         let params = self.deserialize_proving_key(&proving_key.key_data)?;
-        
+
         // Generate the proof
-        let proof = create_random_proof(
-            example_circuit,
-            &params,
-            &mut OsRng,
-        ).map_err(|e| {
-            ZkError::Provider(format!("Failed to generate proof: {}", e))
-        })?;
-        
+        let proof = create_random_proof(example_circuit, &params, &mut OsRng)
+            .map_err(|e| ZkError::Provider(format!("Failed to generate proof: {}", e)))?;
+
         // Serialize the proof
         let proof_data = self.serialize_proof(&proof)?;
-        
+
         let timestamp = Self::current_timestamp();
-        
+
         let proof = ZkProof {
             id: ZkProofId::new(),
             circuit_id: circuit.id.clone(),
@@ -396,38 +381,31 @@ impl ZkProvider for ArkworksProvider {
         verification_key: &ZkVerificationKey,
     ) -> ZkResult<bool> {
         info!("Verifying proof with Arkworks provider");
-        debug!(
-            "Proof ID: {}, Public inputs: {}",
-            proof.id, public_inputs
-        );
+        debug!("Proof ID: {}, Public inputs: {}", proof.id, public_inputs);
 
         // Deserialize the verification key
         let vk = self.deserialize_verifying_key(&verification_key.key_data)?;
-        
+
         // Deserialize the proof
-        let ark_proof = self.deserialize_proof::<ark_groth16::Proof<Bls12_381>>(&proof.proof_data)?;
-        
+        let ark_proof =
+            self.deserialize_proof::<ark_groth16::Proof<Bls12_381>>(&proof.proof_data)?;
+
         // Prepare the verification key
         let pvk = prepare_verifying_key(&vk);
-        
+
         // Parse the public inputs
         let public_inputs = self.parse_inputs(public_inputs)?;
-        
+
         // Convert public inputs to the format expected by Arkworks
         let public_inputs: Vec<Fr381> = public_inputs
             .into_iter()
             .filter_map(|input| input)
             .collect();
-        
+
         // Verify the proof
-        let result = verify_proof(
-            &pvk,
-            &ark_proof,
-            &public_inputs,
-        ).map_err(|e| {
-            ZkError::Provider(format!("Failed to verify proof: {}", e))
-        })?;
-        
+        let result = verify_proof(&pvk, &ark_proof, &public_inputs)
+            .map_err(|e| ZkError::Provider(format!("Failed to verify proof: {}", e)))?;
+
         Ok(result)
     }
 }

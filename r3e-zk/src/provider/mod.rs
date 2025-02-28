@@ -3,9 +3,7 @@
 
 //! Provider interface for the Zero-Knowledge computing service.
 
-use crate::{
-    ZkCircuit, ZkError, ZkPlatform, ZkProof, ZkProvingKey, ZkResult, ZkVerificationKey,
-};
+use crate::{ZkCircuit, ZkError, ZkPlatform, ZkProof, ZkProvingKey, ZkResult, ZkVerificationKey};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::fmt::Debug;
