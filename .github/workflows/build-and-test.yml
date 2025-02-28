@@ -39,6 +39,12 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
     
+    - name: Clone NeoRust dependency
+      run: |
+        cd ..
+        git clone https://github.com/R3E-Network/NeoRust.git
+        ls -la
+    
     - name: Check code formatting
       uses: actions-rs/cargo@v1
       with:
