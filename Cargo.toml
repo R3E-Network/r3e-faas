@@ -12,6 +12,7 @@ members = [
     "r3e-config",
     "r3e-core",
     "r3e-deno",
+    "r3e-endpoints",
     "r3e-event",
     # "r3e-js",
     "r3e-neo-services",
@@ -25,8 +26,7 @@ members = [
     "r3e-store",
     "r3e-tee",
     "r3e-worker",
-    "r3e-zk",
-    "r3e-fhe",
+    # "r3e-zk", # Temporarily excluded due to zokrates_core dependency issues
 ]
 
 

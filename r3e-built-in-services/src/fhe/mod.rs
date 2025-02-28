@@ -3,16 +3,13 @@
 
 //! Fully Homomorphic Encryption service integration for R3E FaaS.
 
-use r3e_fhe::{FheError, FheResult, FheService};
+mod mock;
 
-pub use r3e_fhe::{
-    FheCiphertext, FheCiphertextId, FheKeyPair, FheKeyPairId, FheParameters, FhePrivateKey,
-    FhePrivateKeyId, FhePublicKey, FhePublicKeyId, FheSchemeType, FheStorageType,
-    HomomorphicOperation,
+pub use mock::{
+    FheCiphertext, FheCiphertextId, FheError, FheKeyPair, FheKeyPairId, FheParameters,
+    FhePrivateKey, FhePrivateKeyId, FhePublicKey, FhePublicKeyId, FheResult, FheSchemeType,
+    FheService, FheStorageType, HomomorphicOperation,
 };
-
-// Re-export the error type
-pub use r3e_fhe::FheError;
 
 /// Get the Fully Homomorphic Encryption service instance.
 pub fn get_fhe_service() -> FheResult<FheService> {
