@@ -8,7 +8,7 @@ use crate::sandbox::SandboxConfig;
 use deno_core::error::AnyError;
 use deno_core::op2;
 use deno_core::OpState;
-use r3e_fhe::{
+use r3e_built_in_services::fhe::{
     FheCiphertextId, FheError, FheKeyPairId, FheParameters, FhePrivateKeyId, FhePublicKeyId,
     FheResult, FheSchemeType, FheService, HomomorphicOperation,
 };

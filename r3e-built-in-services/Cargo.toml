@@ -15,7 +15,6 @@ r3e-oracle = { path = "../r3e-oracle" }
 r3e-tee = { path = "../r3e-tee" }
 r3e-store = { path = "../r3e-store" }
 r3e-zk = { path = "../r3e-zk" }
-r3e-fhe = { path = "../r3e-fhe" }
 
 # Dependencies
 NeoRust = { path = "../../NeoRust" }
