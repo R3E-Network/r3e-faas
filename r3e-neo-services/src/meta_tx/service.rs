@@ -7,6 +7,7 @@ use crate::Error;
 use crate::types::FeeModel;
 use super::storage::MetaTxStorage;
 use super::types::{MetaTxRequest, MetaTxResponse, MetaTxRecord, MetaTxStatus, BlockchainType, SignatureCurve};
+use super::eip712::{EIP712Domain, MetaTxMessage, create_meta_tx_typed_data, verify_eip712_signature};
 use std::sync::Arc;
 use log::{debug, info, warn, error};
 use uuid::Uuid;
@@ -104,11 +105,32 @@ impl<S: MetaTxStorage> MetaTxService<S> {
                 Ok(true)
             },
             (BlockchainType::Ethereum, SignatureCurve::Secp256k1) => {
-                // Verify Ethereum signature using secp256k1 curve
-                // This would use an Ethereum SDK to verify the signature
-                // For this example, we'll assume it's valid
-                debug!("Verifying Ethereum signature using secp256k1 curve");
-                Ok(true)
+                // Verify Ethereum signature using secp256k1 curve using EIP-712
+                debug!("Verifying Ethereum signature using secp256k1 curve with EIP-712");
+                
+                // Get target contract
+                let target_contract = match &request.target_contract {
+                    Some(contract) => contract,
+                    None => return Err(Error::Validation("Target contract is required for Ethereum transactions".to_string())),
+                };
+                
+                // Create EIP-712 domain
+                let domain = EIP712Domain {
+                    name: "R3E FaaS Meta Transaction".to_string(),
+                    version: "1".to_string(),
+                    chain_id: 1, // Mainnet, should be configurable
+                    verifying_contract: target_contract.clone(),
+                    salt: None,
+                };
+                
+                // Create EIP-712 message from request
+                let message = MetaTxMessage::from_request(request);
+                
+                // Create EIP-712 typed data
+                let typed_data = create_meta_tx_typed_data(domain, message)?;
+                
+                // Verify EIP-712 signature
+                verify_eip712_signature(&typed_data, &request.signature, &request.sender)
             },
             (blockchain_type, signature_curve) => {
                 // Invalid combination
@@ -117,6 +139,20 @@ impl<S: MetaTxStorage> MetaTxService<S> {
                 Ok(false)
             }
         }
+    }
+    
+    /// Get Gas Bank account for a contract
+    async fn get_gas_bank_account(&self, contract_hash: &str) -> Result<String, Error> {
+        // In a real implementation, this would call the Gas Bank service to get the account
+        // For this example, we'll return a mock account address
+        
+        // TODO: Implement actual Gas Bank service integration
+        // This would involve:
+        // 1. Creating a Gas Bank service client
+        // 2. Calling the get_contract_account_mapping method
+        // 3. Returning the account address or an error
+        
+        Ok(format!("0x{}", hex::encode(&contract_hash.as_bytes()[..20])))
     }
     
     /// Relay transaction
@@ -141,15 +177,22 @@ impl<S: MetaTxStorage> MetaTxService<S> {
                     None => return Err(Error::Validation("Target contract is required for Ethereum transactions".to_string())),
                 };
                 
+                // Get Gas Bank account for the target contract
+                let gas_bank_account = self.get_gas_bank_account(target_contract).await?;
+                
                 // In a real implementation, this would:
-                // 1. Get the Gas Bank account for the target contract
-                // 2. Use the Gas Bank account to pay for the transaction fees
-                // 3. Sign the transaction with the relayer wallet
-                // 4. Send the transaction to the Ethereum network
+                // 1. Create an Ethereum transaction using the ethers crate
+                // 2. Set the from address to the Gas Bank account
+                // 3. Set the to address to the target contract
+                // 4. Set the data to the transaction data
+                // 5. Set the gas price and gas limit
+                // 6. Sign the transaction with the relayer wallet
+                // 7. Send the transaction to the Ethereum network
                 
                 // For this example, we'll return a mock transaction hash
                 let tx_hash = format!("0x{}", hex::encode(Uuid::new_v4().as_bytes()));
-                info!("Relayed Ethereum transaction: {} (target contract: {})", tx_hash, target_contract);
+                info!("Relayed Ethereum transaction: {} (target contract: {}, gas bank account: {})", 
+                      tx_hash, target_contract, gas_bank_account);
                 Ok(tx_hash)
             }
         }

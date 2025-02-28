@@ -156,6 +156,70 @@ export class MetaTxService {
   }
 
   /**
+   * Creates EIP-712 typed data for a meta transaction
+   * @param {Object} request - Meta transaction request
+   * @param {string} request.tx_data - Transaction data
+   * @param {string} request.sender - Sender address
+   * @param {number} request.nonce - Transaction nonce
+   * @param {number} request.deadline - Transaction deadline (timestamp)
+   * @param {string} request.fee_model - Fee model (fixed, percentage, dynamic, free)
+   * @param {number} request.fee_amount - Fee amount
+   * @param {string} request.target_contract - Target contract address
+   * @param {number} [request.chain_id=1] - Chain ID (defaults to 1 for Ethereum mainnet)
+   * @returns {Object} EIP-712 typed data
+   */
+  static createEIP712TypedData(request) {
+    if (!request.target_contract) {
+      throw new Error("Target contract is required for Ethereum transactions");
+    }
+    
+    // Create domain separator
+    const domain = {
+      name: "R3E FaaS Meta Transaction",
+      version: "1",
+      chainId: request.chain_id || 1,
+      verifyingContract: request.target_contract
+    };
+    
+    // Create message
+    const message = {
+      from: request.sender,
+      to: request.target_contract,
+      data: request.tx_data,
+      nonce: request.nonce,
+      deadline: request.deadline,
+      fee_model: request.fee_model,
+      fee_amount: request.fee_amount
+    };
+    
+    // Create types
+    const types = {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" }
+      ],
+      MetaTransaction: [
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "data", type: "bytes" },
+        { name: "nonce", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+        { name: "fee_model", type: "string" },
+        { name: "fee_amount", type: "uint256" }
+      ]
+    };
+    
+    return {
+      types,
+      domain,
+      primaryType: "MetaTransaction",
+      message
+    };
+  }
+  
+  /**
    * Submits an Ethereum meta transaction
    * @param {Object} request - Meta transaction request
    * @param {string} request.tx_data - Transaction data
@@ -166,6 +230,7 @@ export class MetaTxService {
    * @param {string} request.fee_model - Fee model (fixed, percentage, dynamic, free)
    * @param {number} request.fee_amount - Fee amount
    * @param {string} request.target_contract - Target contract address
+   * @param {number} [request.chain_id] - Chain ID (defaults to 1 for Ethereum mainnet)
    * @returns {Object} Meta transaction response
    */
   static submitEthereumTx(request) {
@@ -179,6 +244,18 @@ export class MetaTxService {
       signature_curve: MetaTxService.SignatureCurve.SECP256K1
     };
     return MetaTxService.submit(ethRequest);
+  }
+  
+  /**
+   * Signs an EIP-712 typed data with a private key (client-side only)
+   * @param {Object} typedData - EIP-712 typed data
+   * @param {string} privateKey - Private key (hex string)
+   * @returns {string} Signature (hex string)
+   */
+  static signEIP712TypedData(typedData, privateKey) {
+    // This method should be implemented client-side using ethers.js or web3.js
+    // It's included here for documentation purposes only
+    throw new Error("This method must be implemented client-side using ethers.js or web3.js");
   }
 
   /**
