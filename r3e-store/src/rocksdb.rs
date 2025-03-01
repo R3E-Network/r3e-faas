@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use ::rocksdb::{
-    BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
+    BlockBasedOptions, Cache, ColumnFamilyDescriptor, DBCompactionStyle, 
     DBCompressionType, Direction, Error as RocksError, IteratorMode, Options, ReadOptions, 
     SliceTransform, WriteBatch, DB,
 };
@@ -353,7 +353,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf_handle<'a>(&'a self, cf_name: &str) -> DbResult<&'a ColumnFamily> {
+    fn get_cf_handle(&self, cf_name: &str) -> DbResult<String> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
@@ -373,11 +373,8 @@ impl RocksDbClient {
             }
         }
         
-        // Get the column family handle directly from the DB
-        match db.cf_handle(cf_name) {
-            Some(cf) => Ok(cf),
-            None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
-        }
+        // Return the column family name
+        Ok(cf_name.to_string())
     }
 
     /// Put a value in a column family
@@ -387,12 +384,13 @@ impl RocksDbClient {
         V: Serialize,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
         let serialized_value =
             bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
 
-        db.put_cf(&cf, key, serialized_value)?;
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        db.put_cf(cf, key, serialized_value)?;
         Ok(())
     }
 
@@ -403,9 +401,10 @@ impl RocksDbClient {
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
-        match db.get_cf(&cf, key)? {
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        match db.get_cf(cf, key)? {
             Some(data) => {
                 let value = bincode::deserialize(&data)
                     .map_err(|e| DbError::Deserialization(e.to_string()))?;
