@@ -3,10 +3,10 @@
 
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
-use rocksdb::{
+use ::rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
-    DBCompressionType, Error as RocksError, IteratorMode, Options, ReadOptions, 
-    SliceTransform, DB,
+    DBCompressionType, Direction, Error as RocksError, IteratorMode, Options, ReadOptions, 
+    SliceTransform, WriteBatch, DB,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -332,15 +332,12 @@ impl RocksDbClient {
         }
 
         // Configure block cache and bloom filter
-        opts.set_block_based_table_factory(
-            &BlockBasedOptions::default()
-                .set_block_size(cf_config.block_size)
-                .set_cache_index_and_filter_blocks(cf_config.cache_index_and_filter_blocks)
-                .set_bloom_filter(cf_config.bloom_filter_bits, false)
-                .set_block_cache(
-                    &Cache::new_lru_cache(cf_config.block_cache_size).unwrap(),
-                ),
-        );
+        let mut block_opts = BlockBasedOptions::default();
+        block_opts.set_block_size(cf_config.block_size);
+        block_opts.set_cache_index_and_filter_blocks(cf_config.cache_index_and_filter_blocks);
+        block_opts.set_bloom_filter(cf_config.bloom_filter_bits, false);
+        block_opts.set_block_cache(&Cache::new_lru_cache(cf_config.block_cache_size));
+        opts.set_block_based_table_factory(&block_opts);
     }
 
     /// Get the RocksDB instance
@@ -352,20 +349,30 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf(&self, cf_name: &str) -> DbResult<Arc<ColumnFamily>> {
+    fn get_cf(&self, cf_name: &str) -> DbResult<ColumnFamily> {
         let cf_map = self.column_families.lock().unwrap();
         match cf_map.get(cf_name) {
-            Some(cf) => Ok(cf.clone()),
+            Some(cf) => {
+                // We need to get the actual ColumnFamily from the DB again
+                // since we can't store it directly in the map due to lifetime issues
+                let db = self.get_db()?;
+                match db.cf_handle(cf_name) {
+                    Some(cf) => Ok(cf),
+                    None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+                }
+            },
             None => {
                 // Try to get the CF handle from the database
                 let db = self.get_db()?;
                 match db.cf_handle(cf_name) {
                     Some(cf) => {
+                        // We need to store a reference to the column family
+                        // but we can't store the actual ColumnFamily due to lifetime issues
                         drop(cf_map); // Release the lock before modifying
                         let mut cf_map = self.column_families.lock().unwrap();
-                        let cf_arc = Arc::new(cf);
-                        cf_map.insert(cf_name.to_string(), cf_arc.clone());
-                        Ok(cf_arc)
+                        let cf_arc = Arc::new(1); // Just a placeholder to track that we've seen this CF
+                        cf_map.insert(cf_name.to_string(), cf_arc);
+                        Ok(cf)
                     }
                     None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
                 }
@@ -484,7 +491,7 @@ impl RocksDbClient {
         let iter = db.iterator_cf_opt(
             &cf,
             read_opts,
-            IteratorMode::From(prefix.as_ref(), rocksdb::Direction::Forward),
+            IteratorMode::From(prefix.as_ref(), Direction::Forward),
         );
 
         let prefix_bytes = prefix.as_ref().to_vec();
@@ -517,10 +524,10 @@ impl RocksDbClient {
     /// Execute a batch of operations
     pub fn batch<F>(&self, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut rocksdb::WriteBatch) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch) -> DbResult<()>,
     {
         let db = self.get_db()?;
-        let mut batch = rocksdb::WriteBatch::default();
+        let mut batch = WriteBatch::default();
 
         f(&mut batch)?;
 
@@ -531,11 +538,11 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut rocksdb::WriteBatch, &ColumnFamily) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, &ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        let mut batch = rocksdb::WriteBatch::default();
+        let mut batch = WriteBatch::default();
 
         f(&mut batch, &cf)?;
 
@@ -583,7 +590,7 @@ impl RocksDbClient {
 
 /// Asynchronous RocksDB client
 pub struct AsyncRocksDbClient {
-    inner: Arc<RocksDbClient>,
+    pub inner: Arc<RocksDbClient>,
 }
 
 impl AsyncRocksDbClient {
@@ -609,9 +616,9 @@ impl AsyncRocksDbClient {
         let cf_name = cf_name.to_string();
         let serialized_value =
             bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
+        let key_bytes = key.as_ref().to_vec();
 
         tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
             inner.put_cf(&cf_name, key_bytes, &serialized_value)
         })
         .await
@@ -628,9 +635,9 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
+        let key_bytes = key.as_ref().to_vec();
 
         tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
             inner.get_cf(&cf_name, key_bytes)
         })
         .await
@@ -644,9 +651,9 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
+        let key_bytes = key.as_ref().to_vec();
 
         tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
             inner.delete_cf(&cf_name, key_bytes)
         })
         .await
@@ -662,9 +669,9 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
+        let key_bytes = key.as_ref().to_vec();
 
         tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
             inner.exists_cf(&cf_name, key_bytes)
         })
         .await
@@ -762,7 +769,7 @@ macro_rules! impl_db_repository {
                 let cf_name = $cf_name.to_string();
 
                 tokio::task::spawn_blocking(move || {
-                    let iter = inner.iter_cf::<$entity>(&cf_name, rocksdb::IteratorMode::Start)?;
+                    let iter = inner.iter_cf::<$entity>(&cf_name, ::rocksdb::IteratorMode::Start)?;
                     let entities: Vec<$entity> = iter.map(|(_, v)| v).collect();
                     Ok(entities)
                 })
