@@ -543,14 +543,16 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &impl AsRef<rocksdb::ColumnFamily>) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, &rocksdb::ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf_name = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        f(&mut batch, &cf)?;
+        // We need to dereference the Arc to get the ColumnFamily
+        let cf_ref: &rocksdb::ColumnFamily = &*cf;
+        f(&mut batch, cf_ref)?;
 
         db.write(batch)?;
         Ok(())
