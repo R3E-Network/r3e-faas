@@ -10,16 +10,16 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     /// Storage type
     pub storage_type: StorageType,
-    
+
     /// RocksDB path (if using RocksDB storage)
     pub rocksdb_path: Option<String>,
-    
+
     /// Source configuration
     pub source: SourceConfig,
-    
+
     /// Registry configuration
     pub registry: RegistryConfig,
-    
+
     /// Trigger configuration
     pub trigger: TriggerConfig,
 }
@@ -29,7 +29,7 @@ pub struct Config {
 pub enum StorageType {
     /// Memory storage
     Memory,
-    
+
     /// RocksDB storage
     RocksDB,
 }
@@ -39,7 +39,7 @@ pub enum StorageType {
 pub struct SourceConfig {
     /// Enabled sources
     pub enabled_sources: Vec<String>,
-    
+
     /// Source-specific configurations
     pub sources: serde_json::Value,
 }
@@ -49,7 +49,7 @@ pub struct SourceConfig {
 pub struct RegistryConfig {
     /// Maximum events to keep
     pub max_events: usize,
-    
+
     /// Event TTL in seconds
     pub event_ttl: u64,
 }
@@ -59,7 +59,7 @@ pub struct RegistryConfig {
 pub struct TriggerConfig {
     /// Enabled triggers
     pub enabled_triggers: Vec<String>,
-    
+
     /// Trigger-specific configurations
     pub triggers: serde_json::Value,
 }

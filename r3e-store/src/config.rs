@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     /// Storage type
     pub storage_type: StorageType,
-    
+
     /// RocksDB path (if using RocksDB storage)
     pub rocksdb_path: Option<String>,
-    
+
     /// Memory store capacity (if using Memory storage)
     pub memory_capacity: Option<usize>,
 }
@@ -23,7 +23,7 @@ pub struct Config {
 pub enum StorageType {
     /// Memory storage
     Memory,
-    
+
     /// RocksDB storage
     RocksDB,
 }

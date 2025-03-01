@@ -1,10 +1,7 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use axum::{
-    routing::get,
-    Json, Router,
-};
+use axum::{routing::get, Json, Router};
 use serde::{Deserialize, Serialize};
 
 /// Health check response
@@ -12,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct HealthResponse {
     /// Status
     pub status: String,
-    
+
     /// Version
     pub version: String,
 }

@@ -8,7 +8,7 @@ use r3e_neo_services::meta_tx::{
 use r3e_neo_services::meta_tx::storage::InMemoryMetaTxStorage;
 use r3e_neo_services::Error;
 use std::sync::Arc;
-use NeoRust::prelude::{Wallet, RpcClient};
+use neo3::prelude::{Wallet, RpcClient};
 use chrono::Utc;
 
 // Helper function to create a test service

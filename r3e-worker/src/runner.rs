@@ -11,7 +11,7 @@ use lru::LruCache;
 use uuid::Uuid;
 
 use r3e_built_in_services::balance::{BalanceServiceTrait, TransactionType};
-use r3e_deno::{ExecError, JsRuntime, RuntimeConfig, sandbox::SandboxConfig};
+use r3e_deno::{sandbox::SandboxConfig, ExecError, JsRuntime, RuntimeConfig};
 use r3e_event::source::{Task, TaskSource};
 
 use crate::Stopper;
@@ -46,7 +46,7 @@ impl Runner {
             allow_run: false,
             allow_hrtime: false,
         };
-        
+
         Self {
             uid,
             tasks,
@@ -56,12 +56,12 @@ impl Runner {
             sandbox_config: None,
         }
     }
-    
+
     pub fn with_balance_service(mut self, balance_service: Arc<dyn BalanceServiceTrait>) -> Self {
         self.balance_service = Some(balance_service);
         self
     }
-    
+
     pub fn with_sandbox_config(mut self, sandbox_config: SandboxConfig) -> Self {
         self.sandbox_config = sandbox_config;
         self
@@ -109,42 +109,50 @@ impl Runner {
 
             let elapsed = start.elapsed();
             log::info!("runner: {},{} run task cost: {:?}", uid, fid, elapsed);
-            
+
             // Charge for execution if balance service is available
             if let Some(balance_service) = &self.balance_service {
                 let user_id = uid.to_string();
                 let function_id = fid.to_string();
-                
+
                 // Calculate gas amount based on execution time and resource usage
                 let gas_amount = {
                     // Base cost for function execution
                     let base_cost: u64 = 1000;
-                    
+
                     // Time-based cost (5 gas per millisecond)
                     let time_cost = elapsed.as_millis() as u64 * 5;
-                    
+
                     // Memory usage cost (1 gas per KB)
                     let memory_kb = run_cx.runtime.get_heap_stats().total_heap_size / 1024;
                     let memory_cost = memory_kb as u64;
-                    
+
                     // Total cost with caps
                     std::cmp::min(
                         base_cost + time_cost + memory_cost,
-                        self.sandbox_config.max_execution_time.as_millis() as u64 * 10
+                        self.sandbox_config.max_execution_time.as_millis() as u64 * 10,
                     )
                 };
-                
-                match balance_service.charge_for_execution(&user_id, &function_id, gas_amount).await {
+
+                match balance_service
+                    .charge_for_execution(&user_id, &function_id, gas_amount)
+                    .await
+                {
                     Ok(transaction) => {
                         log::info!(
                             "runner: {},{} charged {} gas for execution, transaction ID: {}",
-                            uid, fid, gas_amount, transaction.id
+                            uid,
+                            fid,
+                            gas_amount,
+                            transaction.id
                         );
-                    },
+                    }
                     Err(err) => {
                         log::error!(
                             "runner: {},{} failed to charge for execution: {}",
-                            uid, fid, err
+                            uid,
+                            fid,
+                            err
                         );
                     }
                 }
@@ -196,29 +204,31 @@ impl Runner {
             let balance = match balance_service.get_balance(&user_id).await {
                 Ok(balance) => balance,
                 Err(err) => {
-                    return Err(ExecError::OnLoad(format!("Failed to get user balance: {}", err)));
+                    return Err(ExecError::OnLoad(format!(
+                        "Failed to get user balance: {}",
+                        err
+                    )));
                 }
             };
-            
+
             // Check if user has enough GAS balance for function execution
             let required_balance = {
                 // Base requirement for function execution
                 let base_requirement: u64 = 1000;
-                
+
                 // Additional requirement based on function complexity
                 let complexity_requirement = match fn_code.complexity_score {
                     Some(score) => score * 100,
-                    None => 500 // Default if complexity score not available
+                    None => 500, // Default if complexity score not available
                 };
-                
+
                 // Additional requirement based on estimated resource usage
-                let resource_requirement = 
-                    (self.sandbox_config.max_heap_size / (1024 * 1024)) as u64 * 100 +  // 100 per MB of max heap
-                    self.sandbox_config.max_execution_time.as_secs() * 1000;             // 1000 per second of max time
-                
+                let resource_requirement = (self.sandbox_config.max_heap_size / (1024 * 1024)) as u64 * 100 +  // 100 per MB of max heap
+                    self.sandbox_config.max_execution_time.as_secs() * 1000; // 1000 per second of max time
+
                 base_requirement + complexity_requirement + resource_requirement
             };
-            
+
             if balance.gas_balance < required_balance {
                 return Err(ExecError::OnLoad(format!(
                     "Insufficient GAS balance to run function: {} < 1000",
@@ -226,15 +236,15 @@ impl Runner {
                 )));
             }
         }
-        
+
         // Create a new runtime with sandbox configuration
         let runtime_config = RuntimeConfig {
             max_heap_size: self.sandbox_config.max_heap_size,
             sandbox_config: Some(self.sandbox_config.clone()),
         };
-        
+
         let mut runtime = JsRuntime::new(runtime_config);
-        
+
         let fn_code = self
             .tasks
             .acquire_fn(self.uid, fid)

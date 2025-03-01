@@ -1,8 +1,8 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use crate::{AttestationReport, TeeError, TeePlatform, TeeSecurityLevel};
 use crate::types::{AttestationOptions, AttestationType};
+use crate::{AttestationReport, TeeError, TeePlatform, TeeSecurityLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -12,13 +12,13 @@ use std::sync::Arc;
 pub struct AttestationVerificationResult {
     /// Is the attestation valid
     pub is_valid: bool,
-    
+
     /// Verification timestamp
     pub timestamp: u64,
-    
+
     /// Verification details
     pub details: HashMap<String, String>,
-    
+
     /// Error message (if any)
     pub error: Option<String>,
 }
@@ -32,7 +32,7 @@ pub trait AttestationService: Send + Sync {
         platform: TeePlatform,
         options: &AttestationOptions,
     ) -> Result<AttestationReport, TeeError>;
-    
+
     /// Verify an attestation report
     async fn verify_attestation(
         &self,
@@ -50,7 +50,7 @@ impl AttestationServiceImpl {
     /// Create a new attestation service
     pub fn new() -> Self {
         let mut verifiers = HashMap::new();
-        
+
         // Register verifiers for different platforms
         #[cfg(feature = "sgx")]
         {
@@ -59,7 +59,7 @@ impl AttestationServiceImpl {
                 Arc::new(SgxAttestationVerifier::new()) as Arc<dyn AttestationVerifier>,
             );
         }
-        
+
         #[cfg(feature = "sev")]
         {
             verifiers.insert(
@@ -67,7 +67,7 @@ impl AttestationServiceImpl {
                 Arc::new(SevAttestationVerifier::new()) as Arc<dyn AttestationVerifier>,
             );
         }
-        
+
         #[cfg(feature = "trustzone")]
         {
             verifiers.insert(
@@ -75,18 +75,22 @@ impl AttestationServiceImpl {
                 Arc::new(TrustZoneAttestationVerifier::new()) as Arc<dyn AttestationVerifier>,
             );
         }
-        
+
         // Always register simulated verifier
         verifiers.insert(
             TeePlatform::Simulated,
             Arc::new(SimulatedAttestationVerifier::new()) as Arc<dyn AttestationVerifier>,
         );
-        
+
         Self { verifiers }
     }
-    
+
     /// Register a verifier for a platform
-    pub fn register_verifier(&mut self, platform: TeePlatform, verifier: Arc<dyn AttestationVerifier>) {
+    pub fn register_verifier(
+        &mut self,
+        platform: TeePlatform,
+        verifier: Arc<dyn AttestationVerifier>,
+    ) {
         self.verifiers.insert(platform, verifier);
     }
 }
@@ -99,12 +103,15 @@ impl AttestationService for AttestationServiceImpl {
         options: &AttestationOptions,
     ) -> Result<AttestationReport, TeeError> {
         let verifier = self.verifiers.get(&platform).ok_or_else(|| {
-            TeeError::Attestation(format!("No attestation verifier available for platform: {:?}", platform))
+            TeeError::Attestation(format!(
+                "No attestation verifier available for platform: {:?}",
+                platform
+            ))
         })?;
-        
+
         verifier.generate_attestation(options).await
     }
-    
+
     async fn verify_attestation(
         &self,
         attestation: &AttestationReport,
@@ -115,7 +122,7 @@ impl AttestationService for AttestationServiceImpl {
                 attestation.platform
             ))
         })?;
-        
+
         verifier.verify_attestation(attestation).await
     }
 }
@@ -128,7 +135,7 @@ pub trait AttestationVerifier: Send + Sync {
         &self,
         options: &AttestationOptions,
     ) -> Result<AttestationReport, TeeError>;
-    
+
     /// Verify an attestation report
     async fn verify_attestation(
         &self,
@@ -157,13 +164,13 @@ impl AttestationVerifier for SimulatedAttestationVerifier {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let mut platform_data = serde_json::Map::new();
         platform_data.insert(
             "simulator_version".to_string(),
             serde_json::Value::String("1.0.0".to_string()),
         );
-        
+
         if options.include_platform_data {
             platform_data.insert(
                 "cpu_features".to_string(),
@@ -174,7 +181,7 @@ impl AttestationVerifier for SimulatedAttestationVerifier {
                 serde_json::Value::String("Simulated OS 1.0".to_string()),
             );
         }
-        
+
         // Add user data if provided
         if let Some(user_data) = &options.user_data {
             platform_data.insert(
@@ -182,7 +189,7 @@ impl AttestationVerifier for SimulatedAttestationVerifier {
                 serde_json::Value::String(hex::encode(user_data)),
             );
         }
-        
+
         // Add nonce if provided
         if let Some(nonce) = &options.nonce {
             platform_data.insert(
@@ -190,16 +197,16 @@ impl AttestationVerifier for SimulatedAttestationVerifier {
                 serde_json::Value::String(hex::encode(nonce)),
             );
         }
-        
+
         // Create a simulated code hash
         let code_hash = format!("simulated_code_hash_{}", now);
-        
+
         // Create a simulated signature
         let mut signature = Vec::new();
         for i in 0..64 {
             signature.push(i as u8);
         }
-        
+
         Ok(AttestationReport {
             platform: TeePlatform::Simulated,
             security_level: TeeSecurityLevel::Debug,
@@ -213,7 +220,7 @@ impl AttestationVerifier for SimulatedAttestationVerifier {
             platform_data: serde_json::Value::Object(platform_data),
         })
     }
-    
+
     async fn verify_attestation(
         &self,
         attestation: &AttestationReport,
@@ -223,11 +230,17 @@ impl AttestationVerifier for SimulatedAttestationVerifier {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let mut details = HashMap::new();
-        details.insert("verifier".to_string(), "SimulatedAttestationVerifier".to_string());
-        details.insert("platform".to_string(), format!("{:?}", attestation.platform));
-        
+        details.insert(
+            "verifier".to_string(),
+            "SimulatedAttestationVerifier".to_string(),
+        );
+        details.insert(
+            "platform".to_string(),
+            format!("{:?}", attestation.platform),
+        );
+
         Ok(AttestationVerificationResult {
             is_valid: true,
             timestamp: now,
@@ -257,7 +270,7 @@ impl AttestationVerifier for SgxAttestationVerifier {
         // Generate SGX attestation report using the SGX SDK
         let sgx_report = sgx_sdk::generate_report(options)
             .map_err(|e| TeeError::Attestation(format!("Failed to generate SGX report: {}", e)))?;
-        
+
         // Convert SGX report to our attestation format
         Ok(AttestationReport {
             platform: TeePlatform::Sgx,
@@ -269,11 +282,12 @@ impl AttestationVerifier for SgxAttestationVerifier {
             attributes: sgx_report.attributes,
             extended_product_id: sgx_report.extended_product_id.clone(),
             signature: sgx_report.signature.clone(),
-            platform_data: serde_json::to_value(sgx_report.platform_data)
-                .map_err(|e| TeeError::Attestation(format!("Failed to serialize platform data: {}", e)))?,
+            platform_data: serde_json::to_value(sgx_report.platform_data).map_err(|e| {
+                TeeError::Attestation(format!("Failed to serialize platform data: {}", e))
+            })?,
         })
     }
-    
+
     async fn verify_attestation(
         &self,
         attestation: &AttestationReport,
@@ -283,7 +297,7 @@ impl AttestationVerifier for SgxAttestationVerifier {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-            
+
         // Convert our attestation format to SGX report
         let sgx_report = sgx_sdk::Report {
             code_hash: hex::decode(&attestation.code_hash)
@@ -298,28 +312,30 @@ impl AttestationVerifier for SgxAttestationVerifier {
             platform_data: serde_json::from_value(attestation.platform_data.clone())
                 .map_err(|e| TeeError::Attestation(format!("Invalid platform data: {}", e)))?,
         };
-        
+
         // Verify the report
         match sgx_sdk::verify_report(&sgx_report) {
             Ok(details) => {
                 let mut verification_details = HashMap::new();
-                verification_details.insert("verifier".to_string(), "SgxAttestationVerifier".to_string());
+                verification_details
+                    .insert("verifier".to_string(), "SgxAttestationVerifier".to_string());
                 verification_details.insert("platform".to_string(), "SGX".to_string());
                 verification_details.extend(details);
-                
+
                 Ok(AttestationVerificationResult {
                     is_valid: true,
                     timestamp: now,
                     details: verification_details,
                     error: None,
                 })
-            },
+            }
             Err(e) => {
                 let mut verification_details = HashMap::new();
-                verification_details.insert("verifier".to_string(), "SgxAttestationVerifier".to_string());
+                verification_details
+                    .insert("verifier".to_string(), "SgxAttestationVerifier".to_string());
                 verification_details.insert("platform".to_string(), "SGX".to_string());
                 verification_details.insert("error".to_string(), e.to_string());
-                
+
                 Ok(AttestationVerificationResult {
                     is_valid: false,
                     timestamp: now,
@@ -351,7 +367,7 @@ impl AttestationVerifier for SevAttestationVerifier {
         // Implementation for SEV attestation generation
         unimplemented!("SEV attestation generation not implemented")
     }
-    
+
     async fn verify_attestation(
         &self,
         attestation: &AttestationReport,
@@ -381,7 +397,7 @@ impl AttestationVerifier for TrustZoneAttestationVerifier {
         // Implementation for TrustZone attestation generation
         unimplemented!("TrustZone attestation generation not implemented")
     }
-    
+
     async fn verify_attestation(
         &self,
         attestation: &AttestationReport,

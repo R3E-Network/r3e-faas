@@ -16,8 +16,8 @@ mod events_test;
 
 #[allow(unused_imports)]
 pub use {
-    ethereum::*, event_filter::*, event_processor::*, event_processor_service::*,
-    events::*, events_ext::*, mock::*, neo::*, service::*,
+    ethereum::*, event_filter::*, event_processor::*, event_processor_service::*, events::*,
+    events_ext::*, mock::*, neo::*, service::*,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -27,7 +27,7 @@ pub enum TaskError {
 
     #[error("task: no more task: {0}")]
     NoMoreTask(u64),
-    
+
     #[error("task: error: {0}")]
     Error(String),
 }
@@ -40,7 +40,7 @@ pub enum FuncError {
     // uid, fid
     #[error("func: no such func: {0},{1}")]
     NoSuchFunc(u64, u64),
-    
+
     #[error("func: error: {0}")]
     Error(String),
 }

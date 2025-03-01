@@ -1,8 +1,8 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use serde::{Deserialize, Serialize};
 use crate::types::FeeModel;
+use serde::{Deserialize, Serialize};
 
 /// Blockchain type for meta transactions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -10,7 +10,7 @@ pub enum BlockchainType {
     /// Neo N3 blockchain
     #[serde(rename = "neo")]
     NeoN3,
-    
+
     /// Ethereum blockchain
     #[serde(rename = "ethereum")]
     Ethereum,
@@ -28,7 +28,7 @@ pub enum SignatureCurve {
     /// secp256r1 (used by Neo)
     #[serde(rename = "secp256r1")]
     Secp256r1,
-    
+
     /// secp256k1 (used by Ethereum)
     #[serde(rename = "secp256k1")]
     Secp256k1,

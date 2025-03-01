@@ -1,0 +1,36 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    scale=0.9,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
+               fill=white, text width=3cm, align=center, minimum height=1cm,
+               pattern=#1, pattern color=black!20,
+               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
+    arrow/.style={->, >=stealth, thick, draw=black!70},
+    dashed_arrow/.style={->, >=stealth, thick, dashed, draw=black!70},
+    bidirectional/.style={<->, >=stealth, thick, draw=black!70}
+]
+
+% Neo Ecosystem Components
+\node[box=north east lines] (nsl) at (0,3) {Neo Service Layer};
+\node[box=crosshatch] (contract) at (-3,0) {NeoContract};
+\node[box=dots] (identity) at (0,0) {Digital Identity};
+\node[box=grid] (oracle) at (3,0) {Oracle \& Interop};
+\node[box=north west lines] (neo) at (0,-3) {Neo N3 Core};
+
+% Integration Arrows
+\draw[bidirectional] (nsl) -- (contract);
+\draw[bidirectional] (nsl) -- (identity);
+\draw[bidirectional] (nsl) -- (oracle);
+
+\draw[bidirectional] (contract) -- (neo);
+\draw[bidirectional] (identity) -- (neo);
+\draw[bidirectional] (oracle) -- (neo);
+
+% Labels
+\node[text width=5cm, align=center] at (0,4.5) {Neo Ecosystem Integration};
+
+\end{tikzpicture}
+\caption{Neo Service Layer Integration with Neo Ecosystem}
+\label{fig:nsl-integration}
+\end{figure}

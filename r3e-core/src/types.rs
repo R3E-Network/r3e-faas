@@ -10,16 +10,16 @@ use serde::{Deserialize, Serialize};
 pub enum Platform {
     /// Linux platform
     Linux,
-    
+
     /// macOS platform
     Darwin,
-    
+
     /// Windows platform
     Windows,
-    
+
     /// WebAssembly platform
     Wasi,
-    
+
     /// Unknown platform
     Unknown,
 }
@@ -39,7 +39,7 @@ impl Platform {
             Platform::Unknown
         }
     }
-    
+
     /// Convert platform to string
     pub fn to_str(&self) -> &'static str {
         match self {

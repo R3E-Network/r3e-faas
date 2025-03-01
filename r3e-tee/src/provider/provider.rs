@@ -144,7 +144,7 @@ pub struct NeoTeeProvider {
     base_provider: TeeProviderImpl,
     
     /// Neo RPC client
-    neo_rpc_client: Option<Arc<NeoRust::prelude::RpcClient>>,
+    neo_rpc_client: Option<Arc<neo3::prelude::RpcClient>>,
 }
 
 impl NeoTeeProvider {
@@ -157,7 +157,7 @@ impl NeoTeeProvider {
     }
     
     /// Set the Neo RPC client
-    pub fn with_rpc_client(mut self, rpc_client: Arc<NeoRust::prelude::RpcClient>) -> Self {
+    pub fn with_rpc_client(mut self, rpc_client: Arc<neo3::prelude::RpcClient>) -> Self {
         self.neo_rpc_client = Some(rpc_client);
         self
     }
@@ -255,7 +255,7 @@ impl TeeProvider for NeoTeeProvider {
 /// Create a default Neo TEE provider
 pub fn create_default_neo_tee_provider(rpc_url: &str) -> Result<NeoTeeProvider, TeeError> {
     // Create a Neo RPC client
-    let rpc_client = NeoRust::prelude::RpcClient::new(rpc_url);
+    let rpc_client = neo3::prelude::RpcClient::new(rpc_url);
     
     // Create a base TEE provider
     let base_provider = TeeProviderImpl::default_for_platform(TeePlatform::Simulated);

@@ -21,7 +21,7 @@ impl ProviderRegistry {
             providers: HashMap::new(),
         }
     }
-    
+
     /// Register a provider for a specific request type
     pub fn register_provider(&mut self, provider: Arc<dyn OracleProvider>) {
         for request_type in provider.supported_types() {
@@ -31,7 +31,7 @@ impl ProviderRegistry {
                 .push(Arc::clone(&provider));
         }
     }
-    
+
     /// Get providers for a specific request type
     pub fn get_providers(&self, request_type: OracleRequestType) -> Vec<Arc<dyn OracleProvider>> {
         self.providers
@@ -39,22 +39,25 @@ impl ProviderRegistry {
             .cloned()
             .unwrap_or_default()
     }
-    
+
     /// Process a request using the appropriate provider
-    pub async fn process_request(&self, request: &OracleRequest) -> Result<OracleResponse, OracleError> {
+    pub async fn process_request(
+        &self,
+        request: &OracleRequest,
+    ) -> Result<OracleResponse, OracleError> {
         let providers = self.get_providers(request.request_type);
-        
+
         if providers.is_empty() {
             return Err(OracleError::Provider(format!(
                 "No provider available for request type: {:?}",
                 request.request_type
             )));
         }
-        
+
         // Use the first provider for now
         // In a more advanced implementation, we could use multiple providers and aggregate results
         let provider = &providers[0];
-        
+
         provider.process_request(request).await
     }
 }

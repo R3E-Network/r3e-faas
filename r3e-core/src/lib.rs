@@ -2,26 +2,33 @@
 // All Rights Reserved
 
 //! # R3E Core
-//! 
+//!
 //! Core functionality and shared types for the R3E FaaS platform.
 
-pub mod encoding;
-pub mod types;
-pub mod error;
 pub mod config;
+pub mod encoding;
+pub mod error;
+pub mod types;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Once};
 
-pub use r3e_proc_macros::BytesLike;
 pub use error::{Error, Result};
+pub use r3e_proc_macros::BytesLike;
 pub use types::Platform;
 
 pub const GIT_VERSION: &str = git_version::git_version!();
 pub const BUILD_DATE: &str = compile_time::date_str!();
 
-pub const VERSION: &str =
-    const_format::concatcp!("(", Platform::current().to_str(), "; ", BUILD_DATE, "_", GIT_VERSION, ")");
+pub const VERSION: &str = const_format::concatcp!(
+    "(",
+    Platform::current().to_str(),
+    "; ",
+    BUILD_DATE,
+    "_",
+    GIT_VERSION,
+    ")"
+);
 
 /// Create a new V8 platform
 #[inline]
@@ -78,6 +85,6 @@ pub fn signal_hooks(name: &'static str, flag: Arc<AtomicBool>) -> Result<()> {
         })
         .map_err(|e| Error::SignalHook(format!("Failed to register SIGHUP signal hook: {}", e)))?;
     }
-    
+
     Ok(())
 }

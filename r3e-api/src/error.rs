@@ -14,25 +14,25 @@ use thiserror::Error;
 pub enum ApiError {
     #[error("authentication error: {0}")]
     Authentication(String),
-    
+
     #[error("authorization error: {0}")]
     Authorization(String),
-    
+
     #[error("validation error: {0}")]
     Validation(String),
-    
+
     #[error("not found: {0}")]
     NotFound(String),
-    
+
     #[error("database error: {0}")]
     Database(String),
-    
+
     #[error("service error: {0}")]
     Service(String),
-    
+
     #[error("server error: {0}")]
     Server(String),
-    
+
     #[error("external service error: {0}")]
     ExternalService(String),
 }
@@ -56,12 +56,12 @@ impl IntoResponse for ApiError {
             ApiError::Server(message) => (StatusCode::INTERNAL_SERVER_ERROR, message),
             ApiError::ExternalService(message) => (StatusCode::BAD_GATEWAY, message),
         };
-        
+
         let body = Json(ErrorResponse {
             status: status.to_string(),
             message: error_message,
         });
-        
+
         (status, body).into_response()
     }
 }

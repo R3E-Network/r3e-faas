@@ -25,19 +25,19 @@ use crate::service::ApiService;
 pub struct ListFunctionsQuery {
     /// Service ID
     pub service_id: Option<Uuid>,
-    
+
     /// Status
     pub status: Option<String>,
-    
+
     /// Trigger type
     pub trigger_type: Option<String>,
-    
+
     /// Search query
     pub query: Option<String>,
-    
+
     /// Limit
     pub limit: Option<u32>,
-    
+
     /// Offset
     pub offset: Option<u32>,
 }
@@ -47,10 +47,10 @@ pub struct ListFunctionsQuery {
 pub struct ListFunctionsResponse {
     /// Functions
     pub functions: Vec<Function>,
-    
+
     /// Total count
     pub total_count: u32,
-    
+
     /// Has more
     pub has_more: bool,
 }
@@ -74,10 +74,10 @@ async fn list_functions(
             query.offset.unwrap_or(0),
         )
         .await?;
-    
+
     // Check if there are more functions
     let has_more = total_count > (query.offset.unwrap_or(0) + query.limit.unwrap_or(10));
-    
+
     // Return the response
     Ok(Json(ListFunctionsResponse {
         functions,
@@ -94,14 +94,14 @@ async fn get_function(
 ) -> Result<Json<Function>, ApiError> {
     // Get the function
     let function = api_service.function_service.get_function(id).await?;
-    
+
     // Check if the user owns the function
     if function.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to view this function".to_string(),
         ));
     }
-    
+
     // Return the function
     Ok(Json(function))
 }
@@ -113,20 +113,22 @@ async fn create_function(
     Json(request): Json<CreateFunctionRequest>,
 ) -> Result<Json<Function>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Check if the user owns the service
     let service = api_service
         .service_service
         .get_service(request.service_id)
         .await?;
-    
+
     if service.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to create functions for this service".to_string(),
         ));
     }
-    
+
     // Create the function
     let function = api_service
         .function_service
@@ -142,7 +144,7 @@ async fn create_function(
             request.security_level.unwrap_or_default(),
         )
         .await?;
-    
+
     // Return the function
     Ok(Json(function))
 }
@@ -155,18 +157,20 @@ async fn update_function(
     Json(request): Json<UpdateFunctionRequest>,
 ) -> Result<Json<Function>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Get the function
     let function = api_service.function_service.get_function(id).await?;
-    
+
     // Check if the user owns the function
     if function.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to update this function".to_string(),
         ));
     }
-    
+
     // Update the function
     let function = api_service
         .function_service
@@ -182,7 +186,7 @@ async fn update_function(
             request.status,
         )
         .await?;
-    
+
     // Return the function
     Ok(Json(function))
 }
@@ -195,17 +199,17 @@ async fn delete_function(
 ) -> Result<Json<()>, ApiError> {
     // Get the function
     let function = api_service.function_service.get_function(id).await?;
-    
+
     // Check if the user owns the function
     if function.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to delete this function".to_string(),
         ));
     }
-    
+
     // Delete the function
     api_service.function_service.delete_function(id).await?;
-    
+
     // Return success
     Ok(Json(()))
 }
@@ -219,32 +223,32 @@ async fn invoke_function(
 ) -> Result<Json<FunctionInvocationResponse>, ApiError> {
     // Get the function
     let function = api_service.function_service.get_function(id).await?;
-    
+
     // Check if the function is active
     if function.status != FunctionStatus::Active {
-        return Err(ApiError::Validation(
-            "Function is not active".to_string(),
-        ));
+        return Err(ApiError::Validation("Function is not active".to_string()));
     }
-    
+
     // Check if the user owns the function or the function's service is public
     let service = api_service
         .service_service
         .get_service(function.service_id)
         .await?;
-    
-    if function.user_id != auth.user.id && service.visibility != crate::models::service::ServiceVisibility::Public {
+
+    if function.user_id != auth.user.id
+        && service.visibility != crate::models::service::ServiceVisibility::Public
+    {
         return Err(ApiError::Authorization(
             "You are not authorized to invoke this function".to_string(),
         ));
     }
-    
+
     // Invoke the function
     let response = api_service
         .function_service
         .invoke_function(id, &request.input)
         .await?;
-    
+
     // Return the response
     Ok(Json(response))
 }
@@ -258,14 +262,14 @@ async fn get_function_logs(
 ) -> Result<Json<FunctionLogsResponse>, ApiError> {
     // Get the function
     let function = api_service.function_service.get_function(id).await?;
-    
+
     // Check if the user owns the function
     if function.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to view logs for this function".to_string(),
         ));
     }
-    
+
     // Get the logs
     let logs = api_service
         .function_service
@@ -277,7 +281,7 @@ async fn get_function_logs(
             query.offset.unwrap_or(0),
         )
         .await?;
-    
+
     // Return the logs
     Ok(Json(logs))
 }

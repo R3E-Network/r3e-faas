@@ -22,18 +22,18 @@ impl ConfigProvider {
             config: Arc::new(RwLock::new(config)),
         }
     }
-    
+
     /// Get a reference to the configuration
     pub async fn get_config(&self) -> FaasConfig {
         self.config.read().await.clone()
     }
-    
+
     /// Update the configuration
     pub async fn update_config(&self, config: FaasConfig) {
         let mut config_lock = self.config.write().await;
         *config_lock = config;
     }
-    
+
     /// Get a specific configuration value
     pub async fn get<T, F>(&self, getter: F) -> T
     where
@@ -43,7 +43,7 @@ impl ConfigProvider {
         let config = self.config.read().await;
         getter(&config)
     }
-    
+
     /// Update a specific configuration value
     pub async fn update<F>(&self, updater: F) -> Result<()>
     where
@@ -72,6 +72,8 @@ pub fn init_global_provider(config: FaasConfig) {
 /// Get the global configuration provider
 pub fn get_global_provider() -> Result<Arc<ConfigProvider>> {
     unsafe {
-        GLOBAL_PROVIDER.clone().ok_or_else(|| Error::MissingConfig("Global configuration provider not initialized".to_string()))
+        GLOBAL_PROVIDER.clone().ok_or_else(|| {
+            Error::MissingConfig("Global configuration provider not initialized".to_string())
+        })
     }
 }

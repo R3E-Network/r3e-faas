@@ -1,0 +1,45 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    scale=0.9,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
+               fill=white, text width=3cm, align=center, minimum height=1cm,
+               pattern=#1, pattern color=black!20,
+               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
+    arrow/.style={->, >=stealth, thick, draw=black!70},
+    dashed_arrow/.style={->, >=stealth, thick, dashed, draw=black!70}
+]
+
+% Gas Bank Components
+\node[box=north east lines] (account) at (0,3) {Gas Bank Account};
+\node[box=crosshatch] (fee) at (-3,0) {Fee Models};
+\node[box=dots] (credit) at (0,0) {Credit Management};
+\node[box=grid] (payment) at (3,0) {Payment Processing};
+\node[box=north west lines] (blockchain) at (0,-3) {Neo Blockchain};
+
+% Fee Model Components
+\node[box=north east lines, text width=2cm] (fixed) at (-5,-1.5) {Fixed};
+\node[box=north east lines, text width=2cm] (percentage) at (-3,-1.5) {Percentage};
+\node[box=north east lines, text width=2cm] (dynamic) at (-1,-1.5) {Dynamic};
+\node[box=north east lines, text width=2cm] (free) at (1,-1.5) {Free};
+
+% Arrows
+\draw[arrow] (account) -- (fee);
+\draw[arrow] (account) -- (credit);
+\draw[arrow] (account) -- (payment);
+\draw[arrow] (fee) -- (blockchain);
+\draw[arrow] (credit) -- (blockchain);
+\draw[arrow] (payment) -- (blockchain);
+
+\draw[dashed_arrow] (fixed) -- (fee);
+\draw[dashed_arrow] (percentage) -- (fee);
+\draw[dashed_arrow] (dynamic) -- (fee);
+\draw[dashed_arrow] (free) -- (fee);
+
+% Labels
+\node[text width=3cm, align=center] at (0,4.5) {Gas Bank Service};
+
+\end{tikzpicture}
+\caption{Gas Bank Service Architecture}
+\label{fig:gas-bank-architecture}
+\end{figure}

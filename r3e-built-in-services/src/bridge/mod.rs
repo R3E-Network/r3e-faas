@@ -7,4 +7,7 @@ pub mod types;
 
 pub use service::{BridgeService, BridgeServiceTrait};
 pub use storage::{BridgeStorage, MemoryBridgeStorage};
-pub use types::{BridgeError, BridgeTransaction, BridgeTransactionStatus, TokenBridge, MessageBridge, AssetWrapper};
+pub use types::{
+    AssetWrapper, BridgeError, BridgeTransaction, BridgeTransactionStatus, MessageBridge,
+    TokenBridge,
+};

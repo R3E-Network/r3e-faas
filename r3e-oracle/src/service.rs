@@ -9,41 +9,39 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
-use crate::{
-    OracleError, OracleProvider, OracleRequest, OracleRequestStatus, OracleRequestType, OracleResponse, OracleService,
-};
 use crate::auth::AuthService;
 use crate::provider::ProviderRegistry;
+use crate::{
+    OracleError, OracleProvider, OracleRequest, OracleRequestStatus, OracleRequestType,
+    OracleResponse, OracleService,
+};
 
 /// Oracle service implementation
 pub struct OracleServiceImpl {
     /// Provider registry
     provider_registry: Arc<ProviderRegistry>,
-    
+
     /// Authentication service
     auth_service: Arc<AuthService>,
-    
+
     /// Request storage
     requests: Arc<RwLock<HashMap<String, OracleRequest>>>,
-    
+
     /// Response storage
     responses: Arc<RwLock<HashMap<String, OracleResponse>>>,
-    
+
     /// Request channel
     request_tx: mpsc::Sender<OracleRequest>,
-    
+
     /// Request channel receiver
     request_rx: Arc<RwLock<Option<mpsc::Receiver<OracleRequest>>>>,
 }
 
 impl OracleServiceImpl {
     /// Create a new Oracle service
-    pub fn new(
-        provider_registry: Arc<ProviderRegistry>,
-        auth_service: Arc<AuthService>,
-    ) -> Self {
+    pub fn new(provider_registry: Arc<ProviderRegistry>, auth_service: Arc<AuthService>) -> Self {
         let (request_tx, request_rx) = mpsc::channel(100);
-        
+
         Self {
             provider_registry,
             auth_service,
@@ -53,24 +51,28 @@ impl OracleServiceImpl {
             request_rx: Arc::new(RwLock::new(Some(request_rx))),
         }
     }
-    
+
     /// Send callback to the specified URL
-    async fn send_callback(callback_url: &str, response: &OracleResponse) -> Result<(), OracleError> {
+    async fn send_callback(
+        callback_url: &str,
+        response: &OracleResponse,
+    ) -> Result<(), OracleError> {
         // Create a reqwest client
         let client = reqwest::Client::new();
-        
+
         // Serialize the response to JSON
         let response_json = serde_json::to_string(response)
             .map_err(|e| OracleError::Internal(format!("Failed to serialize response: {}", e)))?;
-        
+
         // Send the callback
-        let result = client.post(callback_url)
+        let result = client
+            .post(callback_url)
             .header("Content-Type", "application/json")
             .body(response_json)
             .send()
             .await
             .map_err(|e| OracleError::Network(format!("Failed to send callback: {}", e)))?;
-        
+
         // Check the status code
         if !result.status().is_success() {
             return Err(OracleError::Network(format!(
@@ -78,10 +80,10 @@ impl OracleServiceImpl {
                 result.status()
             )));
         }
-        
+
         Ok(())
     }
-    
+
     /// Send response to blockchain gateway
     async fn send_to_blockchain_gateway(
         blockchain_info: &crate::types::BlockchainInfo,
@@ -89,29 +91,38 @@ impl OracleServiceImpl {
     ) -> Result<(), OracleError> {
         // Create a gateway client
         let gateway = crate::gateway::BlockchainGateway::new(&blockchain_info.chain);
-        
+
         // Send the response to the blockchain
-        gateway.send_oracle_response(blockchain_info, response).await
-            .map_err(|e| OracleError::Network(format!("Failed to send response to blockchain: {}", e)))
+        gateway
+            .send_oracle_response(blockchain_info, response)
+            .await
+            .map_err(|e| {
+                OracleError::Network(format!("Failed to send response to blockchain: {}", e))
+            })
     }
-    
+
     /// Update price feed on blockchain
-    pub async fn update_price_feed(&self, price_data: &crate::types::PriceData) -> Result<String, OracleError> {
+    pub async fn update_price_feed(
+        &self,
+        price_data: &crate::types::PriceData,
+    ) -> Result<String, OracleError> {
         // Check if price data has an index
         if price_data.index.is_none() {
-            return Err(OracleError::Validation("Price data has no index".to_string()));
+            return Err(OracleError::Validation(
+                "Price data has no index".to_string(),
+            ));
         }
-        
+
         // Create a blockchain gateway service for Neo
         let client = reqwest::Client::new();
         let client_arc = Arc::new(client);
-        
+
         // Create a price index registry
         let index_registry = Arc::new(crate::registry::PriceIndexRegistry::new());
-        
+
         // Initialize default mappings
         index_registry.initialize_defaults().await;
-        
+
         // Create a Neo blockchain gateway service
         let gateway_service = crate::gateway::NeoBlockchainGatewayService::new(
             client_arc,
@@ -119,20 +130,22 @@ impl OracleServiceImpl {
             "0x1234567890abcdef1234567890abcdef12345678".to_string(), // This should be configurable
             index_registry,
         );
-        
+
         // Update price data on blockchain
         gateway_service.update_price_data(price_data).await
     }
-    
+
     /// Start the Oracle service
     pub async fn start(&self) -> Result<(), OracleError> {
-        let mut rx = self.request_rx.write().await.take()
-            .ok_or_else(|| OracleError::Internal("Request receiver already taken".to_string()))?;
-        
+        let mut rx =
+            self.request_rx.write().await.take().ok_or_else(|| {
+                OracleError::Internal("Request receiver already taken".to_string())
+            })?;
+
         let provider_registry = Arc::clone(&self.provider_registry);
         let requests = Arc::clone(&self.requests);
         let responses = Arc::clone(&self.responses);
-        
+
         // Spawn a task to process requests
         tokio::spawn(async move {
             while let Some(request) = rx.recv().await {
@@ -143,10 +156,10 @@ impl OracleServiceImpl {
                         req.status = OracleRequestStatus::Processing;
                     }
                 }
-                
+
                 // Process the request
                 let result = provider_registry.process_request(&request).await;
-                
+
                 // Update request status and store response
                 {
                     let mut requests_lock = requests.write().await;
@@ -157,14 +170,14 @@ impl OracleServiceImpl {
                         };
                     }
                 }
-                
+
                 match result {
                     Ok(response) => {
                         responses.write().await.insert(request.id.clone(), response);
                     }
                     Err(err) => {
                         log::error!("Failed to process request {}: {}", request.id, err);
-                        
+
                         // Create an error response
                         let error_response = OracleResponse {
                             request_id: request.id.clone(),
@@ -176,11 +189,14 @@ impl OracleServiceImpl {
                                 .as_secs(),
                             error: Some(err.to_string()),
                         };
-                        
-                        responses.write().await.insert(request.id.clone(), error_response);
+
+                        responses
+                            .write()
+                            .await
+                            .insert(request.id.clone(), error_response);
                     }
                 }
-                
+
                 // Send callback if callback_url is provided
                 if let Some(callback_url) = &request.callback_url {
                     let response_clone = match result {
@@ -199,7 +215,7 @@ impl OracleServiceImpl {
                             }
                         }
                     };
-                    
+
                     // Send the callback asynchronously
                     let callback_url = callback_url.clone();
                     tokio::spawn(async move {
@@ -213,7 +229,7 @@ impl OracleServiceImpl {
                         }
                     });
                 }
-                
+
                 // If this is a blockchain request, send the response to the blockchain gateway
                 if let OracleRequestType::Blockchain(blockchain_info) = &request.request_type {
                     let response_clone = match result {
@@ -232,13 +248,18 @@ impl OracleServiceImpl {
                             }
                         }
                     };
-                    
+
                     // Send the response to the blockchain gateway asynchronously
                     let blockchain_info = blockchain_info.clone();
                     tokio::spawn(async move {
-                        match Self::send_to_blockchain_gateway(&blockchain_info, &response_clone).await {
+                        match Self::send_to_blockchain_gateway(&blockchain_info, &response_clone)
+                            .await
+                        {
                             Ok(_) => {
-                                log::info!("Response sent to blockchain gateway for chain {}", blockchain_info.chain);
+                                log::info!(
+                                    "Response sent to blockchain gateway for chain {}",
+                                    blockchain_info.chain
+                                );
                             }
                             Err(err) => {
                                 log::error!("Failed to send response to blockchain gateway for chain {}: {}", 
@@ -249,10 +270,10 @@ impl OracleServiceImpl {
                 }
             }
         });
-        
+
         Ok(())
     }
-    
+
     /// Convert a Neo Oracle response to the internal format
     pub fn convert_neo_oracle_response(
         neo_response: &r3e_event::source::NeoOracleResponse,
@@ -283,7 +304,7 @@ impl OracleServiceImpl {
             },
         }
     }
-    
+
     /// Convert an internal Oracle response to Neo format
     pub fn convert_to_neo_oracle_response(
         response: &OracleResponse,
@@ -311,48 +332,71 @@ impl OracleServiceImpl {
 impl OracleService for OracleServiceImpl {
     async fn submit_request(&self, request: OracleRequest) -> Result<String, OracleError> {
         // Store the request
-        self.requests.write().await.insert(request.id.clone(), request.clone());
-        
+        self.requests
+            .write()
+            .await
+            .insert(request.id.clone(), request.clone());
+
         // Send the request to the processing queue
-        self.request_tx.send(request.clone()).await
+        self.request_tx
+            .send(request.clone())
+            .await
             .map_err(|e| OracleError::Internal(format!("Failed to send request: {}", e)))?;
-        
+
         Ok(request.id)
     }
-    
-    async fn get_request_status(&self, request_id: &str) -> Result<OracleRequestStatus, OracleError> {
+
+    async fn get_request_status(
+        &self,
+        request_id: &str,
+    ) -> Result<OracleRequestStatus, OracleError> {
         // Get the request
-        let request = self.requests.read().await.get(request_id).cloned()
+        let request = self
+            .requests
+            .read()
+            .await
+            .get(request_id)
+            .cloned()
             .ok_or_else(|| OracleError::Validation(format!("Request not found: {}", request_id)))?;
-        
+
         Ok(request.status)
     }
-    
+
     async fn get_response(&self, request_id: &str) -> Result<OracleResponse, OracleError> {
         // Get the response
-        let response = self.responses.read().await.get(request_id).cloned()
-            .ok_or_else(|| OracleError::Validation(format!("Response not found: {}", request_id)))?;
-        
+        let response = self
+            .responses
+            .read()
+            .await
+            .get(request_id)
+            .cloned()
+            .ok_or_else(|| {
+                OracleError::Validation(format!("Response not found: {}", request_id))
+            })?;
+
         Ok(response)
     }
-    
+
     async fn cancel_request(&self, request_id: &str) -> Result<bool, OracleError> {
         // Get the request
         let mut requests = self.requests.write().await;
-        let request = requests.get_mut(request_id)
+        let request = requests
+            .get_mut(request_id)
             .ok_or_else(|| OracleError::Validation(format!("Request not found: {}", request_id)))?;
-        
+
         // Check if the request can be canceled
-        if request.status != OracleRequestStatus::Pending && request.status != OracleRequestStatus::Processing {
+        if request.status != OracleRequestStatus::Pending
+            && request.status != OracleRequestStatus::Processing
+        {
             return Err(OracleError::Validation(format!(
                 "Request cannot be canceled: {:?}",
                 request.status
             )));
         }
-        
+
         // Update request status
         request.status = OracleRequestStatus::Failed;
-        
+
         // Create an error response
         let error_response = OracleResponse {
             request_id: request_id.to_string(),
@@ -364,10 +408,13 @@ impl OracleService for OracleServiceImpl {
                 .as_secs(),
             error: Some("Request canceled".to_string()),
         };
-        
+
         // Store the response
-        self.responses.write().await.insert(request_id.to_string(), error_response);
-        
+        self.responses
+            .write()
+            .await
+            .insert(request_id.to_string(), error_response);
+
         Ok(true)
     }
 }
@@ -384,7 +431,7 @@ pub fn create_oracle_request(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    
+
     OracleRequest {
         id,
         request_type,

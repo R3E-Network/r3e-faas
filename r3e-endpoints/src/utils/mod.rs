@@ -4,8 +4,8 @@
 use crate::error::Error;
 use crate::types::{BlockchainType, SignatureCurve};
 use ethers_core::types::Signature as EthSignature;
-use NeoRust::neo_crypto::keys::PublicKey;
-use NeoRust::neo_types::address::Address;
+use neo3::neo_crypto::keys::PublicKey;
+use neo3::neo_types::address::Address;
 
 /// Verify signature
 pub fn verify_signature(
@@ -24,16 +24,19 @@ pub fn verify_signature(
                 Ok(_) => Ok(true),
                 Err(e) => Err(Error::Validation(format!("Invalid Neo N3 address: {}", e))),
             }
-        },
+        }
         (BlockchainType::Ethereum, SignatureCurve::Secp256k1) => {
             // Verify Ethereum signature using secp256k1 curve
             // In a real implementation, this would use the ethers crate to verify the signature
             // For this example, we'll assume it's valid if the signature is valid
             match EthSignature::from_str(signature) {
                 Ok(_) => Ok(true),
-                Err(e) => Err(Error::Validation(format!("Invalid Ethereum signature: {}", e))),
+                Err(e) => Err(Error::Validation(format!(
+                    "Invalid Ethereum signature: {}",
+                    e
+                ))),
             }
-        },
+        }
         _ => {
             // Invalid combination
             Err(Error::Validation(format!(
@@ -55,25 +58,25 @@ pub fn generate_jwt_token(
     use chrono::Utc;
     use jsonwebtoken::{encode, EncodingKey, Header};
     use serde::{Deserialize, Serialize};
-    
+
     #[derive(Debug, Serialize, Deserialize)]
     struct Claims {
         /// Subject (wallet address)
         sub: String,
-        
+
         /// Blockchain type
         blockchain_type: String,
-        
+
         /// Connection ID
         connection_id: String,
-        
+
         /// Issued at
         iat: u64,
-        
+
         /// Expiration
         exp: u64,
     }
-    
+
     // Create JWT claims
     let now = Utc::now().timestamp() as u64;
     let claims = Claims {
@@ -83,7 +86,7 @@ pub fn generate_jwt_token(
         iat: now,
         exp: now + jwt_expiration,
     };
-    
+
     // Create JWT token
     encode(
         &Header::default(),
@@ -94,31 +97,28 @@ pub fn generate_jwt_token(
 }
 
 /// Verify JWT token
-pub fn verify_jwt_token(
-    token: &str,
-    jwt_secret: &str,
-) -> Result<JwtClaims, Error> {
+pub fn verify_jwt_token(token: &str, jwt_secret: &str) -> Result<JwtClaims, Error> {
     use jsonwebtoken::{decode, DecodingKey, Validation};
     use serde::{Deserialize, Serialize};
-    
+
     #[derive(Debug, Serialize, Deserialize)]
     pub struct JwtClaims {
         /// Subject (wallet address)
         pub sub: String,
-        
+
         /// Blockchain type
         pub blockchain_type: String,
-        
+
         /// Connection ID
         pub connection_id: String,
-        
+
         /// Issued at
         pub iat: u64,
-        
+
         /// Expiration
         pub exp: u64,
     }
-    
+
     // Decode JWT token
     let token_data = decode::<JwtClaims>(
         token,
@@ -126,6 +126,6 @@ pub fn verify_jwt_token(
         &Validation::default(),
     )
     .map_err(|e| Error::Authentication(format!("Invalid JWT token: {}", e)))?;
-    
+
     Ok(token_data.claims)
 }

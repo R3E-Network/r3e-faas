@@ -10,7 +10,7 @@ use uuid::Uuid;
 pub enum BlockchainType {
     /// Neo N3 blockchain
     NeoN3,
-    
+
     /// Ethereum blockchain
     Ethereum,
 }
@@ -21,7 +21,7 @@ pub enum BlockchainType {
 pub enum SignatureCurve {
     /// secp256r1 curve (used by Neo N3)
     Secp256r1,
-    
+
     /// secp256k1 curve (used by Ethereum)
     Secp256k1,
 }
@@ -31,22 +31,22 @@ pub enum SignatureCurve {
 pub struct WalletConnectionRequest {
     /// Blockchain type
     pub blockchain_type: BlockchainType,
-    
+
     /// Wallet address
     pub address: String,
-    
+
     /// Public key
     pub public_key: Option<String>,
-    
+
     /// Signature curve
     pub signature_curve: SignatureCurve,
-    
+
     /// Signature of the connection message
     pub signature: String,
-    
+
     /// Message that was signed
     pub message: String,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }
@@ -56,16 +56,16 @@ pub struct WalletConnectionRequest {
 pub struct WalletConnectionResponse {
     /// Connection ID
     pub connection_id: String,
-    
+
     /// Blockchain type
     pub blockchain_type: BlockchainType,
-    
+
     /// Wallet address
     pub address: String,
-    
+
     /// JWT token
     pub token: String,
-    
+
     /// Token expiration
     pub expires_at: u64,
 }
@@ -75,16 +75,16 @@ pub struct WalletConnectionResponse {
 pub struct MessageSigningRequest {
     /// Connection ID
     pub connection_id: String,
-    
+
     /// Message to sign
     pub message: String,
-    
+
     /// Domain (for EIP-712 signatures)
     pub domain: Option<serde_json::Value>,
-    
+
     /// Types (for EIP-712 signatures)
     pub types: Option<serde_json::Value>,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }
@@ -94,13 +94,13 @@ pub struct MessageSigningRequest {
 pub struct MessageSigningResponse {
     /// Request ID
     pub request_id: String,
-    
+
     /// Message hash
     pub message_hash: String,
-    
+
     /// Status
     pub status: String,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }
@@ -110,16 +110,16 @@ pub struct MessageSigningResponse {
 pub struct ServiceInvocationRequest {
     /// Service ID
     pub service_id: Uuid,
-    
+
     /// Function name
     pub function: String,
-    
+
     /// Parameters
     pub params: serde_json::Value,
-    
+
     /// Signature
     pub signature: Option<String>,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }
@@ -129,19 +129,19 @@ pub struct ServiceInvocationRequest {
 pub struct ServiceInvocationResponse {
     /// Invocation ID
     pub invocation_id: String,
-    
+
     /// Result
     pub result: serde_json::Value,
-    
+
     /// Status
     pub status: String,
-    
+
     /// Error
     pub error: Option<String>,
-    
+
     /// Execution time (ms)
     pub execution_time_ms: u64,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }
@@ -151,28 +151,28 @@ pub struct ServiceInvocationResponse {
 pub struct MetaTransactionRequest {
     /// Transaction data
     pub tx_data: String,
-    
+
     /// Sender address
     pub sender: String,
-    
+
     /// Signature
     pub signature: String,
-    
+
     /// Nonce
     pub nonce: u64,
-    
+
     /// Deadline
     pub deadline: u64,
-    
+
     /// Blockchain type
     pub blockchain_type: BlockchainType,
-    
+
     /// Target contract (for Ethereum transactions)
     pub target_contract: Option<String>,
-    
+
     /// Signature curve
     pub signature_curve: SignatureCurve,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }
@@ -182,19 +182,19 @@ pub struct MetaTransactionRequest {
 pub struct MetaTransactionResponse {
     /// Request ID
     pub request_id: String,
-    
+
     /// Original transaction hash
     pub original_hash: String,
-    
+
     /// Relayed transaction hash
     pub relayed_hash: Option<String>,
-    
+
     /// Status
     pub status: String,
-    
+
     /// Error
     pub error: Option<String>,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }

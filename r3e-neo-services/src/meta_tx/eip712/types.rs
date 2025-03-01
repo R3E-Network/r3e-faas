@@ -64,7 +64,7 @@ impl MetaTxMessage {
     /// Create a new MetaTxMessage from a MetaTxRequest
     pub fn from_request(request: &crate::meta_tx::types::MetaTxRequest) -> Self {
         let target_contract = request.target_contract.clone().unwrap_or_default();
-        
+
         Self {
             from: request.sender.clone(),
             to: target_contract,

@@ -6,9 +6,8 @@ pub mod storage;
 pub mod types;
 
 pub use service::{PricingService, PricingServiceTrait};
-pub use storage::{PricingStorage, MemoryPricingStorage};
+pub use storage::{MemoryPricingStorage, PricingStorage};
 pub use types::{
-    PricingError, PricingTier, ResourceType, ResourcePricing, 
-    SubscriptionModel, SubscriptionType, ValueAddedService,
-    EcosystemIncentive, NeoEcosystemIntegration
+    EcosystemIncentive, NeoEcosystemIntegration, PricingError, PricingTier, ResourcePricing,
+    ResourceType, SubscriptionModel, SubscriptionType, ValueAddedService,
 };

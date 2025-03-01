@@ -1,0 +1,45 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    scale=0.9,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
+               fill=white, text width=3cm, align=center, minimum height=1cm,
+               pattern=#1, pattern color=black!20,
+               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
+    arrow/.style={->, >=stealth, thick, draw=black!70},
+    dashed_arrow/.style={->, >=stealth, thick, dashed, draw=black!70}
+]
+
+% Abstract Account Components
+\node[box=north east lines] (account) at (0,3) {Abstract Account};
+\node[box=crosshatch] (owner) at (-3,1) {Owner};
+\node[box=dots] (controllers) at (0,1) {Controllers};
+\node[box=grid] (policy) at (3,1) {Policy};
+\node[box=north west lines] (contract) at (0,-1) {Account Contract};
+\node[box=north east lines] (blockchain) at (0,-3) {Neo Blockchain};
+
+% Operations
+\node[box=crosshatch, text width=2cm] (add) at (-4,-1) {Add Controller};
+\node[box=crosshatch, text width=2cm] (remove) at (-4,-2) {Remove Controller};
+\node[box=crosshatch, text width=2cm] (update) at (4,-1) {Update Policy};
+\node[box=crosshatch, text width=2cm] (recover) at (4,-2) {Recover Account};
+
+% Arrows
+\draw[arrow] (owner) -- (account);
+\draw[arrow] (controllers) -- (account);
+\draw[arrow] (policy) -- (account);
+\draw[arrow] (account) -- (contract);
+\draw[arrow] (contract) -- (blockchain);
+
+\draw[dashed_arrow] (add) -- (contract);
+\draw[dashed_arrow] (remove) -- (contract);
+\draw[dashed_arrow] (update) -- (contract);
+\draw[dashed_arrow] (recover) -- (contract);
+
+% Labels
+\node[text width=4cm, align=center] at (0,4.5) {Abstract Account Service};
+
+\end{tikzpicture}
+\caption{Abstract Account Service Architecture}
+\label{fig:abstract-account-architecture}
+\end{figure}

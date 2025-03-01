@@ -7,4 +7,6 @@ pub mod types;
 
 pub use service::{IdentityService, IdentityServiceTrait};
 pub use storage::{IdentityStorage, MemoryIdentityStorage};
-pub use types::{IdentityError, IdentityCredential, IdentityVerification, IdentityProfile, RecoveryMethod};
+pub use types::{
+    IdentityCredential, IdentityError, IdentityProfile, IdentityVerification, RecoveryMethod,
+};

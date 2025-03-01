@@ -22,18 +22,18 @@ use crate::service::EndpointService;
 pub async fn create_app(config: Config) -> Result<Router, error::Error> {
     // Create the endpoint service
     let service = Arc::new(EndpointService::new(config.clone()).await?);
-    
+
     // Create CORS layer
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any)
         .allow_credentials(true);
-    
+
     // Create the router
     let router = create_router(service)
         .layer(TraceLayer::new_for_http())
         .layer(cors);
-    
+
     Ok(router)
 }

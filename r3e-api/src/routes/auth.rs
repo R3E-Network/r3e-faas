@@ -23,8 +23,10 @@ async fn register(
     Json(request): Json<CreateUserRequest>,
 ) -> Result<Json<UserProfile>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Create the user
     let user = api_service
         .auth_service
@@ -35,7 +37,7 @@ async fn register(
             request.role.unwrap_or_default(),
         )
         .await?;
-    
+
     // Return the user profile
     Ok(Json(UserProfile::from(user)))
 }
@@ -46,14 +48,16 @@ async fn login(
     Json(request): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Login the user
     let (user, token) = api_service
         .auth_service
         .login(&request.username_or_email, &request.password)
         .await?;
-    
+
     // Return the login response
     Ok(Json(LoginResponse {
         user,
@@ -81,10 +85,10 @@ async fn get_user(
             "You are not authorized to view this user".to_string(),
         ));
     }
-    
+
     // Get the user
     let user = api_service.auth_service.get_user_by_id(id).await?;
-    
+
     // Return the user profile
     Ok(Json(UserProfile::from(user)))
 }
@@ -97,22 +101,24 @@ async fn update_user(
     Json(request): Json<UpdateUserRequest>,
 ) -> Result<Json<UserProfile>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Check if the user is an admin or the user is updating their own profile
     if auth.user.role != UserRole::Admin && auth.user.id != id {
         return Err(ApiError::Authorization(
             "You are not authorized to update this user".to_string(),
         ));
     }
-    
+
     // Check if a non-admin user is trying to change their role
     if auth.user.role != UserRole::Admin && request.role.is_some() {
         return Err(ApiError::Authorization(
             "You are not authorized to change your role".to_string(),
         ));
     }
-    
+
     // Update the user
     let user = api_service
         .auth_service
@@ -124,7 +130,7 @@ async fn update_user(
             request.role,
         )
         .await?;
-    
+
     // Return the user profile
     Ok(Json(UserProfile::from(user)))
 }
@@ -141,10 +147,10 @@ async fn delete_user(
             "You are not authorized to delete this user".to_string(),
         ));
     }
-    
+
     // Delete the user
     api_service.auth_service.delete_user(id).await?;
-    
+
     // Return success
     Ok(Json(()))
 }

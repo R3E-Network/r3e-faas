@@ -3,7 +3,9 @@
 
 //! Storage trait definitions for the store crate.
 
-use crate::error::{DeleteError, GetError, MultiDeleteError, MultiGetError, MultiPutError, PutError, ScanError};
+use crate::error::{
+    DeleteError, GetError, MultiDeleteError, MultiGetError, MultiPutError, PutError, ScanError,
+};
 use crate::types::{PutInput, ScanInput, ScanOutput};
 
 /// Key-value store trait
@@ -33,11 +35,13 @@ pub trait BatchKvStore: KvStore {
     fn multi_get(&self, inputs: &[(&str, &[u8])]) -> Result<Vec<Option<Vec<u8>>>, MultiGetError>;
 
     /// Delete multiple key-value pairs
-    fn multi_delete(&self, inputs: &[(&str, &[u8])]) -> Result<Vec<Option<Vec<u8>>>, MultiDeleteError>;
+    fn multi_delete(
+        &self,
+        inputs: &[(&str, &[u8])],
+    ) -> Result<Vec<Option<Vec<u8>>>, MultiDeleteError>;
 }
 
 pub mod memory;
-pub mod rocksdb;
 
-pub use memory::MemoryStore;
-pub use rocksdb::RocksDBStore;
+// Re-export module that doesn't exist as a separate file
+pub use crate::rocksdb::RocksDBStore;

@@ -8,13 +8,13 @@ use serde::{Deserialize, Serialize};
 pub struct UserBalance {
     /// User ID
     pub user_id: String,
-    
+
     /// NEO balance
     pub neo_balance: u64,
-    
+
     /// GAS balance
     pub gas_balance: u64,
-    
+
     /// Last updated timestamp
     pub updated_at: u64,
 }
@@ -24,10 +24,10 @@ pub struct UserBalance {
 pub enum TransactionType {
     /// Deposit
     Deposit,
-    
+
     /// Withdrawal
     Withdrawal,
-    
+
     /// Function execution fee
     FunctionExecution,
 }
@@ -37,22 +37,22 @@ pub enum TransactionType {
 pub struct BalanceTransaction {
     /// Transaction ID
     pub id: String,
-    
+
     /// User ID
     pub user_id: String,
-    
+
     /// Transaction type
     pub transaction_type: TransactionType,
-    
+
     /// Asset type (NEO or GAS)
     pub asset_type: String,
-    
+
     /// Amount
     pub amount: u64,
-    
+
     /// Transaction hash (for blockchain transactions)
     pub tx_hash: Option<String>,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }

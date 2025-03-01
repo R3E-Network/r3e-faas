@@ -38,10 +38,10 @@ async fn list_services(
             query.offset.unwrap_or(0),
         )
         .await?;
-    
+
     // Check if there are more services
     let has_more = total_count > (query.offset.unwrap_or(0) + query.limit.unwrap_or(10));
-    
+
     // Return the response
     Ok(Json(ServiceListResponse {
         services,
@@ -58,14 +58,14 @@ async fn get_service(
 ) -> Result<Json<Service>, ApiError> {
     // Get the service
     let service = api_service.service_service.get_service(id).await?;
-    
+
     // Check if the user owns the service
     if service.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to view this service".to_string(),
         ));
     }
-    
+
     // Return the service
     Ok(Json(service))
 }
@@ -77,8 +77,10 @@ async fn create_service(
     Json(request): Json<CreateServiceRequest>,
 ) -> Result<Json<Service>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Create the service
     let service = api_service
         .service_service
@@ -91,7 +93,7 @@ async fn create_service(
             request.visibility.unwrap_or_default(),
         )
         .await?;
-    
+
     // Return the service
     Ok(Json(service))
 }
@@ -104,18 +106,20 @@ async fn update_service(
     Json(request): Json<UpdateServiceRequest>,
 ) -> Result<Json<Service>, ApiError> {
     // Validate the request
-    request.validate().map_err(|e| ApiError::Validation(e.to_string()))?;
-    
+    request
+        .validate()
+        .map_err(|e| ApiError::Validation(e.to_string()))?;
+
     // Get the service
     let service = api_service.service_service.get_service(id).await?;
-    
+
     // Check if the user owns the service
     if service.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to update this service".to_string(),
         ));
     }
-    
+
     // Update the service
     let service = api_service
         .service_service
@@ -128,7 +132,7 @@ async fn update_service(
             request.visibility,
         )
         .await?;
-    
+
     // Return the service
     Ok(Json(service))
 }
@@ -141,17 +145,17 @@ async fn delete_service(
 ) -> Result<Json<()>, ApiError> {
     // Get the service
     let service = api_service.service_service.get_service(id).await?;
-    
+
     // Check if the user owns the service
     if service.user_id != auth.user.id {
         return Err(ApiError::Authorization(
             "You are not authorized to delete this service".to_string(),
         ));
     }
-    
+
     // Delete the service
     api_service.service_service.delete_service(id).await?;
-    
+
     // Return success
     Ok(Json(()))
 }
@@ -172,10 +176,10 @@ async fn discover_services(
             query.offset.unwrap_or(0),
         )
         .await?;
-    
+
     // Check if there are more services
     let has_more = total_count > (query.offset.unwrap_or(0) + query.limit.unwrap_or(10));
-    
+
     // Return the response
     Ok(Json(ServiceDiscoveryResponse {
         services,

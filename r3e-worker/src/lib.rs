@@ -3,11 +3,11 @@
 
 pub mod assign;
 pub mod builder;
-pub mod runner;
-pub mod worker;
-pub mod neo_task_source;
-pub mod sandbox;
 pub mod function;
+pub mod neo_task_source;
+pub mod runner;
+pub mod sandbox;
+pub mod worker;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use std::time::Duration;
 use duration_str::deserialize_duration;
 use serde::{Deserialize, Serialize};
 
-pub use {assign::*, builder::*, runner::*, worker::*, sandbox::*};
+pub use {assign::*, builder::*, runner::*, sandbox::*, worker::*};
 
 pub const MAX_RUNNERS: u32 = 1024;
 

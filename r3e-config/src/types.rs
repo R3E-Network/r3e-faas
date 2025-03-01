@@ -12,23 +12,23 @@ pub struct FaasConfig {
     /// General configuration
     #[serde(default)]
     pub general: GeneralConfig,
-    
+
     /// Storage configuration
     #[serde(default)]
     pub storage: StorageConfig,
-    
+
     /// Runtime configuration
     #[serde(default)]
     pub runtime: RuntimeConfig,
-    
+
     /// Service configuration
     #[serde(default)]
     pub services: ServicesConfig,
-    
+
     /// API configuration
     #[serde(default)]
     pub api: ApiConfig,
-    
+
     /// Logging configuration
     #[serde(default)]
     pub logging: LoggingConfig,
@@ -39,10 +39,10 @@ pub struct FaasConfig {
 pub struct GeneralConfig {
     /// Environment (development, staging, production)
     pub environment: String,
-    
+
     /// Instance ID
     pub instance_id: String,
-    
+
     /// Data directory
     pub data_dir: String,
 }
@@ -52,10 +52,10 @@ pub struct GeneralConfig {
 pub struct StorageConfig {
     /// Storage type (memory, rocksdb)
     pub storage_type: String,
-    
+
     /// RocksDB path
     pub rocksdb_path: Option<String>,
-    
+
     /// Memory store capacity
     pub memory_capacity: Option<usize>,
 }
@@ -65,7 +65,7 @@ pub struct StorageConfig {
 pub struct RuntimeConfig {
     /// JavaScript runtime configuration
     pub js: JsRuntimeConfig,
-    
+
     /// Sandbox configuration
     pub sandbox: SandboxConfig,
 }
@@ -75,10 +75,10 @@ pub struct RuntimeConfig {
 pub struct JsRuntimeConfig {
     /// Maximum memory (in MB)
     pub max_memory_mb: usize,
-    
+
     /// Maximum execution time (in ms)
     pub max_execution_time_ms: u64,
-    
+
     /// Enable JIT compilation
     pub enable_jit: bool,
 }
@@ -88,13 +88,13 @@ pub struct JsRuntimeConfig {
 pub struct SandboxConfig {
     /// Enable network access
     pub enable_network: bool,
-    
+
     /// Enable filesystem access
     pub enable_filesystem: bool,
-    
+
     /// Enable environment access
     pub enable_environment: bool,
-    
+
     /// Allowed domains for network access
     pub allowed_domains: Vec<String>,
 }
@@ -104,25 +104,25 @@ pub struct SandboxConfig {
 pub struct ServicesConfig {
     /// Oracle service configuration
     pub oracle: OracleConfig,
-    
+
     /// Gas bank service configuration
     pub gas_bank: GasBankConfig,
-    
+
     /// TEE service configuration
     pub tee: TeeConfig,
-    
+
     /// Balance service configuration
     pub balance: BalanceConfig,
-    
+
     /// Indexing service configuration
     pub indexing: IndexingConfig,
-    
+
     /// Identity service configuration
     pub identity: IdentityConfig,
-    
+
     /// Bridge service configuration
     pub bridge: BridgeConfig,
-    
+
     /// Auto contract service configuration
     pub auto_contract: AutoContractConfig,
 }
@@ -132,10 +132,10 @@ pub struct ServicesConfig {
 pub struct OracleConfig {
     /// Enable oracle service
     pub enabled: bool,
-    
+
     /// Default timeout (in ms)
     pub default_timeout_ms: u64,
-    
+
     /// Rate limit (requests per minute)
     pub rate_limit: usize,
 }
@@ -145,10 +145,10 @@ pub struct OracleConfig {
 pub struct GasBankConfig {
     /// Enable gas bank service
     pub enabled: bool,
-    
+
     /// Neo RPC URL
     pub neo_rpc_url: String,
-    
+
     /// Gas bank wallet address
     pub wallet_address: String,
 }
@@ -158,10 +158,10 @@ pub struct GasBankConfig {
 pub struct TeeConfig {
     /// Enable TEE service
     pub enabled: bool,
-    
+
     /// TEE platform (sgx, sev, nitro, etc.)
     pub platform: String,
-    
+
     /// Platform-specific configuration
     pub platform_config: HashMap<String, String>,
 }
@@ -171,10 +171,10 @@ pub struct TeeConfig {
 pub struct BalanceConfig {
     /// Enable balance service
     pub enabled: bool,
-    
+
     /// Neo RPC URL
     pub neo_rpc_url: String,
-    
+
     /// Platform wallet address
     pub platform_wallet_address: String,
 }
@@ -184,7 +184,7 @@ pub struct BalanceConfig {
 pub struct IndexingConfig {
     /// Enable indexing service
     pub enabled: bool,
-    
+
     /// Maximum indexed documents
     pub max_documents: usize,
 }
@@ -194,7 +194,7 @@ pub struct IndexingConfig {
 pub struct IdentityConfig {
     /// Enable identity service
     pub enabled: bool,
-    
+
     /// Supported DID methods
     pub supported_did_methods: Vec<String>,
 }
@@ -204,7 +204,7 @@ pub struct IdentityConfig {
 pub struct BridgeConfig {
     /// Enable bridge service
     pub enabled: bool,
-    
+
     /// Supported chains
     pub supported_chains: Vec<String>,
 }
@@ -214,7 +214,7 @@ pub struct BridgeConfig {
 pub struct AutoContractConfig {
     /// Enable auto contract service
     pub enabled: bool,
-    
+
     /// Maximum contracts per user
     pub max_contracts_per_user: usize,
 }
@@ -224,19 +224,19 @@ pub struct AutoContractConfig {
 pub struct ApiConfig {
     /// Host
     pub host: String,
-    
+
     /// Port
     pub port: u16,
-    
+
     /// Enable CORS
     pub enable_cors: bool,
-    
+
     /// CORS allowed origins
     pub cors_allowed_origins: Vec<String>,
-    
+
     /// Enable authentication
     pub enable_auth: bool,
-    
+
     /// JWT secret
     pub jwt_secret: Option<String>,
 }
@@ -246,10 +246,10 @@ pub struct ApiConfig {
 pub struct LoggingConfig {
     /// Log level
     pub level: String,
-    
+
     /// Log format
     pub format: String,
-    
+
     /// Log file
     pub file: Option<String>,
 }

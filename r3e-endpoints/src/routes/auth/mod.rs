@@ -11,18 +11,14 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    error::Error,
-    service::EndpointService,
-    utils::generate_jwt_token,
-};
+use crate::{error::Error, service::EndpointService, utils::generate_jwt_token};
 
 /// Login request
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
     /// Username
     pub username: String,
-    
+
     /// Password
     pub password: String,
 }
@@ -32,13 +28,13 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     /// User ID
     pub user_id: String,
-    
+
     /// Username
     pub username: String,
-    
+
     /// Token
     pub token: String,
-    
+
     /// Token expiration
     pub expires_at: u64,
 }
@@ -48,10 +44,10 @@ pub struct LoginResponse {
 pub struct RegisterRequest {
     /// Username
     pub username: String,
-    
+
     /// Password
     pub password: String,
-    
+
     /// Email
     pub email: String,
 }
@@ -61,13 +57,13 @@ pub struct RegisterRequest {
 pub struct RegisterResponse {
     /// User ID
     pub user_id: String,
-    
+
     /// Username
     pub username: String,
-    
+
     /// Token
     pub token: String,
-    
+
     /// Token expiration
     pub expires_at: u64,
 }
@@ -84,7 +80,7 @@ pub struct RefreshRequest {
 pub struct RefreshResponse {
     /// Token
     pub token: String,
-    
+
     /// Token expiration
     pub expires_at: u64,
 }
@@ -96,11 +92,11 @@ pub async fn login(
 ) -> Result<Json<LoginResponse>, Error> {
     // In a real implementation, this would verify the username and password
     // against a database and return a JWT token if valid
-    
+
     // For this example, we'll return a mock response
     let user_id = Uuid::new_v4().to_string();
     let connection_id = Uuid::new_v4().to_string();
-    
+
     // Generate JWT token
     let token = generate_jwt_token(
         &user_id,
@@ -109,14 +105,14 @@ pub async fn login(
         &service.config.jwt_secret,
         service.config.jwt_expiration,
     )?;
-    
+
     let response = LoginResponse {
         user_id,
         username: request.username,
         token,
         expires_at: Utc::now().timestamp() as u64 + service.config.jwt_expiration,
     };
-    
+
     Ok(Json(response))
 }
 
@@ -127,11 +123,11 @@ pub async fn register(
 ) -> Result<Json<RegisterResponse>, Error> {
     // In a real implementation, this would create a new user in the database
     // and return a JWT token
-    
+
     // For this example, we'll return a mock response
     let user_id = Uuid::new_v4().to_string();
     let connection_id = Uuid::new_v4().to_string();
-    
+
     // Generate JWT token
     let token = generate_jwt_token(
         &user_id,
@@ -140,14 +136,14 @@ pub async fn register(
         &service.config.jwt_secret,
         service.config.jwt_expiration,
     )?;
-    
+
     let response = RegisterResponse {
         user_id,
         username: request.username,
         token,
         expires_at: Utc::now().timestamp() as u64 + service.config.jwt_expiration,
     };
-    
+
     Ok(Json(response))
 }
 
@@ -158,10 +154,10 @@ pub async fn refresh(
 ) -> Result<Json<RefreshResponse>, Error> {
     // In a real implementation, this would verify the token and return a new token
     // if valid
-    
+
     // For this example, we'll return a mock response
     let claims = crate::utils::verify_jwt_token(&request.token, &service.config.jwt_secret)?;
-    
+
     // Generate JWT token
     let token = generate_jwt_token(
         &claims.sub,
@@ -170,11 +166,11 @@ pub async fn refresh(
         &service.config.jwt_secret,
         service.config.jwt_expiration,
     )?;
-    
+
     let response = RefreshResponse {
         token,
         expires_at: Utc::now().timestamp() as u64 + service.config.jwt_expiration,
     };
-    
+
     Ok(Json(response))
 }

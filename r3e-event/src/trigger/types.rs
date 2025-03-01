@@ -9,13 +9,13 @@ use std::collections::HashMap;
 pub enum TriggerSource {
     /// Blockchain event trigger
     Blockchain,
-    
+
     /// Time-based trigger
     Time,
-    
+
     /// Market price trigger
     Market,
-    
+
     /// Custom event trigger
     Custom,
 }
@@ -25,7 +25,7 @@ pub enum TriggerSource {
 pub struct TriggerCondition {
     /// Trigger source
     pub source: TriggerSource,
-    
+
     /// Condition parameters
     pub params: HashMap<String, serde_json::Value>,
 }
@@ -35,16 +35,16 @@ pub struct TriggerCondition {
 pub struct BlockchainTriggerParams {
     /// Blockchain network (e.g., "neo_n3", "ethereum")
     pub network: String,
-    
+
     /// Contract address
     pub contract_address: Option<String>,
-    
+
     /// Event name
     pub event_name: Option<String>,
-    
+
     /// Method name
     pub method_name: Option<String>,
-    
+
     /// Block number
     pub block_number: Option<u64>,
 }
@@ -54,7 +54,7 @@ pub struct BlockchainTriggerParams {
 pub struct TimeTriggerParams {
     /// Cron expression
     pub cron: String,
-    
+
     /// Timezone
     pub timezone: Option<String>,
 }
@@ -64,10 +64,10 @@ pub struct TimeTriggerParams {
 pub struct MarketTriggerParams {
     /// Asset pair (e.g., "NEO/USD")
     pub asset_pair: String,
-    
+
     /// Condition type (e.g., "above", "below")
     pub condition: String,
-    
+
     /// Price threshold
     pub price: f64,
 }
@@ -77,7 +77,7 @@ pub struct MarketTriggerParams {
 pub struct CustomTriggerParams {
     /// Custom event name
     pub event_name: String,
-    
+
     /// Custom event data
     pub event_data: Option<serde_json::Value>,
 }
@@ -87,13 +87,13 @@ pub struct CustomTriggerParams {
 pub enum TriggerError {
     #[error("Invalid trigger source: {0}")]
     InvalidSource(String),
-    
+
     #[error("Invalid trigger parameters: {0}")]
     InvalidParameters(String),
-    
+
     #[error("Trigger evaluation error: {0}")]
     EvaluationError(String),
-    
+
     #[error("Storage error: {0}")]
     Storage(String),
 }

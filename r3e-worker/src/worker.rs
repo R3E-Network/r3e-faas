@@ -16,7 +16,7 @@ use r3e_built_in_services::balance::{BalanceService, MemoryBalanceStorage};
 use r3e_built_in_services::gas_bank::GasBankServiceTrait;
 use r3e_event::source::TaskSource;
 
-use crate::{Runner, RunHandle, Stopper, TaskConfig, TaskSourceBuilder, WorkerConfig};
+use crate::{RunHandle, Runner, Stopper, TaskConfig, TaskSourceBuilder, WorkerConfig};
 
 pub struct Worker {
     config: WorkerConfig,
@@ -76,10 +76,10 @@ impl Worker {
                     // Spawn a new runner
                     uid += 1;
                     let task_source = TaskSourceBuilder::new(task_config.clone()).build();
-                    
+
                     // Create a balance service
                     let balance_storage = Arc::new(MemoryBalanceStorage::new());
-                    
+
                     // Get the gas bank service from configuration
                     let gas_bank_service = match &self.config.gas_bank_service {
                         Some(service) => service.clone(),
@@ -88,16 +88,17 @@ impl Worker {
                             Arc::new(MockGasBankService::new())
                         }
                     };
-                    
-                    let balance_service = Arc::new(BalanceService::new(balance_storage, gas_bank_service));
-                    
+
+                    let balance_service =
+                        Arc::new(BalanceService::new(balance_storage, gas_bank_service));
+
                     // Get the sandbox configuration
                     let sandbox_config = self.config.sandbox.clone();
-                    
+
                     let runner = Runner::new(uid, max_runtimes, task_source)
                         .with_balance_service(balance_service)
                         .with_sandbox_config(sandbox_config);
-                    
+
                     let stop = stop2.clone();
                     let tx = tx.clone();
                     let pid = unsafe { libc::fork() };
@@ -116,10 +117,10 @@ impl Worker {
                         _ => {
                             // Parent process
                             info!("worker: spawned runner {} with pid {}", uid, pid);
-                            runners.lock().unwrap().insert(
-                                pid,
-                                RunHandle::new(pid, true),
-                            );
+                            runners
+                                .lock()
+                                .unwrap()
+                                .insert(pid, RunHandle::new(pid, true));
                         }
                     }
                 }
@@ -170,7 +171,13 @@ impl MockGasBankService {
 
 #[async_trait::async_trait]
 impl GasBankServiceTrait for MockGasBankService {
-    async fn get_account(&self, address: &str) -> Result<Option<r3e_built_in_services::gas_bank::GasBankAccount>, r3e_built_in_services::gas_bank::Error> {
+    async fn get_account(
+        &self,
+        address: &str,
+    ) -> Result<
+        Option<r3e_built_in_services::gas_bank::GasBankAccount>,
+        r3e_built_in_services::gas_bank::Error,
+    > {
         Ok(Some(r3e_built_in_services::gas_bank::GasBankAccount {
             address: address.to_string(),
             balance: 1000000,
@@ -181,8 +188,16 @@ impl GasBankServiceTrait for MockGasBankService {
             status: "active".to_string(),
         }))
     }
-    
-    async fn create_account(&self, address: &str, fee_model: r3e_built_in_services::gas_bank::FeeModel, credit_limit: u64) -> Result<r3e_built_in_services::gas_bank::GasBankAccount, r3e_built_in_services::gas_bank::Error> {
+
+    async fn create_account(
+        &self,
+        address: &str,
+        fee_model: r3e_built_in_services::gas_bank::FeeModel,
+        credit_limit: u64,
+    ) -> Result<
+        r3e_built_in_services::gas_bank::GasBankAccount,
+        r3e_built_in_services::gas_bank::Error,
+    > {
         Ok(r3e_built_in_services::gas_bank::GasBankAccount {
             address: address.to_string(),
             balance: 0,
@@ -193,8 +208,16 @@ impl GasBankServiceTrait for MockGasBankService {
             status: "active".to_string(),
         })
     }
-    
-    async fn deposit(&self, tx_hash: &str, address: &str, amount: u64) -> Result<r3e_built_in_services::gas_bank::GasBankDeposit, r3e_built_in_services::gas_bank::Error> {
+
+    async fn deposit(
+        &self,
+        tx_hash: &str,
+        address: &str,
+        amount: u64,
+    ) -> Result<
+        r3e_built_in_services::gas_bank::GasBankDeposit,
+        r3e_built_in_services::gas_bank::Error,
+    > {
         Ok(r3e_built_in_services::gas_bank::GasBankDeposit {
             tx_hash: tx_hash.to_string(),
             address: address.to_string(),
@@ -203,8 +226,15 @@ impl GasBankServiceTrait for MockGasBankService {
             status: "confirmed".to_string(),
         })
     }
-    
-    async fn withdraw(&self, address: &str, amount: u64) -> Result<r3e_built_in_services::gas_bank::GasBankWithdrawal, r3e_built_in_services::gas_bank::Error> {
+
+    async fn withdraw(
+        &self,
+        address: &str,
+        amount: u64,
+    ) -> Result<
+        r3e_built_in_services::gas_bank::GasBankWithdrawal,
+        r3e_built_in_services::gas_bank::Error,
+    > {
         Ok(r3e_built_in_services::gas_bank::GasBankWithdrawal {
             tx_hash: format!("0x{:016x}", chrono::Utc::now().timestamp()),
             address: address.to_string(),
@@ -214,8 +244,16 @@ impl GasBankServiceTrait for MockGasBankService {
             status: "confirmed".to_string(),
         })
     }
-    
-    async fn pay_gas_for_transaction(&self, tx_hash: &str, address: &str, amount: u64) -> Result<r3e_built_in_services::gas_bank::GasBankTransaction, r3e_built_in_services::gas_bank::Error> {
+
+    async fn pay_gas_for_transaction(
+        &self,
+        tx_hash: &str,
+        address: &str,
+        amount: u64,
+    ) -> Result<
+        r3e_built_in_services::gas_bank::GasBankTransaction,
+        r3e_built_in_services::gas_bank::Error,
+    > {
         Ok(r3e_built_in_services::gas_bank::GasBankTransaction {
             tx_hash: tx_hash.to_string(),
             address: address.to_string(),
@@ -226,20 +264,32 @@ impl GasBankServiceTrait for MockGasBankService {
             status: "confirmed".to_string(),
         })
     }
-    
+
     async fn get_gas_price(&self) -> Result<u64, r3e_built_in_services::gas_bank::Error> {
         Ok(1000)
     }
-    
-    async fn estimate_gas(&self, tx_data: &[u8]) -> Result<u64, r3e_built_in_services::gas_bank::Error> {
+
+    async fn estimate_gas(
+        &self,
+        tx_data: &[u8],
+    ) -> Result<u64, r3e_built_in_services::gas_bank::Error> {
         Ok(21000 + (tx_data.len() as u64 * 68))
     }
-    
-    async fn get_balance(&self, address: &str) -> Result<u64, r3e_built_in_services::gas_bank::Error> {
+
+    async fn get_balance(
+        &self,
+        address: &str,
+    ) -> Result<u64, r3e_built_in_services::gas_bank::Error> {
         Ok(1000000)
     }
-    
-    async fn get_transactions(&self, address: &str) -> Result<Vec<r3e_built_in_services::gas_bank::GasBankTransaction>, r3e_built_in_services::gas_bank::Error> {
+
+    async fn get_transactions(
+        &self,
+        address: &str,
+    ) -> Result<
+        Vec<r3e_built_in_services::gas_bank::GasBankTransaction>,
+        r3e_built_in_services::gas_bank::Error,
+    > {
         Ok(vec![])
     }
 }

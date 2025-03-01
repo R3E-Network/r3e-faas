@@ -11,34 +11,34 @@ use crate::source::event;
 pub struct EventFilter {
     /// Network filter
     pub network: Option<String>,
-    
+
     /// Event type filter
     pub event_type: Option<String>,
-    
+
     /// Contract address filter
     pub contract_address: Option<String>,
-    
+
     /// Event name filter
     pub event_name: Option<String>,
-    
+
     /// Method name filter
     pub method_name: Option<String>,
-    
+
     /// Block number filter
     pub min_block: Option<u64>,
-    
+
     /// Transaction hash filter
     pub tx_hash: Option<String>,
-    
+
     /// From address filter
     pub from: Option<String>,
-    
+
     /// To address filter
     pub to: Option<String>,
-    
+
     /// Value filter
     pub min_value: Option<u64>,
-    
+
     /// Custom filter
     pub custom: Option<Value>,
 }
@@ -60,101 +60,93 @@ impl EventFilter {
             custom: None,
         }
     }
-    
+
     /// Set network filter
     pub fn with_network(mut self, network: &str) -> Self {
         self.network = Some(network.to_string());
         self
     }
-    
+
     /// Set event type filter
     pub fn with_event_type(mut self, event_type: &str) -> Self {
         self.event_type = Some(event_type.to_string());
         self
     }
-    
+
     /// Set contract address filter
     pub fn with_contract_address(mut self, contract_address: &str) -> Self {
         self.contract_address = Some(contract_address.to_string());
         self
     }
-    
+
     /// Set event name filter
     pub fn with_event_name(mut self, event_name: &str) -> Self {
         self.event_name = Some(event_name.to_string());
         self
     }
-    
+
     /// Set method name filter
     pub fn with_method_name(mut self, method_name: &str) -> Self {
         self.method_name = Some(method_name.to_string());
         self
     }
-    
+
     /// Set minimum block number filter
     pub fn with_min_block(mut self, min_block: u64) -> Self {
         self.min_block = Some(min_block);
         self
     }
-    
+
     /// Set transaction hash filter
     pub fn with_tx_hash(mut self, tx_hash: &str) -> Self {
         self.tx_hash = Some(tx_hash.to_string());
         self
     }
-    
+
     /// Set from address filter
     pub fn with_from(mut self, from: &str) -> Self {
         self.from = Some(from.to_string());
         self
     }
-    
+
     /// Set to address filter
     pub fn with_to(mut self, to: &str) -> Self {
         self.to = Some(to.to_string());
         self
     }
-    
+
     /// Set minimum value filter
     pub fn with_min_value(mut self, min_value: u64) -> Self {
         self.min_value = Some(min_value);
         self
     }
-    
+
     /// Set custom filter
     pub fn with_custom(mut self, custom: Value) -> Self {
         self.custom = Some(custom);
         self
     }
-    
+
     /// Apply filter to an event
     pub fn apply(&self, event: &event::Event) -> bool {
         match event {
             event::Event::None => false,
-            event::Event::NeoBlock(block) => {
-                self.filter_neo_block(block)
-            },
-            event::Event::NeoTransaction(tx) => {
-                self.filter_neo_transaction(tx)
-            },
-            event::Event::NeoContractEvent { contract_address, events } => {
-                self.filter_neo_contract_event(contract_address, events)
-            },
-            event::Event::EthereumBlock(block) => {
-                self.filter_ethereum_block(block)
-            },
-            event::Event::EthereumTransaction(tx) => {
-                self.filter_ethereum_transaction(tx)
-            },
-            event::Event::EthereumContractEvent { contract_address, events } => {
-                self.filter_ethereum_contract_event(contract_address, events)
-            },
-            event::Event::Custom(data) => {
-                self.filter_custom(data)
-            },
+            event::Event::NeoBlock(block) => self.filter_neo_block(block),
+            event::Event::NeoTransaction(tx) => self.filter_neo_transaction(tx),
+            event::Event::NeoContractEvent {
+                contract_address,
+                events,
+            } => self.filter_neo_contract_event(contract_address, events),
+            event::Event::EthereumBlock(block) => self.filter_ethereum_block(block),
+            event::Event::EthereumTransaction(tx) => self.filter_ethereum_transaction(tx),
+            event::Event::EthereumContractEvent {
+                contract_address,
+                events,
+            } => self.filter_ethereum_contract_event(contract_address, events),
+            event::Event::Custom(data) => self.filter_custom(data),
         }
     }
-    
+
     /// Filter Neo block
     fn filter_neo_block(&self, block: &Value) -> bool {
         // Check network
@@ -163,14 +155,14 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check event type
         if let Some(event_type) = &self.event_type {
             if event_type != "block" {
                 return false;
             }
         }
-        
+
         // Check block number
         if let Some(min_block) = self.min_block {
             if let Some(block_number) = block.get("index").and_then(|n| n.as_u64()) {
@@ -181,10 +173,10 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Filter Neo transaction
     fn filter_neo_transaction(&self, tx: &Value) -> bool {
         // Check network
@@ -193,14 +185,14 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check event type
         if let Some(event_type) = &self.event_type {
             if event_type != "transaction" {
                 return false;
             }
         }
-        
+
         // Check transaction hash
         if let Some(tx_hash) = &self.tx_hash {
             if let Some(hash) = tx.get("hash").and_then(|h| h.as_str()) {
@@ -211,7 +203,7 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check from address
         if let Some(from) = &self.from {
             if let Some(sender) = tx.get("sender").and_then(|s| s.as_str()) {
@@ -222,10 +214,10 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Filter Neo contract event
     fn filter_neo_contract_event(&self, contract_address: &str, events: &Value) -> bool {
         // Check network
@@ -234,26 +226,29 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check event type
         if let Some(event_type) = &self.event_type {
             if event_type != "contract_event" {
                 return false;
             }
         }
-        
+
         // Check contract address
         if let Some(address) = &self.contract_address {
             if contract_address != address {
                 return false;
             }
         }
-        
+
         // Check event name
         if let Some(event_name) = &self.event_name {
             if let Some(events_array) = events.as_array() {
                 if !events_array.iter().any(|event| {
-                    event.get("name").and_then(|n| n.as_str()).map_or(false, |name| name == event_name)
+                    event
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .map_or(false, |name| name == event_name)
                 }) {
                     return false;
                 }
@@ -261,10 +256,10 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Filter Ethereum block
     fn filter_ethereum_block(&self, block: &Value) -> bool {
         // Check network
@@ -273,19 +268,20 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check event type
         if let Some(event_type) = &self.event_type {
             if event_type != "block" {
                 return false;
             }
         }
-        
+
         // Check block number
         if let Some(min_block) = self.min_block {
             if let Some(block_number) = block.get("number").and_then(|n| n.as_str()) {
                 // Convert hex string to number
-                let block_num = u64::from_str_radix(&block_number.trim_start_matches("0x"), 16).unwrap_or(0);
+                let block_num =
+                    u64::from_str_radix(&block_number.trim_start_matches("0x"), 16).unwrap_or(0);
                 if block_num < min_block {
                     return false;
                 }
@@ -293,10 +289,10 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Filter Ethereum transaction
     fn filter_ethereum_transaction(&self, tx: &Value) -> bool {
         // Check network
@@ -305,14 +301,14 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check event type
         if let Some(event_type) = &self.event_type {
             if event_type != "transaction" {
                 return false;
             }
         }
-        
+
         // Check transaction hash
         if let Some(tx_hash) = &self.tx_hash {
             if let Some(hash) = tx.get("hash").and_then(|h| h.as_str()) {
@@ -323,7 +319,7 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check from address
         if let Some(from) = &self.from {
             if let Some(sender) = tx.get("from").and_then(|s| s.as_str()) {
@@ -334,7 +330,7 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check to address
         if let Some(to) = &self.to {
             if let Some(recipient) = tx.get("to").and_then(|t| t.as_str()) {
@@ -345,12 +341,13 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check value
         if let Some(min_value) = self.min_value {
             if let Some(value) = tx.get("value").and_then(|v| v.as_str()) {
                 // Convert hex string to number
-                let value_num = u64::from_str_radix(&value.trim_start_matches("0x"), 16).unwrap_or(0);
+                let value_num =
+                    u64::from_str_radix(&value.trim_start_matches("0x"), 16).unwrap_or(0);
                 if value_num < min_value {
                     return false;
                 }
@@ -358,10 +355,10 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Filter Ethereum contract event
     fn filter_ethereum_contract_event(&self, contract_address: &str, events: &Value) -> bool {
         // Check network
@@ -370,33 +367,38 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         // Check event type
         if let Some(event_type) = &self.event_type {
             if event_type != "contract_event" {
                 return false;
             }
         }
-        
+
         // Check contract address
         if let Some(address) = &self.contract_address {
             if !contract_address.eq_ignore_ascii_case(address) {
                 return false;
             }
         }
-        
+
         // Check event name (topic)
         if let Some(event_name) = &self.event_name {
             if let Some(events_array) = events.as_array() {
                 if !events_array.iter().any(|event| {
-                    event.get("topics").and_then(|topics| topics.as_array()).map_or(false, |topics| {
-                        if topics.is_empty() {
-                            return false;
-                        }
-                        
-                        // The first topic is the event signature
-                        topics[0].as_str().map_or(false, |topic| topic == event_name)
-                    })
+                    event
+                        .get("topics")
+                        .and_then(|topics| topics.as_array())
+                        .map_or(false, |topics| {
+                            if topics.is_empty() {
+                                return false;
+                            }
+
+                            // The first topic is the event signature
+                            topics[0]
+                                .as_str()
+                                .map_or(false, |topic| topic == event_name)
+                        })
                 }) {
                     return false;
                 }
@@ -404,10 +406,10 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Filter custom event
     fn filter_custom(&self, data: &Value) -> bool {
         // Check custom filter
@@ -419,7 +421,8 @@ impl EventFilter {
                         return false;
                     }
                 }
-            } else if let (Some(custom_arr), Some(data_arr)) = (custom.as_array(), data.as_array()) {
+            } else if let (Some(custom_arr), Some(data_arr)) = (custom.as_array(), data.as_array())
+            {
                 for value in custom_arr {
                     if !data_arr.contains(value) {
                         return false;
@@ -429,7 +432,7 @@ impl EventFilter {
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -444,7 +447,7 @@ impl Default for EventFilter {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[test]
     fn test_neo_block_filter() {
         let block = json!({
@@ -462,29 +465,29 @@ mod tests {
             "confirmations": 100,
             "nextblockhash": "0xfedcba0987654321"
         });
-        
+
         // Test network filter
         let filter = EventFilter::new().with_network("neo");
         assert!(filter.filter_neo_block(&block));
-        
+
         let filter = EventFilter::new().with_network("ethereum");
         assert!(!filter.filter_neo_block(&block));
-        
+
         // Test event type filter
         let filter = EventFilter::new().with_event_type("block");
         assert!(filter.filter_neo_block(&block));
-        
+
         let filter = EventFilter::new().with_event_type("transaction");
         assert!(!filter.filter_neo_block(&block));
-        
+
         // Test block number filter
         let filter = EventFilter::new().with_min_block(12000);
         assert!(filter.filter_neo_block(&block));
-        
+
         let filter = EventFilter::new().with_min_block(13000);
         assert!(!filter.filter_neo_block(&block));
     }
-    
+
     #[test]
     fn test_ethereum_block_filter() {
         let block = json!({
@@ -507,29 +510,29 @@ mod tests {
             "transactions": [],
             "uncles": []
         });
-        
+
         // Test network filter
         let filter = EventFilter::new().with_network("ethereum");
         assert!(filter.filter_ethereum_block(&block));
-        
+
         let filter = EventFilter::new().with_network("neo");
         assert!(!filter.filter_ethereum_block(&block));
-        
+
         // Test event type filter
         let filter = EventFilter::new().with_event_type("block");
         assert!(filter.filter_ethereum_block(&block));
-        
+
         let filter = EventFilter::new().with_event_type("transaction");
         assert!(!filter.filter_ethereum_block(&block));
-        
+
         // Test block number filter
         let filter = EventFilter::new().with_min_block(0x100);
         assert!(filter.filter_ethereum_block(&block));
-        
+
         let filter = EventFilter::new().with_min_block(0x200);
         assert!(!filter.filter_ethereum_block(&block));
     }
-    
+
     #[test]
     fn test_ethereum_transaction_filter() {
         let tx = json!({
@@ -545,46 +548,47 @@ mod tests {
             "gasPrice": "0x09184e72a000",
             "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
         });
-        
+
         // Test network filter
         let filter = EventFilter::new().with_network("ethereum");
         assert!(filter.filter_ethereum_transaction(&tx));
-        
+
         let filter = EventFilter::new().with_network("neo");
         assert!(!filter.filter_ethereum_transaction(&tx));
-        
+
         // Test event type filter
         let filter = EventFilter::new().with_event_type("transaction");
         assert!(filter.filter_ethereum_transaction(&tx));
-        
+
         let filter = EventFilter::new().with_event_type("block");
         assert!(!filter.filter_ethereum_transaction(&tx));
-        
+
         // Test transaction hash filter
-        let filter = EventFilter::new().with_tx_hash("0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b");
+        let filter = EventFilter::new()
+            .with_tx_hash("0xc6ef2fc5426d6ad6fd9e2a26abeab0aa2411b7ab17f30a99d3cb96aed1d1055b");
         assert!(filter.filter_ethereum_transaction(&tx));
-        
+
         let filter = EventFilter::new().with_tx_hash("0x1234567890abcdef");
         assert!(!filter.filter_ethereum_transaction(&tx));
-        
+
         // Test from address filter
         let filter = EventFilter::new().with_from("0x407d73d8a49eeb85d32cf465507dd71d507100c1");
         assert!(filter.filter_ethereum_transaction(&tx));
-        
+
         let filter = EventFilter::new().with_from("0x1234567890abcdef");
         assert!(!filter.filter_ethereum_transaction(&tx));
-        
+
         // Test to address filter
         let filter = EventFilter::new().with_to("0x85h43d8a49eeb85d32cf465507dd71d507100c1");
         assert!(filter.filter_ethereum_transaction(&tx));
-        
+
         let filter = EventFilter::new().with_to("0x1234567890abcdef");
         assert!(!filter.filter_ethereum_transaction(&tx));
-        
+
         // Test value filter
         let filter = EventFilter::new().with_min_value(0x7f100);
         assert!(filter.filter_ethereum_transaction(&tx));
-        
+
         let filter = EventFilter::new().with_min_value(0x7f200);
         assert!(!filter.filter_ethereum_transaction(&tx));
     }

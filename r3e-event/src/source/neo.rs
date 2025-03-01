@@ -5,17 +5,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 // Import specific types from NeoRust to avoid name conflicts
-use NeoRust::neo_clients::{
-    HttpProvider, 
-    RpcClient,
-    APITrait
-};
+use neo3::neo_clients::{APITrait, HttpProvider, RpcClient};
 use url::Url;
 
 use tokio::sync::Mutex;
 
 // Import r3e-event types with explicit namespace
-use crate::source::{*, events::{NeoBlock, NeoBlockHeader, NeoTx}};
+use crate::source::{
+    events::{NeoBlock, NeoBlockHeader, NeoTx},
+    *,
+};
 use crate::Trigger;
 
 pub struct NeoTaskSource {
@@ -26,6 +25,7 @@ pub struct NeoTaskSource {
     rpc_url: String,
     // Track the current trigger type to rotate between different event types
     current_trigger: crate::Trigger,
+    filter: Option<serde_json::Value>,
 }
 
 impl NeoTaskSource {
@@ -39,59 +39,71 @@ impl NeoTaskSource {
             rpc_url: "https://testnet1.neo.org:443".to_string(),
             // Start with NeoNewBlock trigger
             current_trigger: crate::Trigger::NeoNewBlock,
+            filter: None,
         }
     }
-    
+
     pub fn with_rpc_url(mut self, rpc_url: impl Into<String>) -> Self {
         self.rpc_url = rpc_url.into();
         self
     }
-    
-    async fn ensure_client(&self) -> Result<Arc<RpcClient<HttpProvider>>, Box<dyn std::error::Error + Send + Sync>> {
+
+    pub fn with_filter(mut self, filter: serde_json::Value) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+
+    async fn ensure_client(
+        &self,
+    ) -> Result<Arc<RpcClient<HttpProvider>>, Box<dyn std::error::Error + Send + Sync>> {
         let mut client_guard = self.client.lock().await;
-        
+
         if client_guard.is_none() {
             // Create URL from string
-            let url = Url::parse(&self.rpc_url).map_err(|e| {
-                Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-            })?;
-            
+            let url = Url::parse(&self.rpc_url)
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
             // Create HTTP provider and RPC client
             let provider = HttpProvider::new(url).expect("Failed to create HTTP provider");
             let client = RpcClient::new(provider);
             *client_guard = Some(client);
         }
-        
+
         // Clone the client to return it
         let client = client_guard.as_ref().unwrap().clone();
         Ok(Arc::new(client))
     }
-    
+
     // Fetch the latest Neo block
-    async fn fetch_latest_block(&self) -> Result<NeoBlock, Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_latest_block(
+        &self,
+    ) -> Result<NeoBlock, Box<dyn std::error::Error + Send + Sync>> {
         let client = self.ensure_client().await?;
-        
+
         // Get the current block count
-        let block_count = client.get_block_count().await.map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let block_count = client
+            .get_block_count()
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Get the latest block (block_count - 1 is the latest block)
         let block_height = block_count - 1;
-        
+
         // Convert block height to H256 for the get_block method
-        let block_hash = client.get_block_hash(block_height).await.map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let block_hash = client
+            .get_block_hash(block_height)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Get the block with full transaction details
-        let block = client.get_block(block_hash, true).await.map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let block = client
+            .get_block(block_hash, true)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Parse nonce from hex string to u64
         let nonce_u64 = u64::from_str_radix(&block.nonce, 16).unwrap_or(0);
-        
+
         // Create r3e-event NeoBlockHeader
         let header = Some(NeoBlockHeader {
             hash: block.hash.to_string(),
@@ -105,36 +117,38 @@ impl NeoTaskSource {
             next_consensus: block.next_consensus.to_string(),
             witnesses: vec![], // TODO: Convert witnesses if needed
         });
-        
+
         // Convert transactions if available
         let txs = if let Some(transactions) = block.transactions {
-            transactions.into_iter().map(|tx| {
-                self.convert_transaction(tx)
-            }).collect()
+            transactions
+                .into_iter()
+                .map(|tx| self.convert_transaction(tx))
+                .collect()
         } else {
             vec![]
         };
-        
-        Ok(NeoBlock {
-            header,
-            txs,
-        })
+
+        Ok(NeoBlock { header, txs })
     }
-    
+
     // Fetch a specific transaction by hash
-    async fn fetch_transaction(&self, tx_hash: &str) -> Result<NeoTx, Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_transaction(
+        &self,
+        tx_hash: &str,
+    ) -> Result<NeoTx, Box<dyn std::error::Error + Send + Sync>> {
         let client = self.ensure_client().await?;
-        
+
         // Parse the transaction hash to H256
-        let hash = tx_hash.parse().map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let hash = tx_hash
+            .parse()
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Get the transaction details
-        let tx_raw = client.get_raw_transaction(hash).await.map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let tx_raw = client
+            .get_raw_transaction(hash)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Parse the raw transaction into a NeoTx
         Ok(NeoTx {
             hash: tx_hash.to_string(),
@@ -150,29 +164,32 @@ impl NeoTaskSource {
             witnesses: tx_raw.witnesses.iter().map(|w| w.clone()).collect(),
         })
     }
-    
+
     // Fetch application logs for a transaction
-    async fn fetch_application_log(&self, tx_hash: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_application_log(
+        &self,
+        tx_hash: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let client = self.ensure_client().await?;
-        
+
         // Parse the transaction hash to H256
-        let hash = tx_hash.parse().map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let hash = tx_hash
+            .parse()
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Get the application log
-        let app_log = client.get_application_log(hash).await.map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let app_log = client
+            .get_application_log(hash)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         // Convert to JSON string
-        let app_log_json = serde_json::to_string(&app_log).map_err(|e| {
-            Box::new(e) as Box<dyn std::error::Error + Send + Sync>
-        })?;
-        
+        let app_log_json = serde_json::to_string(&app_log)
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+
         Ok(app_log_json)
     }
-    
+
     // Helper method to convert a NeoRust transaction to r3e-event NeoTx
     fn convert_transaction(&self, tx: NeoRust::neo_protocol::RTransaction) -> NeoTx {
         NeoTx {
@@ -191,6 +208,118 @@ impl NeoTaskSource {
             valid_until_block: tx.valid_until_block as u32,
         }
     }
+
+    // Helper to filter events based on criteria
+    fn filter_event(&self, event: &event::Event, filter: Option<&serde_json::Value>) -> bool {
+        // If no filter is provided, return true (include all events)
+        let filter = match filter {
+            Some(f) => f,
+            None => return true,
+        };
+
+        match event {
+            event::Event::NeoBlock(block) => {
+                // Filter by block height if specified
+                if let Some(min_height) = filter.get("min_height").and_then(|h| h.as_u64()) {
+                    if let Some(header) = &block.header {
+                        if (header.height as u64) < min_height {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                // Filter by block time if specified
+                if let Some(min_time) = filter.get("min_time").and_then(|t| t.as_u64()) {
+                    if let Some(header) = &block.header {
+                        if header.time < min_time {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                // Filter by transaction count if specified
+                if let Some(min_tx_count) = filter.get("min_tx_count").and_then(|c| c.as_u64()) {
+                    if block.txs.len() < min_tx_count as usize {
+                        return false;
+                    }
+                }
+
+                // Filter by transaction hash if specified
+                if let Some(tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
+                    if !block.txs.iter().any(|tx| tx.hash == tx_hash) {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            event::Event::NeoContractNotification {
+                tx_hash,
+                notifications,
+            } => {
+                // Filter by transaction hash if specified
+                if let Some(filter_tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
+                    if tx_hash != filter_tx_hash {
+                        return false;
+                    }
+                }
+
+                // Filter by contract hash if specified
+                if let Some(contract_hash) = filter.get("contract_hash").and_then(|h| h.as_str()) {
+                    if !notifications.iter().any(|n| {
+                        n.get("contract").and_then(|c| c.as_str()).unwrap_or("") == contract_hash
+                    }) {
+                        return false;
+                    }
+                }
+
+                // Filter by event name if specified
+                if let Some(event_name) = filter.get("event_name").and_then(|e| e.as_str()) {
+                    if !notifications.iter().any(|n| {
+                        n.get("eventName").and_then(|e| e.as_str()).unwrap_or("") == event_name
+                    }) {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            event::Event::NeoApplicationLog {
+                tx_hash,
+                applicationLog,
+            } => {
+                // Filter by transaction hash if specified
+                if let Some(filter_tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
+                    if tx_hash != filter_tx_hash {
+                        return false;
+                    }
+                }
+
+                // Filter by execution success if specified
+                if let Some(success) = filter.get("success").and_then(|s| s.as_bool()) {
+                    if let Some(executions) =
+                        applicationLog.get("executions").and_then(|e| e.as_array())
+                    {
+                        if !executions.iter().any(|e| {
+                            e.get("vmstate").and_then(|s| s.as_str()).unwrap_or("") == "HALT"
+                        }) == success
+                        {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            _ => true, // Include all other event types
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -200,7 +329,7 @@ impl TaskSource for NeoTaskSource {
 
         self.count += 1;
         let fid = 1 + (self.count & 1);
-        
+
         // Rotate through different trigger types
         let event = match self.current_trigger {
             Trigger::NeoNewBlock => {
@@ -210,7 +339,7 @@ impl TaskSource for NeoTaskSource {
                     Err(e) => {
                         // Log the error
                         eprintln!("Error fetching Neo block: {:?}", e);
-                        
+
                         // Fallback to mock data if RPC fails
                         NeoBlock {
                             header: Some(NeoBlockHeader {
@@ -229,13 +358,13 @@ impl TaskSource for NeoTaskSource {
                         }
                     }
                 };
-                
+
                 // Update trigger for next time
                 self.current_trigger = Trigger::NeoNewTx;
-                
+
                 // Create the event with the correct type
                 event::Event::NeoBlock(neo_block)
-            },
+            }
             Trigger::NeoNewTx => {
                 // Get Neo block data to extract a transaction
                 let neo_block = match self.fetch_latest_block().await {
@@ -249,7 +378,7 @@ impl TaskSource for NeoTaskSource {
                         }
                     }
                 };
-                
+
                 // Extract the first transaction if available
                 let tx = if !neo_block.txs.is_empty() {
                     neo_block.txs[0].clone()
@@ -269,16 +398,16 @@ impl TaskSource for NeoTaskSource {
                         witnesses: vec![],
                     }
                 };
-                
+
                 // Update trigger for next time
                 self.current_trigger = Trigger::NeoContractNotification;
-                
+
                 // Create the event with the transaction
                 event::Event::NeoBlock(NeoBlock {
                     header: None,
                     txs: vec![tx],
                 })
-            },
+            }
             Trigger::NeoContractNotification | Trigger::NeoApplicationLog => {
                 // For contract notifications and application logs, we need to get a transaction first
                 let neo_block = match self.fetch_latest_block().await {
@@ -292,14 +421,14 @@ impl TaskSource for NeoTaskSource {
                         }
                     }
                 };
-                
+
                 // Extract a transaction hash if available
                 let tx_hash = if !neo_block.txs.is_empty() {
                     neo_block.txs[0].hash.clone()
                 } else {
                     format!("mock_tx_hash_{}", self.count)
                 };
-                
+
                 // Try to get application log for the transaction
                 let app_log_json = match self.fetch_application_log(&tx_hash).await {
                     Ok(log) => log,
@@ -308,7 +437,7 @@ impl TaskSource for NeoTaskSource {
                         "{}".to_string() // Empty JSON object as fallback
                     }
                 };
-                
+
                 // Parse the application log
                 let app_log: serde_json::Value = match serde_json::from_str(&app_log_json) {
                     Ok(log) => log,
@@ -317,29 +446,35 @@ impl TaskSource for NeoTaskSource {
                         serde_json::json!({})
                     }
                 };
-                
+
                 // Extract notifications from the application log
-                let notifications = if let Some(executions) = app_log.get("executions").and_then(|e| e.as_array()) {
+                let notifications = if let Some(executions) =
+                    app_log.get("executions").and_then(|e| e.as_array())
+                {
                     let mut all_notifications = Vec::new();
-                    
+
                     for execution in executions {
-                        if let Some(notifications_array) = execution.get("notifications").and_then(|n| n.as_array()) {
+                        if let Some(notifications_array) =
+                            execution.get("notifications").and_then(|n| n.as_array())
+                        {
                             for notification in notifications_array {
                                 all_notifications.push(notification.clone());
                             }
                         }
                     }
-                    
+
                     all_notifications
                 } else {
                     Vec::new()
                 };
-                
+
                 // Update trigger for next time
                 self.current_trigger = Trigger::NeoNewBlock;
-                
+
                 // Create the appropriate event based on the trigger type
-                if self.current_trigger == Trigger::NeoContractNotification && !notifications.is_empty() {
+                if self.current_trigger == Trigger::NeoContractNotification
+                    && !notifications.is_empty()
+                {
                     // Return contract notification event
                     event::Event::NeoContractNotification {
                         tx_hash,
@@ -352,11 +487,11 @@ impl TaskSource for NeoTaskSource {
                         applicationLog: app_log,
                     }
                 }
-            },
+            }
             _ => {
                 // For any other trigger type, default to NeoNewBlock
                 self.current_trigger = Trigger::NeoNewBlock;
-                
+
                 // Get Neo block data
                 let neo_block = match self.fetch_latest_block().await {
                     Ok(block) => block,
@@ -380,115 +515,22 @@ impl TaskSource for NeoTaskSource {
                         }
                     }
                 };
-                
+
                 event::Event::NeoBlock(neo_block)
             }
         };
 
+        // Apply filter if provided
+        if let Some(filter) = &self.filter {
+            if !self.filter_event(&event, Some(filter)) {
+                // If the event doesn't pass the filter, try again with a different event
+                return self.acquire_task(_uid, _fid_hint).await;
+            }
+        }
+
         Ok(Task::new(self.uid, fid, event))
     }
 
-    /// Filter events based on criteria
-    fn filter_event(&self, event: &event::Event, filter: Option<&serde_json::Value>) -> bool {
-        // If no filter is provided, return true (include all events)
-        let filter = match filter {
-            Some(f) => f,
-            None => return true,
-        };
-        
-        match event {
-            event::Event::NeoBlock(block) => {
-                // Filter by block height if specified
-                if let Some(min_height) = filter.get("min_height").and_then(|h| h.as_u64()) {
-                    if let Some(header) = &block.header {
-                        if header.height as u64 < min_height {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                
-                // Filter by block time if specified
-                if let Some(min_time) = filter.get("min_time").and_then(|t| t.as_u64()) {
-                    if let Some(header) = &block.header {
-                        if header.time < min_time {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                
-                // Filter by transaction count if specified
-                if let Some(min_tx_count) = filter.get("min_tx_count").and_then(|c| c.as_u64()) {
-                    if block.txs.len() < min_tx_count as usize {
-                        return false;
-                    }
-                }
-                
-                // Filter by transaction hash if specified
-                if let Some(tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
-                    if !block.txs.iter().any(|tx| tx.hash == tx_hash) {
-                        return false;
-                    }
-                }
-                
-                true
-            },
-            event::Event::NeoContractNotification { tx_hash, notifications } => {
-                // Filter by transaction hash if specified
-                if let Some(filter_tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
-                    if tx_hash != filter_tx_hash {
-                        return false;
-                    }
-                }
-                
-                // Filter by contract hash if specified
-                if let Some(contract_hash) = filter.get("contract_hash").and_then(|h| h.as_str()) {
-                    if !notifications.iter().any(|n| {
-                        n.get("contract").and_then(|c| c.as_str()).unwrap_or("") == contract_hash
-                    }) {
-                        return false;
-                    }
-                }
-                
-                // Filter by event name if specified
-                if let Some(event_name) = filter.get("event_name").and_then(|e| e.as_str()) {
-                    if !notifications.iter().any(|n| {
-                        n.get("eventName").and_then(|e| e.as_str()).unwrap_or("") == event_name
-                    }) {
-                        return false;
-                    }
-                }
-                
-                true
-            },
-            event::Event::NeoApplicationLog { tx_hash, applicationLog } => {
-                // Filter by transaction hash if specified
-                if let Some(filter_tx_hash) = filter.get("tx_hash").and_then(|h| h.as_str()) {
-                    if tx_hash != filter_tx_hash {
-                        return false;
-                    }
-                }
-                
-                // Filter by execution success if specified
-                if let Some(success) = filter.get("success").and_then(|s| s.as_bool()) {
-                    if let Some(executions) = applicationLog.get("executions").and_then(|e| e.as_array()) {
-                        if !executions.iter().any(|e| e.get("vmstate").and_then(|s| s.as_str()).unwrap_or("") == "HALT") == success {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                }
-                
-                true
-            },
-            _ => true, // Include all other event types
-        }
-    }
-    
     async fn acquire_fn(&mut self, _uid: u64, _fid: u64) -> Result<Func, FuncError> {
         let code = format!(
             r#"

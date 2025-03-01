@@ -12,35 +12,35 @@ pub enum Error {
     /// Configuration error
     #[error("Configuration error: {0}")]
     Configuration(String),
-    
+
     /// Database error
     #[error("Database error: {0}")]
     Database(String),
-    
+
     /// Authentication error
     #[error("Authentication error: {0}")]
     Authentication(String),
-    
+
     /// Authorization error
     #[error("Authorization error: {0}")]
     Authorization(String),
-    
+
     /// Validation error
     #[error("Validation error: {0}")]
     Validation(String),
-    
+
     /// Not found error
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     /// Network error
     #[error("Network error: {0}")]
     Network(String),
-    
+
     /// Blockchain error
     #[error("Blockchain error: {0}")]
     Blockchain(String),
-    
+
     /// Internal error
     #[error("Internal error: {0}")]
     Internal(String),
@@ -51,10 +51,10 @@ pub enum Error {
 pub struct ErrorResponse {
     /// Error message
     pub message: String,
-    
+
     /// Error code
     pub code: String,
-    
+
     /// Error details
     pub details: Option<serde_json::Value>,
 }
@@ -72,17 +72,18 @@ impl IntoResponse for Error {
             Error::Blockchain(_) => (StatusCode::BAD_GATEWAY, "BLOCKCHAIN_ERROR"),
             Error::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };
-        
+
         let body = ErrorResponse {
             message: self.to_string(),
             code: code.to_string(),
             details: None,
         };
-        
+
         let body = serde_json::to_string(&body).unwrap_or_else(|_| {
-            r#"{"message":"Failed to serialize error response","code":"INTERNAL_ERROR"}"#.to_string()
+            r#"{"message":"Failed to serialize error response","code":"INTERNAL_ERROR"}"#
+                .to_string()
         });
-        
+
         (status, body).into_response()
     }
 }

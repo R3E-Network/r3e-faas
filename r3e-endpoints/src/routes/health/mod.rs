@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 pub struct HealthCheckResponse {
     /// Status
     pub status: String,
-    
+
     /// Version
     pub version: String,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }

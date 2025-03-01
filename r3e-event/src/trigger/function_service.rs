@@ -26,10 +26,10 @@ pub trait FunctionService: Send + Sync {
 pub struct WorkerFunctionService {
     /// Worker service URL
     worker_url: String,
-    
+
     /// HTTP client
     client: reqwest::Client,
-    
+
     /// Request timeout
     timeout: Duration,
 }
@@ -43,7 +43,7 @@ impl WorkerFunctionService {
             timeout: Duration::from_secs(30),
         }
     }
-    
+
     /// Set the request timeout
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
@@ -61,47 +61,55 @@ impl FunctionService for WorkerFunctionService {
     ) -> Result<serde_json::Value, String> {
         // Create the request URL
         let url = format!("{}/functions/{}/invoke", self.worker_url, function_id);
-        
+
         // Create the request body
         let body = json!({
             "user_id": user_id,
             "input": input,
         });
-        
+
         // Log the function execution request
         debug!(
             "Executing function {} for user {} with input: {}",
             function_id, user_id, input
         );
-        
+
         // Execute the function
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .json(&body)
             .timeout(self.timeout)
             .send()
             .await
             .map_err(|e| format!("Failed to send function execution request: {}", e))?;
-        
+
         // Check the response status
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await
+            let error_text = response
+                .text()
+                .await
                 .unwrap_or_else(|_| "Failed to get error text".to_string());
-            
-            return Err(format!("Function execution failed with status {}: {}", status, error_text));
+
+            return Err(format!(
+                "Function execution failed with status {}: {}",
+                status, error_text
+            ));
         }
-        
+
         // Parse the response
-        let result = response.json::<serde_json::Value>().await
+        let result = response
+            .json::<serde_json::Value>()
+            .await
             .map_err(|e| format!("Failed to parse function execution response: {}", e))?;
-        
+
         // Log the function execution result
         debug!(
             "Function {} executed successfully for user {} with result: {}",
             function_id, user_id, result
         );
-        
+
         Ok(result)
     }
 }
@@ -110,7 +118,7 @@ impl FunctionService for WorkerFunctionService {
 pub struct MockFunctionService {
     /// Execution delay
     delay: Duration,
-    
+
     /// Execution results
     results: Arc<RwLock<std::collections::HashMap<String, Result<serde_json::Value, String>>>>,
 }
@@ -123,19 +131,15 @@ impl MockFunctionService {
             results: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
-    
+
     /// Set the execution delay
     pub fn with_delay(mut self, delay: Duration) -> Self {
         self.delay = delay;
         self
     }
-    
+
     /// Set a function execution result
-    pub async fn set_result(
-        &self,
-        function_id: &str,
-        result: Result<serde_json::Value, String>,
-    ) {
+    pub async fn set_result(&self, function_id: &str, result: Result<serde_json::Value, String>) {
         let mut results = self.results.write().await;
         results.insert(function_id.to_string(), result);
     }
@@ -154,13 +158,13 @@ impl FunctionService for MockFunctionService {
             "Mock executing function {} for user {} with input: {}",
             function_id, user_id, input
         );
-        
+
         // Simulate execution delay
         tokio::time::sleep(self.delay).await;
-        
+
         // Get the function execution result
         let results = self.results.read().await;
-        
+
         if let Some(result) = results.get(function_id) {
             // Return the predefined result
             result.clone()
@@ -199,9 +203,7 @@ pub trait WorkerServiceTrait: Send + Sync {
 impl DirectFunctionService {
     /// Create a new direct function service
     pub fn new(worker_service: Arc<dyn WorkerServiceTrait>) -> Self {
-        Self {
-            worker_service,
-        }
+        Self { worker_service }
     }
 }
 
@@ -218,16 +220,19 @@ impl FunctionService for DirectFunctionService {
             "Directly executing function {} for user {} with input: {}",
             function_id, user_id, input
         );
-        
+
         // Execute the function
-        let result = self.worker_service.invoke_function(user_id, function_id, input).await?;
-        
+        let result = self
+            .worker_service
+            .invoke_function(user_id, function_id, input)
+            .await?;
+
         // Log the function execution result
         debug!(
             "Function {} executed successfully for user {} with result: {}",
             function_id, user_id, result
         );
-        
+
         Ok(result)
     }
 }

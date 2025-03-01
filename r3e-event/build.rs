@@ -24,7 +24,7 @@ fn main() -> Result<()> {
         .field_attribute(".events.Map.values", r#"#[serde(flatten)]"#)
         .field_attribute(".events.List.values", r#"#[serde(flatten)]"#)
         .compile_protos(&["src/source/protos/service.proto"], &["src/source/protos"])?;
-    
+
     // Compile registry protos
     tonic_build::configure()
         .out_dir("src/registry")

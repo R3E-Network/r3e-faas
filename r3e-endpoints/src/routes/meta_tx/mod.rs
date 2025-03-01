@@ -31,23 +31,34 @@ pub async fn submit(
         nonce: request.nonce,
         deadline: request.deadline,
         blockchain_type: match request.blockchain_type {
-            crate::types::BlockchainType::NeoN3 => r3e_neo_services::meta_tx::types::BlockchainType::NeoN3,
-            crate::types::BlockchainType::Ethereum => r3e_neo_services::meta_tx::types::BlockchainType::Ethereum,
+            crate::types::BlockchainType::NeoN3 => {
+                r3e_neo_services::meta_tx::types::BlockchainType::NeoN3
+            }
+            crate::types::BlockchainType::Ethereum => {
+                r3e_neo_services::meta_tx::types::BlockchainType::Ethereum
+            }
         },
         target_contract: request.target_contract.clone(),
         signature_curve: match request.signature_curve {
-            crate::types::SignatureCurve::Secp256r1 => r3e_neo_services::meta_tx::types::SignatureCurve::Secp256r1,
-            crate::types::SignatureCurve::Secp256k1 => r3e_neo_services::meta_tx::types::SignatureCurve::Secp256k1,
+            crate::types::SignatureCurve::Secp256r1 => {
+                r3e_neo_services::meta_tx::types::SignatureCurve::Secp256r1
+            }
+            crate::types::SignatureCurve::Secp256k1 => {
+                r3e_neo_services::meta_tx::types::SignatureCurve::Secp256k1
+            }
         },
         fee_model: r3e_neo_services::types::FeeModel::Percentage(1.0),
         fee_amount: 0,
         timestamp: request.timestamp,
     };
-    
+
     // Submit the meta transaction
-    let response = service.meta_tx_service.submit(meta_tx_request).await
+    let response = service
+        .meta_tx_service
+        .submit(meta_tx_request)
+        .await
         .map_err(|e| Error::Blockchain(format!("Failed to submit meta transaction: {}", e)))?;
-    
+
     // Convert to API response
     let api_response = MetaTransactionResponse {
         request_id: response.request_id,
@@ -57,7 +68,7 @@ pub async fn submit(
         error: response.error,
         timestamp: response.timestamp,
     };
-    
+
     Ok(Json(api_response))
 }
 
@@ -67,9 +78,11 @@ pub async fn get_status(
     Path(id): Path<String>,
 ) -> Result<Json<String>, Error> {
     // Get the meta transaction status
-    let status = service.meta_tx_service.get_status(&id).await
-        .map_err(|e| Error::Blockchain(format!("Failed to get meta transaction status: {}", e)))?;
-    
+    let status =
+        service.meta_tx_service.get_status(&id).await.map_err(|e| {
+            Error::Blockchain(format!("Failed to get meta transaction status: {}", e))
+        })?;
+
     Ok(Json(status.to_string()))
 }
 
@@ -79,10 +92,13 @@ pub async fn get_transaction(
     Path(id): Path<String>,
 ) -> Result<Json<r3e_neo_services::meta_tx::types::MetaTxRecord>, Error> {
     // Get the meta transaction
-    let record = service.meta_tx_service.get_transaction(&id).await
+    let record = service
+        .meta_tx_service
+        .get_transaction(&id)
+        .await
         .map_err(|e| Error::Blockchain(format!("Failed to get meta transaction: {}", e)))?
         .ok_or_else(|| Error::NotFound(format!("Meta transaction not found: {}", id)))?;
-    
+
     Ok(Json(record))
 }
 
@@ -92,8 +108,11 @@ pub async fn get_next_nonce(
     Path(address): Path<String>,
 ) -> Result<Json<u64>, Error> {
     // Get the next nonce
-    let nonce = service.meta_tx_service.get_next_nonce(&address).await
+    let nonce = service
+        .meta_tx_service
+        .get_next_nonce(&address)
+        .await
         .map_err(|e| Error::Blockchain(format!("Failed to get next nonce: {}", e)))?;
-    
+
     Ok(Json(nonce))
 }

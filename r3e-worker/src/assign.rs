@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use crate::{Action, Stopper, Worker};
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct Assign {
     pub uid: u64,
@@ -34,7 +33,10 @@ impl Assigner {
         while !stopper.stopped() {
             let uid = 1;
             if self.worker.runners_of(uid) == 0 {
-                let assign = Assign { uid, action: Action::Spawn };
+                let assign = Assign {
+                    uid,
+                    action: Action::Spawn,
+                };
                 self.tx
                     .send(assign)
                     .map_err(|_err| AssignError::SendError(assign))?;

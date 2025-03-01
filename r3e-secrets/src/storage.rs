@@ -13,15 +13,29 @@ use crate::{EncryptedSecret, SecretError};
 pub trait SecretStorage: Send + Sync {
     /// Store a secret
     async fn store_secret(&self, secret: EncryptedSecret) -> Result<(), SecretError>;
-    
+
     /// Get a secret
-    async fn get_secret(&self, user_id: &str, function_id: &str, secret_id: &str) -> Result<EncryptedSecret, SecretError>;
-    
+    async fn get_secret(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        secret_id: &str,
+    ) -> Result<EncryptedSecret, SecretError>;
+
     /// Delete a secret
-    async fn delete_secret(&self, user_id: &str, function_id: &str, secret_id: &str) -> Result<(), SecretError>;
-    
+    async fn delete_secret(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        secret_id: &str,
+    ) -> Result<(), SecretError>;
+
     /// List secrets for a function
-    async fn list_function_secrets(&self, user_id: &str, function_id: &str) -> Result<Vec<EncryptedSecret>, SecretError>;
+    async fn list_function_secrets(
+        &self,
+        user_id: &str,
+        function_id: &str,
+    ) -> Result<Vec<EncryptedSecret>, SecretError>;
 }
 
 /// Memory-based implementation of SecretStorage
@@ -36,7 +50,7 @@ impl MemorySecretStorage {
             secrets: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     /// Generate a composite key for storing secrets
     fn generate_key(user_id: &str, function_id: &str, secret_id: &str) -> String {
         format!("{}:{}:{}", user_id, function_id, secret_id)
@@ -51,38 +65,58 @@ impl SecretStorage for MemorySecretStorage {
         secrets.insert(key, secret);
         Ok(())
     }
-    
-    async fn get_secret(&self, user_id: &str, function_id: &str, secret_id: &str) -> Result<EncryptedSecret, SecretError> {
+
+    async fn get_secret(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        secret_id: &str,
+    ) -> Result<EncryptedSecret, SecretError> {
         let key = Self::generate_key(user_id, function_id, secret_id);
         let secrets = self.secrets.read().await;
-        
+
         match secrets.get(&key) {
             Some(secret) => Ok(secret.clone()),
-            None => Err(SecretError::NotFound(format!("Secret not found: {}", secret_id))),
+            None => Err(SecretError::NotFound(format!(
+                "Secret not found: {}",
+                secret_id
+            ))),
         }
     }
-    
-    async fn delete_secret(&self, user_id: &str, function_id: &str, secret_id: &str) -> Result<(), SecretError> {
+
+    async fn delete_secret(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        secret_id: &str,
+    ) -> Result<(), SecretError> {
         let key = Self::generate_key(user_id, function_id, secret_id);
         let mut secrets = self.secrets.write().await;
-        
+
         if secrets.remove(&key).is_none() {
-            return Err(SecretError::NotFound(format!("Secret not found: {}", secret_id)));
+            return Err(SecretError::NotFound(format!(
+                "Secret not found: {}",
+                secret_id
+            )));
         }
-        
+
         Ok(())
     }
-    
-    async fn list_function_secrets(&self, user_id: &str, function_id: &str) -> Result<Vec<EncryptedSecret>, SecretError> {
+
+    async fn list_function_secrets(
+        &self,
+        user_id: &str,
+        function_id: &str,
+    ) -> Result<Vec<EncryptedSecret>, SecretError> {
         let secrets = self.secrets.read().await;
         let prefix = format!("{}:{}", user_id, function_id);
-        
+
         let function_secrets = secrets
             .values()
             .filter(|s| s.user_id == user_id && s.function_id == function_id)
             .cloned()
             .collect();
-        
+
         Ok(function_secrets)
     }
 }

@@ -199,12 +199,20 @@ impl FheService {
     }
 
     /// Encrypt data using a public key.
-    pub fn encrypt(&self, _public_key_id: &FhePublicKeyId, _plaintext: &[u8]) -> FheResult<FheCiphertext> {
+    pub fn encrypt(
+        &self,
+        _public_key_id: &FhePublicKeyId,
+        _plaintext: &[u8],
+    ) -> FheResult<FheCiphertext> {
         Err(FheError::NotSupported)
     }
 
     /// Decrypt data using a private key.
-    pub fn decrypt(&self, _private_key_id: &FhePrivateKeyId, _ciphertext_id: &FheCiphertextId) -> FheResult<Vec<u8>> {
+    pub fn decrypt(
+        &self,
+        _private_key_id: &FhePrivateKeyId,
+        _ciphertext_id: &FheCiphertextId,
+    ) -> FheResult<Vec<u8>> {
         Err(FheError::NotSupported)
     }
 
@@ -224,7 +232,10 @@ impl FheService {
     }
 
     /// Estimate the noise budget of a ciphertext.
-    pub fn estimate_noise_budget(&self, _ciphertext_id: &FheCiphertextId) -> FheResult<Option<u32>> {
+    pub fn estimate_noise_budget(
+        &self,
+        _ciphertext_id: &FheCiphertextId,
+    ) -> FheResult<Option<u32>> {
         Err(FheError::NotSupported)
     }
 }

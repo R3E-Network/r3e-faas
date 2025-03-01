@@ -8,10 +8,10 @@
 
 mod config;
 mod error;
-mod service;
-mod types;
 pub mod provider;
+mod service;
 pub mod storage;
+mod types;
 
 pub use config::*;
 pub use error::*;

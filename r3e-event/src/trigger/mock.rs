@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::trigger::types::{TriggerCondition, TriggerError, TriggerSource};
 use crate::trigger::integration::TriggerEvaluator;
+use crate::trigger::types::{TriggerCondition, TriggerError, TriggerSource};
 
 /// Mock trigger evaluator
 pub struct MockTriggerEvaluator {
@@ -19,11 +19,9 @@ pub struct MockTriggerEvaluator {
 impl MockTriggerEvaluator {
     /// Create a new mock trigger evaluator
     pub fn new() -> Self {
-        Self {
-            should_match: true,
-        }
+        Self { should_match: true }
     }
-    
+
     /// Set should match
     pub fn with_should_match(mut self, should_match: bool) -> Self {
         self.should_match = should_match;
@@ -55,13 +53,13 @@ impl MockTriggerService {
             should_succeed: true,
         }
     }
-    
+
     /// Set should succeed
     pub fn with_should_succeed(mut self, should_succeed: bool) -> Self {
         self.should_succeed = should_succeed;
         self
     }
-    
+
     /// Process an event
     pub async fn process_event(
         &self,

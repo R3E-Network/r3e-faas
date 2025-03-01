@@ -11,22 +11,22 @@ edition = "2021"
 r3e-core    = { path = "../r3e-core" }
 r3e-event   = { path = "../r3e-event" }
 
-deno_core   =  { version = "0.190.0" }
-v8          =  { version = "0", default-features = false }
+deno_core   =  { version = "0.340.0" }
+v8          =  { version = "134.5.0", default-features = false }
 
 serde       = { version = "1" }
-serde_v8    = { version = "0.190.0" }
+serde_v8    = { version = "0.249.0" }
 
 tokio       =  { version = "1", features = ["full"]}
 futures     =  { version = "0.3" }
 
 anyhow      =  { version = "1" }
-thiserror   =  { version = "1" }
+thiserror   =  { version = "2.0.11" }
 
 lazy_static =  { version = "1" }
 
 # Neo N3 SDK
-NeoRust = { git = "https://github.com/R3E-Network/NeoRust.git" }
+neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 url         = { version = "2" }
 hex         = { version = "0.4" }
 

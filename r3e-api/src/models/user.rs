@@ -13,10 +13,10 @@ use validator::Validate;
 pub enum UserRole {
     /// Admin user
     Admin,
-    
+
     /// Developer user
     Developer,
-    
+
     /// Viewer user
     Viewer,
 }
@@ -32,27 +32,27 @@ impl Default for UserRole {
 pub struct User {
     /// User ID
     pub id: Uuid,
-    
+
     /// Username
     pub username: String,
-    
+
     /// Email
     pub email: String,
-    
+
     /// Password hash
     #[serde(skip_serializing)]
     pub password_hash: String,
-    
+
     /// User role
     pub role: UserRole,
-    
+
     /// API key
     #[serde(skip_serializing)]
     pub api_key: Option<String>,
-    
+
     /// Created at
     pub created_at: DateTime<Utc>,
-    
+
     /// Updated at
     pub updated_at: DateTime<Utc>,
 }
@@ -63,15 +63,15 @@ pub struct CreateUserRequest {
     /// Username
     #[validate(length(min = 3, max = 50))]
     pub username: String,
-    
+
     /// Email
     #[validate(email)]
     pub email: String,
-    
+
     /// Password
     #[validate(length(min = 8, max = 100))]
     pub password: String,
-    
+
     /// User role
     pub role: Option<UserRole>,
 }
@@ -82,15 +82,15 @@ pub struct UpdateUserRequest {
     /// Username
     #[validate(length(min = 3, max = 50))]
     pub username: Option<String>,
-    
+
     /// Email
     #[validate(email)]
     pub email: Option<String>,
-    
+
     /// Password
     #[validate(length(min = 8, max = 100))]
     pub password: Option<String>,
-    
+
     /// User role
     pub role: Option<UserRole>,
 }
@@ -101,7 +101,7 @@ pub struct LoginRequest {
     /// Username or email
     #[validate(length(min = 3, max = 100))]
     pub username_or_email: String,
-    
+
     /// Password
     #[validate(length(min = 8, max = 100))]
     pub password: String,
@@ -112,13 +112,13 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     /// User
     pub user: User,
-    
+
     /// Access token
     pub access_token: String,
-    
+
     /// Token type
     pub token_type: String,
-    
+
     /// Expires in seconds
     pub expires_in: u64,
 }
@@ -128,19 +128,19 @@ pub struct LoginResponse {
 pub struct UserProfile {
     /// User ID
     pub id: Uuid,
-    
+
     /// Username
     pub username: String,
-    
+
     /// Email
     pub email: String,
-    
+
     /// User role
     pub role: UserRole,
-    
+
     /// Created at
     pub created_at: DateTime<Utc>,
-    
+
     /// Updated at
     pub updated_at: DateTime<Utc>,
 }

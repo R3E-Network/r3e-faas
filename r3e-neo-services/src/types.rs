@@ -1,8 +1,8 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
+use neo3::neo_types::{address::Address, script_hash::ScriptHash};
 use serde::{Deserialize, Serialize};
-use NeoRust::neo_types::{address::Address, script_hash::ScriptHash};
 
 /// Configuration for Neo N3 services
 #[derive(Debug, Clone, Serialize, Deserialize)]

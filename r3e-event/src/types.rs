@@ -11,7 +11,7 @@ pub enum Trigger {
     /// Generic triggers
     NewBlock,
     NewTx,
-    
+
     /// Neo-specific triggers
     NeoNewBlock,
     NeoNewTx,
@@ -24,7 +24,7 @@ pub enum Trigger {
 pub enum Source {
     /// Bitcoin blockchain
     Bitcoin,
-    
+
     /// Neo blockchain
     Neo,
 }
@@ -34,10 +34,10 @@ pub enum Source {
 pub struct Context {
     /// Event trigger type
     pub trigger: Trigger,
-    
+
     /// Event triggered time
     pub triggered_time: u64,
-    
+
     /// Event source
     pub source: Source,
 }
@@ -47,7 +47,7 @@ pub struct Context {
 pub struct EventData {
     /// Event ID
     pub id: String,
-    
+
     /// Event payload
     pub payload: serde_json::Value,
 }
@@ -57,7 +57,7 @@ pub struct EventData {
 pub struct Event {
     /// Event context
     pub context: Context,
-    
+
     /// Event data
     pub data: EventData,
 }

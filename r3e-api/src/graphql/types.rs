@@ -6,9 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::function::{
-    Function, FunctionStatus, Runtime, SecurityLevel, TriggerType,
-};
+use crate::models::function::{Function, FunctionStatus, Runtime, SecurityLevel, TriggerType};
 use crate::models::service::{
     Service, ServiceStatus, ServiceSummary, ServiceType, ServiceVisibility,
 };
@@ -19,19 +17,19 @@ use crate::models::user::{User, UserRole};
 pub struct UserObject {
     /// User ID
     pub id: Uuid,
-    
+
     /// Username
     pub username: String,
-    
+
     /// Email
     pub email: String,
-    
+
     /// User role
     pub role: String,
-    
+
     /// Created at
     pub created_at: DateTime<Utc>,
-    
+
     /// Updated at
     pub updated_at: DateTime<Utc>,
 }
@@ -54,13 +52,13 @@ impl From<User> for UserObject {
 pub struct UserInput {
     /// Username
     pub username: String,
-    
+
     /// Email
     pub email: String,
-    
+
     /// Password
     pub password: String,
-    
+
     /// User role
     pub role: Option<String>,
 }
@@ -70,13 +68,13 @@ pub struct UserInput {
 pub struct UserResult {
     /// Success
     pub success: bool,
-    
+
     /// Message
     pub message: String,
-    
+
     /// User
     pub user: Option<UserObject>,
-    
+
     /// Token
     #[graphql(skip)]
     pub token: Option<String>,
@@ -87,34 +85,34 @@ pub struct UserResult {
 pub struct ServiceObject {
     /// Service ID
     pub id: Uuid,
-    
+
     /// User ID
     pub user_id: Uuid,
-    
+
     /// Service name
     pub name: String,
-    
+
     /// Service description
     pub description: Option<String>,
-    
+
     /// Service type
     pub service_type: String,
-    
+
     /// Service configuration
     pub config: serde_json::Value,
-    
+
     /// Service status
     pub status: String,
-    
+
     /// Service visibility
     pub visibility: String,
-    
+
     /// Service version
     pub version: String,
-    
+
     /// Created at
     pub created_at: DateTime<Utc>,
-    
+
     /// Updated at
     pub updated_at: DateTime<Utc>,
 }
@@ -160,19 +158,19 @@ impl From<ServiceSummary> for ServiceObject {
 pub struct ServiceInput {
     /// Service name
     pub name: String,
-    
+
     /// Service description
     pub description: Option<String>,
-    
+
     /// Service type
     pub service_type: ServiceType,
-    
+
     /// Service configuration
     pub config: serde_json::Value,
-    
+
     /// Service status
     pub status: Option<ServiceStatus>,
-    
+
     /// Service visibility
     pub visibility: Option<ServiceVisibility>,
 }
@@ -182,10 +180,10 @@ pub struct ServiceInput {
 pub struct ServiceResult {
     /// Success
     pub success: bool,
-    
+
     /// Message
     pub message: String,
-    
+
     /// Service
     pub service: Option<ServiceObject>,
 }
@@ -195,46 +193,46 @@ pub struct ServiceResult {
 pub struct FunctionObject {
     /// Function ID
     pub id: Uuid,
-    
+
     /// Service ID
     pub service_id: Uuid,
-    
+
     /// User ID
     pub user_id: Uuid,
-    
+
     /// Function name
     pub name: String,
-    
+
     /// Function description
     pub description: Option<String>,
-    
+
     /// Function code
     pub code: String,
-    
+
     /// Function runtime
     pub runtime: String,
-    
+
     /// Function trigger type
     pub trigger_type: String,
-    
+
     /// Function trigger configuration
     pub trigger_config: serde_json::Value,
-    
+
     /// Function security level
     pub security_level: String,
-    
+
     /// Function status
     pub status: String,
-    
+
     /// Function version
     pub version: String,
-    
+
     /// Function hash
     pub hash: String,
-    
+
     /// Created at
     pub created_at: DateTime<Utc>,
-    
+
     /// Updated at
     pub updated_at: DateTime<Utc>,
 }
@@ -266,28 +264,28 @@ impl From<Function> for FunctionObject {
 pub struct FunctionInput {
     /// Service ID
     pub service_id: Uuid,
-    
+
     /// Function name
     pub name: String,
-    
+
     /// Function description
     pub description: Option<String>,
-    
+
     /// Function code
     pub code: String,
-    
+
     /// Function runtime
     pub runtime: Option<Runtime>,
-    
+
     /// Function trigger type
     pub trigger_type: TriggerType,
-    
+
     /// Function trigger configuration
     pub trigger_config: serde_json::Value,
-    
+
     /// Function security level
     pub security_level: Option<SecurityLevel>,
-    
+
     /// Function status
     pub status: Option<FunctionStatus>,
 }
@@ -297,16 +295,16 @@ pub struct FunctionInput {
 pub struct FunctionResult {
     /// Success
     pub success: bool,
-    
+
     /// Message
     pub message: String,
-    
+
     /// Function
     pub function: Option<FunctionObject>,
-    
+
     /// Invocation result
     pub invocation_result: Option<serde_json::Value>,
-    
+
     /// Execution time in milliseconds
     pub execution_time_ms: Option<u64>,
 }

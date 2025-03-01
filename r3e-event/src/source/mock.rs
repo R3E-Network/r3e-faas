@@ -37,34 +37,38 @@ impl MockTaskSource {
             event_type_index: 0,
         }
     }
-    
+
     /// Set sleep duration
     pub fn with_sleep(mut self, sleep: Duration) -> Self {
         self.sleep = sleep;
         self
     }
-    
+
     /// Set user ID
     pub fn with_uid(mut self, uid: u64) -> Self {
         self.uid = uid;
         self
     }
-    
+
     /// Add a mock task
     pub fn add_task(mut self, uid: u64, fid: u64, event: event::Event) -> Self {
         self.tasks.push(Task::new(uid, fid, event));
         self
     }
-    
+
     /// Add a mock function
     pub fn add_function(mut self, uid: u64, fid: u64, code: &str) -> Self {
-        self.functions.push((uid, fid, Func {
-            version: 1,
-            code: code.to_string(),
-        }));
+        self.functions.push((
+            uid,
+            fid,
+            Func {
+                version: 1,
+                code: code.to_string(),
+            },
+        ));
         self
     }
-    
+
     /// Create a mock task source with default tasks and functions
     pub fn with_defaults() -> Self {
         let neo_block = json!({
@@ -82,7 +86,7 @@ impl MockTaskSource {
             "confirmations": 100,
             "nextblockhash": "0xfedcba0987654321"
         });
-        
+
         let ethereum_block = json!({
             "number": "0x1b4",
             "hash": "0xe670ec64341771606e55d6b4ca35a1a6b75ee3d5145a99d05921026d1527331",
@@ -103,7 +107,7 @@ impl MockTaskSource {
             "transactions": [],
             "uncles": []
         });
-        
+
         let neo_function_code = r#"
         // Neo event handler
         export default function(event) {
@@ -117,7 +121,7 @@ impl MockTaskSource {
             };
         }
         "#;
-        
+
         let ethereum_function_code = r#"
         // Ethereum event handler
         export default function(event) {
@@ -131,19 +135,19 @@ impl MockTaskSource {
             };
         }
         "#;
-        
+
         Self::new()
             .add_task(1, 1, event::Event::NeoBlock(neo_block))
             .add_task(1, 2, event::Event::EthereumBlock(ethereum_block))
             .add_function(1, 1, neo_function_code)
             .add_function(1, 2, ethereum_function_code)
     }
-    
+
     /// Generate a random event
     fn generate_random_event(&mut self) -> event::Event {
         // Rotate through different event types
         self.event_type_index = (self.event_type_index + 1) % 6;
-        
+
         match self.event_type_index {
             0 => {
                 // Neo block
@@ -162,9 +166,9 @@ impl MockTaskSource {
                     "confirmations": 100,
                     "nextblockhash": "0xfedcba0987654321"
                 });
-                
+
                 event::Event::NeoBlock(block)
-            },
+            }
             1 => {
                 // Neo transaction
                 let tx = json!({
@@ -181,9 +185,9 @@ impl MockTaskSource {
                     "script": "0x0123456789abcdef",
                     "witnesses": []
                 });
-                
+
                 event::Event::NeoTransaction(tx)
-            },
+            }
             2 => {
                 // Neo contract event
                 let events = json!([
@@ -209,12 +213,12 @@ impl MockTaskSource {
                         }
                     }
                 ]);
-                
+
                 event::Event::NeoContractEvent {
                     contract_address: "0x1234567890abcdef".to_string(),
                     events,
                 }
-            },
+            }
             3 => {
                 // Ethereum block
                 let block = json!({
@@ -237,9 +241,9 @@ impl MockTaskSource {
                     "transactions": [],
                     "uncles": []
                 });
-                
+
                 event::Event::EthereumBlock(block)
-            },
+            }
             4 => {
                 // Ethereum transaction
                 let tx = json!({
@@ -255,9 +259,9 @@ impl MockTaskSource {
                     "gasPrice": "0x09184e72a000",
                     "input": "0x603880600c6000396000f300603880600c6000396000f3603880600c6000396000f360"
                 });
-                
+
                 event::Event::EthereumTransaction(tx)
-            },
+            }
             5 => {
                 // Ethereum contract event
                 let events = json!([
@@ -277,12 +281,12 @@ impl MockTaskSource {
                         "removed": false
                     }
                 ]);
-                
+
                 event::Event::EthereumContractEvent {
                     contract_address: "0x4e65fda2159562a496f9f3522f89122a3088497a".to_string(),
                     events,
                 }
-            },
+            }
             _ => event::Event::None,
         }
     }
@@ -293,27 +297,27 @@ impl TaskSource for MockTaskSource {
     async fn acquire_task(&mut self, _uid: u64, _fid_hint: u64) -> Result<Task, TaskError> {
         // Sleep to avoid busy waiting
         tokio::time::sleep(self.sleep).await;
-        
+
         // Check if there are any tasks
         if !self.tasks.is_empty() {
             // Get the next task
             let task_index = self.task_index;
             self.task_index = (self.task_index + 1) % self.tasks.len();
-            
+
             // Return the task
             return Ok(self.tasks[task_index].clone());
         }
-        
+
         // Generate a random event
         let event = self.generate_random_event();
-        
+
         // Increment task index
         self.task_index += 1;
-        
+
         // Create a task with the event
         Ok(Task::new(self.uid, 1 + (self.task_index as u64 % 2), event))
     }
-    
+
     async fn acquire_fn(&mut self, uid: u64, fid: u64) -> Result<Func, FuncError> {
         // Find the function
         for (u, f, func) in &self.functions {
@@ -321,7 +325,7 @@ impl TaskSource for MockTaskSource {
                 return Ok(func.clone());
             }
         }
-        
+
         // If no function is found, return a default function
         let code = format!(
             r#"
@@ -339,7 +343,7 @@ impl TaskSource for MockTaskSource {
                 }};
             }}"#
         );
-        
+
         Ok(Func {
             version: 1,
             code: code,

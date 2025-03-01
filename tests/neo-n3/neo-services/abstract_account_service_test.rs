@@ -8,7 +8,7 @@ use r3e_neo_services::{
     abstract_account::{AbstractAccountService, AbstractAccountServiceTrait, AccountController, AccountPolicy, AccountOperation, AccountOperationRequest, AccountSignature, AccountStatus, OperationStatus, PolicyType, storage::InMemoryAbstractAccountStorage},
     Error,
 };
-use NeoRust::prelude::{Wallet, RpcClient};
+use neo3::prelude::{Wallet, RpcClient};
 
 // Mock RPC client for testing
 struct MockRpcClient;

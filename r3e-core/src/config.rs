@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     /// Log configuration file path
     pub log_config: Option<String>,
-    
+
     /// V8 configuration
     pub v8: V8Config,
 }
@@ -20,7 +20,7 @@ pub struct Config {
 pub struct V8Config {
     /// Number of worker threads
     pub worker_threads: usize,
-    
+
     /// Enable background compilation
     pub background_compilation: bool,
 }

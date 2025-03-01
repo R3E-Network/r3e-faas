@@ -8,7 +8,7 @@ use r3e_neo_services::{
     types::FeeModel,
     Error,
 };
-use NeoRust::prelude::{Wallet, RpcClient};
+use neo3::prelude::{Wallet, RpcClient};
 use url::Url;
 
 // Mock RPC client for testing

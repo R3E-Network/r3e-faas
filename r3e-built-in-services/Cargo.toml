@@ -17,11 +17,11 @@ r3e-store = { path = "../r3e-store" }
 r3e-zk = { path = "../r3e-zk" }
 
 # Dependencies
-NeoRust = { git = "https://github.com/R3E-Network/NeoRust.git" }
+neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0.11"
 async-trait = "0.1"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = "0.4"

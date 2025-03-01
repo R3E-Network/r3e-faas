@@ -18,10 +18,10 @@ pub const MAX_VALUE_SIZE: usize = 4 * 1024 * 1024; // 4 MB
 pub struct PutInput<'k, 'v> {
     /// Key to store
     pub key: &'k [u8],
-    
+
     /// Value to store
     pub value: &'v [u8],
-    
+
     /// If true, only put if the key doesn't exist
     pub if_not_exists: bool,
 }
@@ -61,7 +61,7 @@ impl<'k, 'v> ScanInput<'k, 'v> {
 pub struct ScanOutput {
     /// Key-value pairs
     pub kvs: Vec<(Vec<u8>, Vec<u8>)>,
-    
+
     /// True if there are more items to scan
     pub has_more: bool,
 }

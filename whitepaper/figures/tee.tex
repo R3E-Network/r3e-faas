@@ -1,0 +1,51 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    scale=0.9,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
+               fill=white, text width=3cm, align=center, minimum height=1cm,
+               pattern=#1, pattern color=black!20,
+               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
+    arrow/.style={->, >=stealth, thick, draw=black!70},
+    dashed_arrow/.style={->, >=stealth, thick, dashed, draw=black!70}
+]
+
+% TEE Components
+\node[box=north east lines] (contract) at (0,3) {Smart Contract};
+\node[box=crosshatch] (tee) at (0,0) {TEE Service};
+
+% TEE Platforms
+\node[box=dots, text width=2cm] (sgx) at (-4,-2) {Intel SGX};
+\node[box=dots, text width=2cm] (sev) at (-2,-2) {AMD SEV};
+\node[box=dots, text width=2cm] (trustzone) at (0,-2) {ARM TrustZone};
+\node[box=dots, text width=2cm] (nitro) at (2,-2) {AWS Nitro};
+\node[box=dots, text width=2cm] (cloud) at (4,-2) {Cloud TEEs};
+
+% Secure Computation
+\node[box=grid] (computation) at (0,-4) {Secure Computation};
+
+% Arrows
+\draw[arrow] (contract) -- node[left, font=\footnotesize] {1. Request} (tee);
+\draw[dashed_arrow] (tee) -- node[right, font=\footnotesize] {4. Verified Result} (contract);
+
+\draw[arrow] (tee) -- node[left, font=\footnotesize] {2. Execute} (sgx);
+\draw[arrow] (tee) -- (sev);
+\draw[arrow] (tee) -- (trustzone);
+\draw[arrow] (tee) -- (nitro);
+\draw[arrow] (tee) -- node[right, font=\footnotesize] {2. Execute} (cloud);
+
+\draw[arrow] (sgx) -- (computation);
+\draw[arrow] (sev) -- (computation);
+\draw[arrow] (trustzone) -- (computation);
+\draw[arrow] (nitro) -- (computation);
+\draw[arrow] (cloud) -- (computation);
+
+\draw[dashed_arrow] (computation) -- node[right, font=\footnotesize] {3. Attestation} (tee);
+
+% Labels
+\node[text width=5cm, align=center] at (0,4.5) {Trusted Execution Environment Service};
+
+\end{tikzpicture}
+\caption{TEE Service Architecture}
+\label{fig:tee-architecture}
+\end{figure}

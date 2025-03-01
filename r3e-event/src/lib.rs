@@ -2,16 +2,16 @@
 // All Rights Reserved
 
 //! # R3E Event
-//! 
+//!
 //! Event handling system for the R3E FaaS platform.
 
-pub mod types;
-pub mod error;
 pub mod config;
-pub mod source;
+pub mod error;
 pub mod registry;
+pub mod source;
 pub mod trigger;
+pub mod types;
 
 // Re-export important types
-pub use types::{Trigger, Source, Context, EventData, Event};
 pub use error::{Error, Result};
+pub use types::{Context, Event, EventData, Source, Trigger};

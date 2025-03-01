@@ -16,8 +16,8 @@ use crate::{
     error::Error,
     service::EndpointService,
     types::{
-        BlockchainType, SignatureCurve, WalletConnectionRequest, WalletConnectionResponse,
-        MessageSigningRequest, MessageSigningResponse,
+        BlockchainType, MessageSigningRequest, MessageSigningResponse, SignatureCurve,
+        WalletConnectionRequest, WalletConnectionResponse,
     },
     utils::verify_signature,
 };
@@ -27,16 +27,16 @@ use crate::{
 struct Claims {
     /// Subject (wallet address)
     sub: String,
-    
+
     /// Blockchain type
     blockchain_type: String,
-    
+
     /// Connection ID
     connection_id: String,
-    
+
     /// Issued at
     iat: u64,
-    
+
     /// Expiration
     exp: u64,
 }
@@ -54,14 +54,14 @@ pub async fn connect(
         &request.message,
         &request.signature,
     )?;
-    
+
     if !is_valid {
         return Err(Error::Authentication("Invalid signature".to_string()));
     }
-    
+
     // Generate a connection ID
     let connection_id = Uuid::new_v4().to_string();
-    
+
     // Create JWT claims
     let now = Utc::now().timestamp() as u64;
     let claims = Claims {
@@ -71,7 +71,7 @@ pub async fn connect(
         iat: now,
         exp: now + service.config.jwt_expiration,
     };
-    
+
     // Create JWT token
     let token = encode(
         &Header::default(),
@@ -79,7 +79,7 @@ pub async fn connect(
         &EncodingKey::from_secret(service.config.jwt_secret.as_bytes()),
     )
     .map_err(|e| Error::Internal(format!("Failed to create JWT token: {}", e)))?;
-    
+
     // Create response
     let response = WalletConnectionResponse {
         connection_id,
@@ -88,7 +88,7 @@ pub async fn connect(
         token,
         expires_at: claims.exp,
     };
-    
+
     Ok(Json(response))
 }
 
@@ -99,18 +99,18 @@ pub async fn sign_message(
 ) -> Result<Json<MessageSigningResponse>, Error> {
     // In a real implementation, this would create a message signing request
     // and return a request ID that the client can use to check the status
-    
+
     // For this example, we'll return a mock response
     let request_id = Uuid::new_v4().to_string();
     let message_hash = format!("0x{}", hex::encode([0u8; 32]));
-    
+
     let response = MessageSigningResponse {
         request_id,
         message_hash,
         status: "pending".to_string(),
         timestamp: Utc::now().timestamp() as u64,
     };
-    
+
     Ok(Json(response))
 }
 
@@ -127,12 +127,12 @@ pub async fn verify_signature(
         &request.message,
         &request.signature,
     )?;
-    
+
     let response = VerifySignatureResponse {
         is_valid,
         timestamp: Utc::now().timestamp() as u64,
     };
-    
+
     Ok(Json(response))
 }
 
@@ -141,16 +141,16 @@ pub async fn verify_signature(
 pub struct VerifySignatureRequest {
     /// Blockchain type
     pub blockchain_type: BlockchainType,
-    
+
     /// Signature curve
     pub signature_curve: SignatureCurve,
-    
+
     /// Address
     pub address: String,
-    
+
     /// Message
     pub message: String,
-    
+
     /// Signature
     pub signature: String,
 }
@@ -160,7 +160,7 @@ pub struct VerifySignatureRequest {
 pub struct VerifySignatureResponse {
     /// Is valid
     pub is_valid: bool,
-    
+
     /// Timestamp
     pub timestamp: u64,
 }

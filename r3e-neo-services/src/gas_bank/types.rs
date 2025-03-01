@@ -1,8 +1,8 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use serde::{Deserialize, Serialize};
 use crate::types::FeeModel;
+use serde::{Deserialize, Serialize};
 
 /// Gas bank account
 #[derive(Debug, Clone, Serialize, Deserialize)]

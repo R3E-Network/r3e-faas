@@ -7,7 +7,7 @@ description = "Neo N3 blockchain services for r3e-faas platform"
 license = "MIT"
 
 [dependencies]
-NeoRust = { git = "https://github.com/R3E-Network/NeoRust.git" }
+neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 r3e-store = { path = "../r3e-store" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

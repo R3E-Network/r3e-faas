@@ -11,7 +11,7 @@ edition = "2021"
 r3e-core    = { path = "../r3e-core" }
 r3e-store   = { path = "../r3e-store" }
 
-thiserror   = { version = "1" }
+thiserror   = { version = "2.0.11" }
 serde       = { version = "1", features = ["derive"] }
 
 tokio       =  { version = "1", features = ["full"]}
@@ -21,18 +21,18 @@ prost       = { version = "0.13" }
 tonic       = { version = "0.12" }
 
 # Neo N3 SDK
-NeoRust = { git = "https://github.com/R3E-Network/NeoRust.git" }
+neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 url         = { version = "2" }
-primitive-types = { version = "0.12" }
+primitive-types = { version = "0.13.1" }
 serde_json  = { version = "1.0" }
 
 
 [dev-dependencies]
-deno_core   = { version = "0.311" }
+deno_core   = { version = "0.340.0" }
 
 serde_json  = { version = "1" }
 serde_v8    = { version = "0" }
-v8          = { version = "0", default-features = false }
+v8          = { version = "134.5.0", default-features = false }
 
 [build-dependencies]
 prost-build = { version = "0.13" }

@@ -1,0 +1,51 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    scale=0.9,
+    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
+               fill=white, text width=3cm, align=center, minimum height=1cm,
+               pattern=#1, pattern color=black!20,
+               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
+    arrow/.style={->, >=stealth, thick, draw=black!70},
+    dashed_arrow/.style={->, >=stealth, thick, dashed, draw=black!70}
+]
+
+% Oracle Components
+\node[box=north east lines] (contract) at (0,3) {Smart Contract};
+\node[box=crosshatch] (oracle) at (0,0) {Oracle Service};
+
+% Data Sources
+\node[box=dots, text width=2cm] (price) at (-4,-2) {Price Data};
+\node[box=dots, text width=2cm] (random) at (-2,-2) {Random};
+\node[box=dots, text width=2cm] (weather) at (0,-2) {Weather};
+\node[box=dots, text width=2cm] (sports) at (2,-2) {Sports};
+\node[box=dots, text width=2cm] (custom) at (4,-2) {Custom};
+
+% External Systems
+\node[box=grid] (external) at (0,-4) {External Data Sources};
+
+% Arrows
+\draw[arrow] (contract) -- node[left, font=\footnotesize] {1. Request} (oracle);
+\draw[dashed_arrow] (oracle) -- node[right, font=\footnotesize] {4. Response} (contract);
+
+\draw[arrow] (oracle) -- node[left, font=\footnotesize] {2. Query} (price);
+\draw[arrow] (oracle) -- (random);
+\draw[arrow] (oracle) -- (weather);
+\draw[arrow] (oracle) -- (sports);
+\draw[arrow] (oracle) -- node[right, font=\footnotesize] {2. Query} (custom);
+
+\draw[arrow] (price) -- (external);
+\draw[arrow] (random) -- (external);
+\draw[arrow] (weather) -- (external);
+\draw[arrow] (sports) -- (external);
+\draw[arrow] (custom) -- (external);
+
+\draw[dashed_arrow] (external) -- node[right, font=\footnotesize] {3. Data} (oracle);
+
+% Labels
+\node[text width=3cm, align=center] at (0,4.5) {Oracle Service};
+
+\end{tikzpicture}
+\caption{Oracle Service Architecture}
+\label{fig:oracle-architecture}
+\end{figure}

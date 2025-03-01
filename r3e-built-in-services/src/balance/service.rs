@@ -1,28 +1,44 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
+use crate::balance::storage::BalanceStorage;
+use crate::balance::types::{BalanceTransaction, TransactionType, UserBalance};
+use crate::gas_bank::GasBankServiceTrait;
 use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::balance::storage::BalanceStorage;
-use crate::balance::types::{UserBalance, BalanceTransaction, TransactionType};
-use crate::gas_bank::GasBankServiceTrait;
 
 /// Balance service trait
 #[async_trait]
 pub trait BalanceServiceTrait: Send + Sync {
     /// Get user balance
     async fn get_balance(&self, user_id: &str) -> Result<UserBalance, String>;
-    
+
     /// Deposit NEO or GAS
-    async fn deposit(&self, user_id: &str, asset_type: &str, amount: u64, tx_hash: &str) -> Result<BalanceTransaction, String>;
-    
+    async fn deposit(
+        &self,
+        user_id: &str,
+        asset_type: &str,
+        amount: u64,
+        tx_hash: &str,
+    ) -> Result<BalanceTransaction, String>;
+
     /// Withdraw NEO or GAS
-    async fn withdraw(&self, user_id: &str, asset_type: &str, amount: u64) -> Result<BalanceTransaction, String>;
-    
+    async fn withdraw(
+        &self,
+        user_id: &str,
+        asset_type: &str,
+        amount: u64,
+    ) -> Result<BalanceTransaction, String>;
+
     /// Charge for function execution
-    async fn charge_for_execution(&self, user_id: &str, function_id: &str, gas_amount: u64) -> Result<BalanceTransaction, String>;
-    
+    async fn charge_for_execution(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        gas_amount: u64,
+    ) -> Result<BalanceTransaction, String>;
+
     /// Get user transactions
     async fn get_transactions(&self, user_id: &str) -> Result<Vec<BalanceTransaction>, String>;
 }
@@ -31,7 +47,7 @@ pub trait BalanceServiceTrait: Send + Sync {
 pub struct BalanceService<S: BalanceStorage, G: GasBankServiceTrait> {
     /// Storage
     storage: Arc<S>,
-    
+
     /// Gas bank service
     gas_bank: Arc<G>,
 }
@@ -61,20 +77,26 @@ impl<S: BalanceStorage, G: GasBankServiceTrait> BalanceServiceTrait for BalanceS
             }
         }
     }
-    
-    async fn deposit(&self, user_id: &str, asset_type: &str, amount: u64, tx_hash: &str) -> Result<BalanceTransaction, String> {
+
+    async fn deposit(
+        &self,
+        user_id: &str,
+        asset_type: &str,
+        amount: u64,
+        tx_hash: &str,
+    ) -> Result<BalanceTransaction, String> {
         let mut balance = self.get_balance(user_id).await?;
-        
+
         // Update balance based on asset type
         match asset_type.to_lowercase().as_str() {
             "neo" => balance.neo_balance += amount,
             "gas" => balance.gas_balance += amount,
             _ => return Err(format!("Unsupported asset type: {}", asset_type)),
         }
-        
+
         balance.updated_at = chrono::Utc::now().timestamp() as u64;
         self.storage.update_balance(balance).await?;
-        
+
         // Create transaction record
         let transaction = BalanceTransaction {
             id: Uuid::new_v4().to_string(),
@@ -85,35 +107,46 @@ impl<S: BalanceStorage, G: GasBankServiceTrait> BalanceServiceTrait for BalanceS
             tx_hash: Some(tx_hash.to_string()),
             timestamp: chrono::Utc::now().timestamp() as u64,
         };
-        
+
         self.storage.add_transaction(transaction.clone()).await?;
-        
+
         Ok(transaction)
     }
-    
-    async fn withdraw(&self, user_id: &str, asset_type: &str, amount: u64) -> Result<BalanceTransaction, String> {
+
+    async fn withdraw(
+        &self,
+        user_id: &str,
+        asset_type: &str,
+        amount: u64,
+    ) -> Result<BalanceTransaction, String> {
         let mut balance = self.get_balance(user_id).await?;
-        
+
         // Check if user has enough balance
         match asset_type.to_lowercase().as_str() {
             "neo" => {
                 if balance.neo_balance < amount {
-                    return Err(format!("Insufficient NEO balance: {} < {}", balance.neo_balance, amount));
+                    return Err(format!(
+                        "Insufficient NEO balance: {} < {}",
+                        balance.neo_balance, amount
+                    ));
                 }
                 balance.neo_balance -= amount;
-            },
+            }
             "gas" => {
                 if balance.gas_balance < amount {
-                    return Err(format!("Insufficient GAS balance: {} < {}", balance.gas_balance, amount));
+                    return Err(format!(
+                        "Insufficient GAS balance: {} < {}",
+                        balance.gas_balance, amount
+                    ));
                 }
                 balance.gas_balance -= amount;
-            },
+            }
             _ => return Err(format!("Unsupported asset type: {}", asset_type)),
         }
-        
+
         balance.updated_at = chrono::Utc::now().timestamp() as u64;
         self.storage.update_balance(balance).await?;
-        
+
         // Create transaction record
         let transaction = BalanceTransaction {
             id: Uuid::new_v4().to_string(),
@@ -124,9 +157,9 @@ impl<S: BalanceStorage, G: GasBankServiceTrait> BalanceServiceTrait for BalanceS
             tx_hash: None, // Will be updated when the withdrawal is processed
             timestamp: chrono::Utc::now().timestamp() as u64,
         };
-        
+
         self.storage.add_transaction(transaction.clone()).await?;
-        
+
         // Process withdrawal through gas bank if it's a GAS withdrawal
         if asset_type.to_lowercase() == "gas" {
             // Call the gas bank service to process the withdrawal
@@ -136,40 +169,48 @@ impl<S: BalanceStorage, G: GasBankServiceTrait> BalanceServiceTrait for BalanceS
                     let mut updated_tx = transaction.clone();
                     updated_tx.tx_hash = Some(tx_hash);
                     self.storage.update_transaction(updated_tx.clone()).await?;
-                    
+
                     // Return the updated transaction
                     return Ok(updated_tx);
-                },
+                }
                 Err(e) => {
                     // Revert the balance change
                     let mut reverted_balance = self.get_balance(user_id).await?;
                     reverted_balance.gas_balance += amount;
                     reverted_balance.updated_at = chrono::Utc::now().timestamp() as u64;
                     self.storage.update_balance(reverted_balance).await?;
-                    
+
                     // Delete the transaction
                     self.storage.delete_transaction(&transaction.id).await?;
-                    
+
                     return Err(format!("Failed to process GAS withdrawal: {}", e));
                 }
             }
         }
-        
+
         Ok(transaction)
     }
-    
-    async fn charge_for_execution(&self, user_id: &str, function_id: &str, gas_amount: u64) -> Result<BalanceTransaction, String> {
+
+    async fn charge_for_execution(
+        &self,
+        user_id: &str,
+        function_id: &str,
+        gas_amount: u64,
+    ) -> Result<BalanceTransaction, String> {
         let mut balance = self.get_balance(user_id).await?;
-        
+
         // Check if user has enough GAS balance
         if balance.gas_balance < gas_amount {
-            return Err(format!("Insufficient GAS balance for function execution: {} < {}", balance.gas_balance, gas_amount));
+            return Err(format!(
+                "Insufficient GAS balance for function execution: {} < {}",
+                balance.gas_balance, gas_amount
+            ));
         }
-        
+
         balance.gas_balance -= gas_amount;
         balance.updated_at = chrono::Utc::now().timestamp() as u64;
         self.storage.update_balance(balance).await?;
-        
+
         // Create transaction record
         let transaction = BalanceTransaction {
             id: Uuid::new_v4().to_string(),
@@ -180,12 +221,12 @@ impl<S: BalanceStorage, G: GasBankServiceTrait> BalanceServiceTrait for BalanceS
             tx_hash: None,
             timestamp: chrono::Utc::now().timestamp() as u64,
         };
-        
+
         self.storage.add_transaction(transaction.clone()).await?;
-        
+
         Ok(transaction)
     }
-    
+
     async fn get_transactions(&self, user_id: &str) -> Result<Vec<BalanceTransaction>, String> {
         self.storage.get_transactions(user_id).await
     }
