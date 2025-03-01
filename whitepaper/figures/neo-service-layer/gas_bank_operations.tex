@@ -1,0 +1,30 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (user) {User};
+    \node [block, right of=user, node distance=4cm] (app) {Application};
+    \node [block, below of=app] (gas_bank) {Gas Bank Service};
+    \node [block, below of=gas_bank] (account) {Gas Bank Account};
+    \node [block, left of=account, node distance=4cm] (fee_model) {Fee Model};
+    \node [block, right of=account, node distance=4cm] (blockchain) {Neo N3 Blockchain};
+    
+    % Draw edges
+    \path [line] (user) -- node {Interact} (app);
+    \path [line] (app) -- node {Request} (gas_bank);
+    \path [line] (gas_bank) -- node {Manage} (account);
+    \path [line] (fee_model) -- node {Configure} (account);
+    \path [line] (account) -- node {Pay Fees} (blockchain);
+    \path [line] (user) to [bend right=45] node {Deposit} (account);
+    \path [line] (account) to [bend right=45] node {Withdraw} (user);
+    \path [line] (blockchain) to [bend left] node {Confirm} (gas_bank);
+    
+\end{tikzpicture}
+\caption{Gas Bank Operations in Neo Service Layer}
+\label{fig:gas-bank-operations}
+\end{figure}

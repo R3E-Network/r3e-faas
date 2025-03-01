@@ -1,0 +1,41 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (service) {Neo Service Layer};
+    
+    \node [block, below of=service, node distance=3cm, xshift=-6cm] (tee) {Trusted Execution Environment};
+    \node [block, below of=tee, xshift=-2cm] (sgx) {Intel SGX};
+    \node [block, below of=tee, xshift=2cm] (nitro) {AWS Nitro};
+    
+    \node [block, below of=service, node distance=3cm] (fhe) {Fully Homomorphic Encryption};
+    \node [block, below of=fhe, xshift=-2cm] (tfhe) {TFHE};
+    \node [block, below of=fhe, xshift=2cm] (openfhe) {OpenFHE};
+    
+    \node [block, below of=service, node distance=3cm, xshift=6cm] (zk) {Zero-Knowledge Computing};
+    \node [block, below of=zk, xshift=-2cm] (zokrates) {ZoKrates};
+    \node [block, below of=zk, xshift=2cm] (bulletproofs) {Bulletproofs};
+    
+    % Draw edges
+    \path [line] (service) -- (tee);
+    \path [line] (service) -- (fhe);
+    \path [line] (service) -- (zk);
+    
+    \path [line] (tee) -- (sgx);
+    \path [line] (tee) -- (nitro);
+    
+    \path [line] (fhe) -- (tfhe);
+    \path [line] (fhe) -- (openfhe);
+    
+    \path [line] (zk) -- (zokrates);
+    \path [line] (zk) -- (bulletproofs);
+    
+\end{tikzpicture}
+\caption{Advanced Cryptographic Services in Neo Service Layer}
+\label{fig:advanced-crypto}
+\end{figure}

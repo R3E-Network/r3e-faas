@@ -1,0 +1,30 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (event) {Event Trigger};
+    \node [block, right of=event, node distance=4cm] (scheduler) {Scheduler};
+    \node [block, below of=scheduler] (worker) {Worker Node};
+    \node [block, below of=worker] (sandbox) {Sandbox Environment};
+    \node [block, below of=sandbox] (runtime) {JavaScript Runtime};
+    \node [block, right of=worker, node distance=4cm] (monitor) {Monitoring System};
+    \node [block, below of=monitor] (logger) {Logging System};
+    
+    % Draw edges
+    \path [line] (event) -- node {Trigger} (scheduler);
+    \path [line] (scheduler) -- node {Assign} (worker);
+    \path [line] (worker) -- node {Initialize} (sandbox);
+    \path [line] (sandbox) -- node {Execute} (runtime);
+    \path [line] (worker) -- node {Report} (monitor);
+    \path [line] (runtime) -- node {Log} (logger);
+    \path [line] (runtime) to [bend right] node {Result} (scheduler);
+    
+\end{tikzpicture}
+\caption{Function Execution Flow in Neo Service Layer}
+\label{fig:function-execution}
+\end{figure}

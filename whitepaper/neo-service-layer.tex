@@ -81,6 +81,48 @@ The Gas Bank supports multiple fee models to accommodate different application r
 
 The Gas Bank service also provides credit facilities, allowing applications to continue operating even when their Gas Bank account balance is temporarily depleted. This feature ensures uninterrupted service for users while giving application developers time to replenish their accounts.
 
+\input{figures/neo-service-layer/gas_bank_operations}
+
+\paragraph{Deposit and Withdrawal Operations}
+The Gas Bank implements a comprehensive system for managing deposits and withdrawals:
+
+\begin{itemize}
+    \item \textbf{User Deposits}: Users can deposit GAS tokens into the Gas Bank through direct blockchain transactions or through application interfaces. Each deposit is verified on-chain and credited to the appropriate account.
+    
+    \item \textbf{Application Deposits}: Application developers can fund their Gas Bank accounts through direct deposits or automated funding mechanisms. These deposits ensure sufficient balance for covering user transaction fees.
+    
+    \item \textbf{Withdrawal Process}: Account owners can withdraw their GAS tokens through a secure withdrawal process that includes verification of ownership, balance checks, and transaction confirmation.
+    
+    \item \textbf{Automated Refills}: Applications can configure automatic refill thresholds that trigger deposits from designated funding sources when account balances fall below specified levels.
+\end{itemize}
+
+A formal specification of the Gas Bank operations protocol is provided in Section \ref{subsec:gas-bank-protocol}.
+
+\input{figures/neo-service-layer/gas_bank_protocol}
+
+\paragraph{Fee Calculation and Payment}
+When a user interacts with an application that uses the Gas Bank:
+
+\begin{enumerate}
+    \item The application requests fee payment from the Gas Bank service.
+    \item The Gas Bank calculates the required fee based on the configured fee model.
+    \item The Gas Bank verifies that the application's account has sufficient balance.
+    \item If sufficient balance exists, the Gas Bank authorizes the transaction and reserves the fee amount.
+    \item Once the transaction is confirmed on the blockchain, the Gas Bank deducts the actual fee from the reserved amount and releases any excess.
+    \item The application receives confirmation of the fee payment and can update its records accordingly.
+\end{enumerate}
+
+\paragraph{Multi-Chain Support}
+The Gas Bank service supports multiple blockchain networks, including:
+
+\begin{itemize}
+    \item \textbf{Neo N3}: Native support for Neo N3 blockchain with GAS token fee management.
+    \item \textbf{Ethereum}: Support for Ethereum transactions with ETH fee management.
+    \item \textbf{Cross-Chain Operations}: Ability to manage fees across different blockchain networks through integrated bridges and conversion mechanisms.
+\end{itemize}
+
+This multi-chain capability enables applications to provide a consistent user experience across different blockchain ecosystems while centralizing fee management in a single service.
+
 \subsubsection{Meta Transaction Service}
 \label{subsubsec:meta-tx}
 
@@ -102,6 +144,59 @@ The Meta Transaction Service supports multiple blockchain types and signature cu
 This cross-chain compatibility is particularly valuable for applications that operate across multiple blockchain ecosystems, as it allows users to interact with contracts on different chains using a single signature mechanism.
 
 The Meta Transaction Service integrates with the Gas Bank to pay for transaction fees, creating a comprehensive solution for fee abstraction. Application developers can configure the service to use specific Gas Bank accounts for different contracts or transaction types, enabling fine-grained control over fee allocation.
+
+\input{figures/neo-service-layer/metatransaction}
+
+\paragraph{Meta Transaction Workflow}
+The complete workflow for processing a meta transaction involves several steps:
+
+\begin{enumerate}
+    \item \textbf{Transaction Creation}: The user creates a transaction request containing the target contract, method, parameters, and any other required information.
+    
+    \item \textbf{Signature Generation}: The user signs the transaction request using their private key. For Neo N3, this uses the secp256r1 curve, while for Ethereum-compatible transactions, secp256k1 is used with EIP-712 typed data signing.
+    
+    \item \textbf{Relay Submission}: The signed transaction request is submitted to the Meta Transaction Service through its API.
+    
+    \item \textbf{Signature Verification}: The service verifies the signature to ensure the request was genuinely signed by the claimed user.
+    
+    \item \textbf{Fee Estimation}: The service estimates the required transaction fee based on the current network conditions and transaction complexity.
+    
+    \item \textbf{Gas Bank Integration}: The service requests fee payment from the Gas Bank service, specifying the application account that should cover the cost.
+    
+    \item \textbf{Transaction Submission}: Upon successful fee authorization, the service constructs and submits the transaction to the blockchain network.
+    
+    \item \textbf{Confirmation Monitoring}: The service monitors the transaction until it is confirmed on the blockchain.
+    
+    \item \textbf{Result Notification}: The service notifies the application of the transaction result, including success status, transaction hash, and any return values.
+\end{enumerate}
+
+A formal specification of the Meta Transaction protocol is provided in Section \ref{subsec:meta-tx-protocol}.
+
+\input{figures/neo-service-layer/meta_tx_protocol}
+
+\paragraph{Signature Verification Protocol}
+The Meta Transaction Service implements a robust signature verification protocol that supports multiple signature schemes:
+
+\begin{itemize}
+    \item \textbf{Neo N3 Verification}: For Neo N3 transactions, the service verifies secp256r1 signatures against the transaction hash, ensuring the signature matches the claimed sender's public key.
+    
+    \item \textbf{EIP-712 Verification}: For Ethereum-compatible transactions, the service implements the EIP-712 standard for typed data signing, which provides enhanced security by having users sign structured data rather than raw transaction bytes.
+    
+    \item \textbf{Cross-Chain Verification}: For transactions that span multiple chains, the service can verify signatures using the appropriate scheme for each chain, enabling seamless cross-chain interactions.
+\end{itemize}
+
+\paragraph{Replay Protection}
+To prevent replay attacks, where a valid transaction is maliciously resubmitted, the Meta Transaction Service implements several protection mechanisms:
+
+\begin{itemize}
+    \item \textbf{Nonce Tracking}: Each user account has an associated nonce that must be included in the transaction and incremented with each submission.
+    
+    \item \textbf{Timestamp Validation}: Transactions include a timestamp and are rejected if they are too old or too far in the future.
+    
+    \item \textbf{Chain ID Inclusion}: Transactions include a chain identifier to prevent replay across different blockchain networks.
+    
+    \item \textbf{Transaction Hash Registry}: The service maintains a registry of processed transaction hashes to prevent duplicate submissions.
+\end{itemize}
 
 \subsubsection{Oracle Service}
 \label{subsubsec:oracle}
@@ -141,6 +236,375 @@ To ensure the reliability and security of the data provided, the Oracle Service 
 
 The Oracle Service is designed to be extensible, allowing for the addition of new data types and sources as the ecosystem evolves. This flexibility ensures that the service can adapt to the changing needs of decentralized applications and their users.
 
+\input{figures/neo-service-layer/price_data_feed}
+
+\paragraph{Price Data Feed System}
+The Price Data Feed is one of the most critical components of the Oracle Service, providing reliable and timely price information for various assets:
+
+\begin{itemize}
+    \item \textbf{Multi-Source Aggregation}: The system retrieves price data from multiple sources, including major exchanges (Binance, Coinbase, etc.), aggregation services (CoinGecko, CoinMarketCap), and specialized price feeds.
+    
+    \item \textbf{Price Index Registry}: A sophisticated mapping system that maintains relationships between different symbol representations across various data sources. This ensures consistent identification of assets regardless of the specific notation used by different providers.
+    
+    \item \textbf{Dynamic Caching}: Implements an intelligent caching mechanism that balances data freshness with performance. Cache invalidation strategies are tailored to different asset types based on their volatility and trading volume.
+    
+    \item \textbf{Outlier Detection}: Statistical algorithms identify and filter out anomalous price data that could result from market manipulation, technical issues, or other irregularities.
+    
+    \item \textbf{Confidence Scoring}: Each price point is assigned a confidence score based on factors such as source reliability, data recency, and consistency across sources.
+\end{itemize}
+
+A formal specification of the Price Data Feed protocol is provided in Section \ref{subsec:price-feed-protocol}.
+
+\input{figures/neo-service-layer/price_feed_protocol}
+
+\paragraph{Oracle Request Processing Protocol}
+The Oracle Service implements a comprehensive protocol for processing requests:
+
+\begin{enumerate}
+    \item \textbf{Request Validation}: Incoming requests are validated for proper formatting, parameter completeness, and requester authorization.
+    
+    \item \textbf{Request Classification}: Requests are classified by type and priority to ensure appropriate handling and resource allocation.
+    
+    \item \textbf{Source Selection}: Based on the request type and parameters, appropriate data sources are selected from the available provider pool.
+    
+    \item \textbf{Parallel Data Retrieval}: Data is retrieved from multiple sources in parallel to minimize latency and ensure redundancy.
+    
+    \item \textbf{Data Aggregation}: Retrieved data is aggregated using appropriate algorithms (median, volume-weighted average, etc.) based on the data type.
+    
+    \item \textbf{Result Verification}: Aggregated results are verified against predefined validity criteria and historical patterns.
+    
+    \item \textbf{Response Signing}: The final result is cryptographically signed to ensure its authenticity and integrity.
+    
+    \item \textbf{Response Delivery}: The signed result is delivered to the requester through the specified callback mechanism or stored for retrieval.
+    
+    \item \textbf{Transaction Confirmation}: For blockchain-based callbacks, the service monitors the transaction until confirmation.
+    
+    \item \textbf{Request Archiving}: Request details and results are archived for audit, dispute resolution, and performance analysis.
+\end{enumerate}
+
+\paragraph{Blockchain Gateway Integration}
+The Oracle Service integrates with blockchain networks through specialized gateways:
+
+\begin{itemize}
+    \item \textbf{Neo N3 Gateway}: Native integration with Neo N3 blockchain, supporting direct interaction with NeoContract smart contracts.
+    
+    \item \textbf{Ethereum Gateway}: Integration with Ethereum and EVM-compatible chains, supporting interaction with Solidity smart contracts.
+    
+    \item \textbf{Cross-Chain Oracle}: Specialized components that enable oracle data to be used across multiple blockchain networks, maintaining consistency and reliability.
+\end{itemize}
+
+\subsubsection{Event Messaging System}
+\label{subsubsec:event-messaging}
+
+The Event Messaging System is a core component of the Neo Service Layer that enables asynchronous communication between different parts of the platform. It provides a reliable and scalable mechanism for detecting, processing, and responding to events from various sources, including the Neo N3 blockchain, external systems, and internal services.
+
+\input{figures/neo-service-layer/event_messaging}
+
+\begin{definition}[Event]
+An Event is a discrete occurrence or notification that represents a change in state or a significant action within the system. Each event has:
+\begin{itemize}
+    \item Type: The category of the event (blockchain, system, custom)
+    \item Source: The origin of the event
+    \item Payload: The data associated with the event
+    \item Timestamp: When the event occurred
+    \item ID: A unique identifier for the event
+\end{itemize}
+\end{definition}
+
+The Event Messaging System consists of several key components:
+
+\begin{itemize}
+    \item \textbf{Event Sources}: Connectors that monitor and capture events from various origins, including blockchain networks, external APIs, and internal services.
+    
+    \item \textbf{Event Registry}: A centralized registry that maintains information about event types, their schemas, and associated triggers.
+    
+    \item \textbf{Trigger Evaluator}: Evaluates incoming events against registered triggers to determine which functions should be executed in response.
+    
+    \item \textbf{Event Processor}: Processes events, enriches them with additional context, and routes them to the appropriate handlers.
+    
+    \item \textbf{Function Executor}: Executes the functions triggered by events, managing their lifecycle and handling results.
+\end{itemize}
+
+\paragraph{Event Processing Protocol}
+The Event Messaging System implements a comprehensive protocol for processing events:
+
+\begin{enumerate}
+    \item \textbf{Event Detection}: Events are detected by specialized monitors that observe various sources, such as blockchain networks, message queues, and system components.
+    
+    \item \textbf{Event Validation}: Detected events are validated against their schema definitions to ensure they contain all required fields and conform to the expected format.
+    
+    \item \textbf{Event Enrichment}: Events are enriched with additional context, such as related data from other systems, historical information, or derived attributes.
+    
+    \item \textbf{Trigger Matching}: Enriched events are matched against registered triggers using pattern matching, condition evaluation, and other criteria.
+    
+    \item \textbf{Function Selection}: When a trigger matches an event, the associated functions are identified for execution.
+    
+    \item \textbf{Execution Planning}: The system determines the execution order, parallelization strategy, and resource allocation for the selected functions.
+    
+    \item \textbf{Function Invocation}: Selected functions are invoked with the event data and any additional context required for processing.
+    
+    \item \textbf{Result Handling}: Function execution results are processed, which may include storing data, sending notifications, or triggering additional events.
+    
+    \item \textbf{Event Archiving}: Processed events and their handling results are archived for auditing, analytics, and debugging purposes.
+\end{enumerate}
+
+A formal specification of the event processing protocol is provided in Section \ref{subsec:event-protocol}.
+
+\input{figures/neo-service-layer/event_protocol}
+
+\paragraph{Blockchain Event Integration}
+The Event Messaging System provides specialized integration with the Neo N3 blockchain:
+
+\begin{itemize}
+    \item \textbf{Block Events}: Notifications for new blocks, including block height, timestamp, and transaction count.
+    
+    \item \textbf{Transaction Events}: Notifications for transactions, including transaction hash, sender, receiver, and amount.
+    
+    \item \textbf{Contract Events}: Notifications for smart contract events, including contract hash, event name, and parameters.
+    
+    \item \textbf{State Changes}: Notifications for changes to the blockchain state, such as balance updates, contract deployments, and storage modifications.
+\end{itemize}
+
+\paragraph{Event Filtering and Routing}
+The system provides sophisticated filtering and routing capabilities:
+
+\begin{itemize}
+    \item \textbf{Content-Based Filtering}: Events can be filtered based on their content, such as specific field values or patterns.
+    
+    \item \textbf{Context-Based Routing}: Events can be routed to different handlers based on contextual information, such as user identity, application, or environment.
+    
+    \item \textbf{Priority-Based Processing}: Events can be assigned priorities that determine their processing order and resource allocation.
+    
+    \item \textbf{Rate Limiting}: Event processing can be rate-limited to prevent system overload and ensure fair resource allocation.
+\end{itemize}
+
+\subsubsection{Function Deployment and Execution}
+\label{subsubsec:function-deployment}
+
+The Neo Service Layer provides a comprehensive system for deploying, managing, and executing serverless functions. This system enables developers to create and deploy code that responds to events, processes data, and interacts with blockchain networks without managing the underlying infrastructure.
+
+\input{figures/neo-service-layer/function_deployment}
+
+\begin{definition}[Function]
+A Function is a unit of code that performs a specific task when invoked. Each function has:
+\begin{itemize}
+    \item Name: A unique identifier for the function
+    \item Code: The executable code that implements the function logic
+    \item Runtime: The environment in which the function executes (e.g., JavaScript, TypeScript)
+    \item Configuration: Settings that control the function's behavior and resource allocation
+    \item Triggers: Conditions that cause the function to be executed
+    \item Permissions: Access controls that determine what resources the function can use
+\end{itemize}
+\end{definition}
+
+\paragraph{Function Deployment Process}
+The deployment process involves several steps to ensure functions are properly registered, stored, and made available for execution:
+
+\begin{enumerate}
+    \item \textbf{Function Submission}: Developers submit functions through the API Service, providing the function code, configuration, and metadata.
+    
+    \item \textbf{Code Validation}: The submitted code is validated for syntax correctness, security vulnerabilities, and compliance with platform policies.
+    
+    \item \textbf{Dependency Resolution}: Any dependencies required by the function are identified, validated, and prepared for inclusion in the execution environment.
+    
+    \item \textbf{Function Registration}: The function is registered in the Function Registry, which maintains information about all available functions.
+    
+    \item \textbf{Storage}: The function code and configuration are stored in the Storage System, which provides durable and versioned storage.
+    
+    \item \textbf{Trigger Registration}: Any triggers associated with the function are registered in the Event Registry, enabling event-based invocation.
+    
+    \item \textbf{Distribution}: The function is distributed to Worker Nodes, which prepare the execution environment and cache the function for efficient invocation.
+\end{enumerate}
+
+A formal specification of the function deployment and execution protocol is provided in Section \ref{subsec:function-protocol}.
+
+\input{figures/neo-service-layer/function_protocol}
+
+\input{figures/neo-service-layer/function_execution}
+
+\paragraph{Function Execution Flow}
+When a function is triggered for execution, the system follows a comprehensive flow to ensure reliable and secure processing:
+
+\begin{enumerate}
+    \item \textbf{Trigger Evaluation}: An event or direct invocation triggers the function execution process.
+    
+    \item \textbf{Scheduler Assignment}: The Scheduler assigns the function execution task to an appropriate Worker Node based on factors such as load, locality, and resource requirements.
+    
+    \item \textbf{Worker Preparation}: The selected Worker Node prepares for execution by allocating resources and initializing the execution environment.
+    
+    \item \textbf{Sandbox Creation}: A secure sandbox environment is created to isolate the function execution from other functions and the host system.
+    
+    \item \textbf{Runtime Initialization}: The JavaScript runtime (based on Deno Core) is initialized within the sandbox with appropriate permissions and API access.
+    
+    \item \textbf{Function Loading}: The function code and dependencies are loaded into the runtime environment.
+    
+    \item \textbf{Execution}: The function is executed with the provided input data and context.
+    
+    \item \textbf{Monitoring}: During execution, the system monitors resource usage, execution time, and other metrics to ensure compliance with limits and detect anomalies.
+    
+    \item \textbf{Result Capture}: The function's output, including return values, errors, and side effects, is captured.
+    
+    \item \textbf{Resource Cleanup}: After execution, resources are released, and the sandbox environment is cleaned up or recycled.
+    
+    \item \textbf{Result Processing}: The execution results are processed according to the function configuration, which may include storing data, sending notifications, or triggering additional functions.
+\end{enumerate}
+
+\paragraph{Resource Management}
+The function execution system implements sophisticated resource management to ensure efficient and fair allocation:
+
+\begin{itemize}
+    \item \textbf{CPU Limits}: Functions are allocated specific CPU quotas to prevent excessive usage and ensure fair sharing.
+    
+    \item \textbf{Memory Allocation}: Memory usage is monitored and limited to prevent memory leaks and excessive consumption.
+    
+    \item \textbf{Execution Timeouts}: Functions have maximum execution time limits to prevent infinite loops and resource hogging.
+    
+    \item \textbf{Concurrency Control}: The system manages the number of concurrent function executions to optimize throughput while preventing overload.
+    
+    \item \textbf{Auto-scaling}: Worker Nodes can be dynamically scaled based on demand to handle varying workloads efficiently.
+\end{itemize}
+
+\subsubsection{Secret Storage and Management}
+\label{subsubsec:secret-storage}
+
+The Secret Storage and Management system provides a secure way for functions to store and access sensitive information such as API keys, credentials, and private keys. This system ensures that secrets are protected from unauthorized access while remaining available to authorized functions.
+
+\input{figures/neo-service-layer/secret_storage}
+
+\begin{definition}[Secret]
+A Secret is a piece of sensitive information that requires protection from unauthorized access. Each secret has:
+\begin{itemize}
+    \item Key: A unique identifier for the secret
+    \item Value: The sensitive data being stored
+    \item Owner: The entity that controls access to the secret
+    \item Permissions: Rules that determine which functions can access the secret
+    \item Metadata: Additional information about the secret, such as creation time and expiration
+\end{itemize}
+\end{definition}
+
+\paragraph{Secret Storage Architecture}
+The Secret Storage system implements a multi-layered architecture to ensure comprehensive security:
+
+\begin{itemize}
+    \item \textbf{API Layer}: Provides a standardized interface for functions to store, retrieve, and manage secrets.
+    
+    \item \textbf{Service Layer}: Implements the core logic for secret management, including access control, encryption, and lifecycle management.
+    
+    \item \textbf{Encryption Layer}: Ensures that all secrets are encrypted at rest using strong cryptographic algorithms.
+    
+    \item \textbf{Storage Layer}: Provides durable and reliable storage for encrypted secrets.
+    
+    \item \textbf{Access Control}: Enforces permissions and policies that determine who can access which secrets.
+    
+    \item \textbf{Audit Logging}: Records all access attempts and operations for security monitoring and compliance.
+\end{itemize}
+
+\paragraph{Secret Management Protocol}
+The system implements a comprehensive protocol for managing secrets throughout their lifecycle:
+
+\begin{enumerate}
+    \item \textbf{Secret Creation}: When a secret is created, it is assigned a unique identifier, encrypted with a master key, and stored in the storage layer.
+    
+    \item \textbf{Access Control Configuration}: The owner configures access permissions, specifying which functions or users can access the secret.
+    
+    \item \textbf{Secret Retrieval}: When a function needs to access a secret, it sends a request to the Secret API with its authentication credentials.
+    
+    \item \textbf{Authorization Check}: The service verifies that the requesting function has permission to access the requested secret.
+    
+    \item \textbf{Decryption}: If authorized, the service retrieves the encrypted secret from storage, decrypts it using the master key, and returns it to the function.
+    
+    \item \textbf{Usage Tracking}: All access to secrets is logged for audit purposes, including the requester, timestamp, and operation.
+    
+    \item \textbf{Secret Rotation}: Secrets can be automatically rotated according to configured policies to minimize the risk of compromise.
+    
+    \item \textbf{Secret Revocation}: Secrets can be immediately revoked if they are suspected to be compromised.
+\end{enumerate}
+
+A formal specification of the secret management protocol is provided in Section \ref{subsec:secret-protocol}.
+
+\input{figures/neo-service-layer/secret_protocol}
+
+\paragraph{Encryption Technologies}
+The Secret Storage system employs multiple encryption technologies to protect secrets:
+
+\begin{itemize}
+    \item \textbf{Envelope Encryption}: Secrets are encrypted with data keys, which are themselves encrypted with a master key, providing multiple layers of protection.
+    
+    \item \textbf{Hardware Security Modules (HSMs)}: Master keys can be stored in HSMs for hardware-level protection against extraction.
+    
+    \item \textbf{Key Rotation}: Encryption keys are regularly rotated to limit the impact of potential key compromise.
+    
+    \item \textbf{Secure Key Derivation}: Keys are derived using secure algorithms that incorporate multiple factors, such as user credentials and environmental attributes.
+\end{itemize}
+
+\subsubsection{Sandbox Security}
+\label{subsubsec:sandbox}
+
+The Sandbox Security system provides a secure and isolated environment for executing functions, protecting both the platform from malicious functions and functions from each other. This system ensures that functions can only access the resources they are explicitly authorized to use.
+
+\input{figures/neo-service-layer/sandbox}
+
+\begin{definition}[Sandbox]
+A Sandbox is a controlled execution environment that restricts the capabilities of the code running within it. Each sandbox has:
+\begin{itemize}
+    \item Isolation Boundaries: Limits that separate the sandbox from the host system and other sandboxes
+    \item Resource Limits: Constraints on CPU, memory, network, and other resources
+    \item Permission Model: Rules that determine what APIs and system resources the code can access
+    \item Monitoring: Mechanisms for observing and controlling the behavior of the code
+\end{itemize}
+\end{definition}
+
+\paragraph{Sandbox Architecture}
+The Sandbox system implements a multi-layered architecture to provide comprehensive security:
+
+\begin{itemize}
+    \item \textbf{Worker Node}: The physical or virtual machine that hosts the sandbox environment.
+    
+    \item \textbf{Sandbox Environment}: The isolated container or virtual machine that provides the first level of isolation.
+    
+    \item \textbf{JavaScript Runtime}: The Deno Core runtime that executes the function code with controlled access to system resources.
+    
+    \item \textbf{Resource Limiter}: Monitors and enforces limits on CPU, memory, and other resource usage.
+    
+    \item \textbf{Permission Manager}: Controls access to APIs, network resources, and other capabilities based on the function's permissions.
+    
+    \item \textbf{V8 Engine}: The underlying JavaScript engine that provides additional isolation through its security model.
+\end{itemize}
+
+\paragraph{Sandbox Security Mechanisms}
+The system implements multiple security mechanisms to ensure comprehensive protection:
+
+\begin{itemize}
+    \item \textbf{Process Isolation}: Functions run in separate processes to prevent interference and limit the impact of crashes.
+    
+    \item \textbf{Namespace Isolation}: Each sandbox has its own namespace for files, network, and other resources, preventing access to resources outside the sandbox.
+    
+    \item \textbf{Capability-Based Security}: Functions must explicitly request and be granted permissions for specific capabilities, such as network access or file system operations.
+    
+    \item \textbf{Resource Quotas}: Each sandbox has strict limits on CPU time, memory usage, network bandwidth, and other resources to prevent denial-of-service attacks.
+    
+    \item \textbf{Time Limits}: Functions have maximum execution time limits to prevent infinite loops and resource exhaustion.
+    
+    \item \textbf{Network Filtering}: Network access is controlled through fine-grained rules that specify which hosts and ports can be accessed.
+\end{itemize}
+
+A formal specification of the sandbox security protocol is provided in Section \ref{subsec:sandbox-protocol}.
+
+\input{figures/neo-service-layer/sandbox_protocol}
+
+\paragraph{JavaScript Runtime Security}
+The Deno Core JavaScript runtime provides additional security features:
+
+\begin{itemize}
+    \item \textbf{Secure Module System}: Modules must be explicitly imported and can only access the capabilities they are granted.
+    
+    \item \textbf{TypeScript Support}: TypeScript provides static type checking that can catch potential security issues at compile time.
+    
+    \item \textbf{Controlled API Access}: Access to sensitive APIs is controlled through a permission system that requires explicit grants.
+    
+    \item \textbf{Secure Defaults}: By default, functions have no access to the file system, network, or environment variables, requiring explicit permission for each capability.
+\end{itemize}
+
 \subsubsection{Trusted Execution Environment (TEE)}
 \label{subsubsec:tee}
 
@@ -171,6 +635,204 @@ Applications can leverage the TEE service for various use cases:
 \end{itemize}
 
 The TEE service provides attestation reports that verify the integrity and authenticity of the execution environment. These reports can be verified on-chain, allowing smart contracts to trust the results of off-chain computations.
+
+\paragraph{TEE Execution Protocol}
+The TEE service implements a comprehensive protocol for secure execution:
+
+\begin{enumerate}
+    \item \textbf{Code Submission}: The application submits the code to be executed in the TEE, along with any required input data.
+    
+    \item \textbf{Environment Selection}: The service selects an appropriate TEE environment based on the security requirements, availability, and capabilities.
+    
+    \item \textbf{Enclave Initialization}: The TEE initializes a secure enclave, loading the code and preparing the execution environment.
+    
+    \item \textbf{Remote Attestation}: The TEE generates an attestation report that proves the authenticity and integrity of the enclave to the application.
+    
+    \item \textbf{Secure Input Processing}: Input data is securely transferred to the enclave, often using encryption to protect sensitive information during transit.
+    
+    \item \textbf{Protected Execution}: The code executes within the enclave, with hardware-level protection against external observation or interference.
+    
+    \item \textbf{Result Sealing}: The execution results are cryptographically sealed to ensure they can only be accessed by authorized parties.
+    
+    \item \textbf{Secure Output Delivery}: The sealed results are securely delivered to the requesting application or stored for later retrieval.
+    
+    \item \textbf{Verification}: The application can verify the authenticity of the results using the attestation report and cryptographic proofs.
+\end{enumerate}
+
+\paragraph{TEE Integration with Blockchain}
+The TEE service provides specialized integration with blockchain networks:
+
+\begin{itemize}
+    \item \textbf{On-Chain Verification}: Smart contracts can verify TEE attestation reports directly on the blockchain, enabling trust in off-chain computation results.
+    
+    \item \textbf{Confidential State}: TEEs can maintain confidential state that is not visible on the public blockchain but can be used in computations.
+    
+    \item \textbf{Private Transactions}: TEEs can process private transaction data off-chain while publishing only necessary verification information on-chain.
+    
+    \item \textbf{Secure Oracles}: TEEs can serve as secure oracles that access external data sources while providing cryptographic guarantees of data integrity.
+\end{itemize}
+
+\subsubsection{Smart Contract Integration}
+\label{subsubsec:smart-contract}
+
+The Neo Service Layer provides comprehensive support for smart contract development, deployment, and integration. This system enables developers to create powerful decentralized applications that leverage both on-chain security and off-chain capabilities.
+
+\input{figures/neo-service-layer/smart_contract}
+
+\begin{definition}[Smart Contract Integration]
+Smart Contract Integration refers to the seamless connection between blockchain-based smart contracts and the Neo Service Layer components. This integration enables contracts to access off-chain services while maintaining security and decentralization.
+\end{definition}
+
+\paragraph{Smart Contract Development}
+The Neo Service Layer provides tools and libraries that simplify smart contract development:
+
+\begin{itemize}
+    \item \textbf{Contract Templates}: Pre-built templates for common contract patterns that integrate with Service Layer components.
+    
+    \item \textbf{Service Layer SDKs}: Language-specific libraries that facilitate interaction between smart contracts and Service Layer services.
+    
+    \item \textbf{Testing Framework}: Comprehensive testing tools for simulating contract interactions with Service Layer components.
+    
+    \item \textbf{Development Environment}: Integrated development environment with debugging capabilities for contracts that use Service Layer features.
+\end{itemize}
+
+\paragraph{Smart Contract Deployment Process}
+The deployment process for smart contracts involves several steps:
+
+\begin{enumerate}
+    \item \textbf{Contract Development}: Developers write smart contracts using Neo's supported languages (C\#, Python, Go, TypeScript) with Service Layer integration.
+    
+    \item \textbf{Compilation}: Contracts are compiled into Neo Executable Format (NEF) files, which contain the bytecode that runs on the Neo Virtual Machine (NeoVM).
+    
+    \item \textbf{Manifest Creation}: A manifest file is generated that describes the contract's interface, permissions, and other metadata.
+    
+    \item \textbf{Service Registration}: Contracts that use Service Layer components are registered with the relevant services to establish the necessary connections.
+    
+    \item \textbf{Deployment}: The NEF file and manifest are deployed to the Neo N3 blockchain through a transaction.
+    
+    \item \textbf{Verification}: The deployed contract is verified to ensure it matches the source code and functions as expected.
+    
+    \item \textbf{Integration Configuration}: Service Layer components are configured to interact with the deployed contract, setting up event listeners, callbacks, and other integration points.
+\end{enumerate}
+
+A formal specification of the Smart Contract Integration protocol is provided in Section \ref{subsec:smart-contract-protocol}.
+
+\input{figures/neo-service-layer/smart_contract_protocol}
+
+\paragraph{Service Layer Integration Patterns}
+Smart contracts can integrate with the Service Layer through several patterns:
+
+\begin{itemize}
+    \item \textbf{Event-Driven Integration}: Contracts emit events that trigger Service Layer functions, enabling off-chain processing of on-chain actions.
+    
+    \item \textbf{Oracle Integration}: Contracts request data from the Oracle Service, allowing access to external information not available on the blockchain.
+    
+    \item \textbf{Gas Bank Integration}: Contracts interact with the Gas Bank service to implement gas-free transactions for users.
+    
+    \item \textbf{Meta Transaction Integration}: Contracts support meta transactions, allowing users to interact without directly paying for transaction fees.
+    
+    \item \textbf{TEE Integration}: Contracts delegate sensitive computations to the TEE service, enabling private processing with on-chain verification.
+    
+    \item \textbf{Abstract Account Integration}: Contracts interact with the Abstract Account service to support advanced account management features.
+\end{itemize}
+
+\paragraph{Smart Contract Security}
+The Neo Service Layer enhances smart contract security through several mechanisms:
+
+\begin{itemize}
+    \item \textbf{Formal Verification}: Tools for formally verifying contract behavior and security properties.
+    
+    \item \textbf{Security Scanning}: Automated scanning for common vulnerabilities and security issues.
+    
+    \item \textbf{Secure Development Guidelines}: Best practices and patterns for developing secure contracts that integrate with Service Layer components.
+    
+    \item \textbf{Auditing Tools}: Specialized tools for auditing contracts that use Service Layer features.
+    
+    \item \textbf{Monitoring and Alerting}: Real-time monitoring of contract behavior with alerts for suspicious activities.
+\end{itemize}
+
+\subsubsection{Advanced Cryptographic Services}
+\label{subsubsec:advanced-crypto}
+
+The Neo Service Layer includes advanced cryptographic services that provide cutting-edge privacy, security, and computational capabilities. These services enable applications to leverage sophisticated cryptographic techniques without requiring deep expertise in cryptography.
+
+\input{figures/neo-service-layer/advanced_crypto}
+
+\begin{definition}[Advanced Cryptographic Service]
+An Advanced Cryptographic Service is a specialized component that implements sophisticated cryptographic protocols to enable secure computation, privacy-preserving operations, or enhanced security features beyond what is available in standard blockchain environments.
+\end{definition}
+
+The Neo Service Layer provides three main categories of advanced cryptographic services:
+
+\begin{itemize}
+    \item \textbf{Trusted Execution Environment (TEE)}: Hardware-based secure enclaves for confidential computation.
+    
+    \item \textbf{Fully Homomorphic Encryption (FHE)}: Computation on encrypted data without decryption.
+    
+    \item \textbf{Zero-Knowledge Computing (ZK)}: Generation and verification of proofs that demonstrate knowledge without revealing the underlying information.
+\end{itemize}
+
+\paragraph{Fully Homomorphic Encryption Service}
+The FHE service enables computation on encrypted data without requiring decryption:
+
+\begin{itemize}
+    \item \textbf{Encryption Schemes}: Support for multiple FHE schemes, including TFHE, BFV, and CKKS, each optimized for different types of operations.
+    
+    \item \textbf{Operation Types}: Support for various operations on encrypted data, including arithmetic operations, boolean operations, and approximate operations on real numbers.
+    
+    \item \textbf{Key Management}: Secure generation, storage, and distribution of encryption keys, including support for threshold key generation and multi-party computation.
+    
+    \item \textbf{Performance Optimization}: Techniques for optimizing FHE performance, including batching, parallelization, and hardware acceleration.
+    
+    \item \textbf{Integration Patterns}: Patterns for integrating FHE with blockchain applications, including on-chain verification of off-chain FHE computations.
+\end{itemize}
+
+\paragraph{Zero-Knowledge Computing Service}
+The ZK service enables the generation and verification of zero-knowledge proofs:
+
+\begin{itemize}
+    \item \textbf{Proof Systems}: Support for multiple zero-knowledge proof systems, including SNARKs, STARKs, and Bulletproofs, each with different trade-offs in terms of setup requirements, proof size, and verification time.
+    
+    \item \textbf{Circuit Compilation}: Tools for compiling high-level program descriptions into arithmetic circuits suitable for zero-knowledge proofs.
+    
+    \item \textbf{Proof Generation}: Efficient generation of proofs that demonstrate the correctness of computations without revealing inputs or intermediate values.
+    
+    \item \textbf{On-Chain Verification}: Integration with Neo N3 smart contracts for on-chain verification of zero-knowledge proofs.
+    
+    \item \textbf{Privacy-Preserving Applications}: Support for common privacy-preserving application patterns, such as confidential transactions, private voting, and anonymous credentials.
+\end{itemize}
+
+\paragraph{Cross-Service Integration}
+The advanced cryptographic services can be combined to create powerful hybrid solutions:
+
+\begin{itemize}
+    \item \textbf{TEE-FHE Hybrid}: Using TEEs to accelerate FHE operations while providing additional security guarantees.
+    
+    \item \textbf{TEE-ZK Hybrid}: Using TEEs to generate zero-knowledge proofs more efficiently while ensuring the privacy of the witness data.
+    
+    \item \textbf{FHE-ZK Hybrid}: Using zero-knowledge proofs to verify the correctness of FHE computations without revealing the encryption keys or the computation itself.
+    
+    \item \textbf{Multi-Party Computation}: Combining multiple cryptographic techniques to enable secure computation among mutually distrusting parties.
+\end{itemize}
+
+A formal specification of the Advanced Cryptographic Services protocol is provided in Section \ref{subsec:advanced-crypto-protocol}.
+
+\input{figures/neo-service-layer/advanced_crypto_protocol}
+
+\paragraph{Application Domains}
+The advanced cryptographic services enable a wide range of privacy-preserving and secure applications:
+
+\begin{itemize}
+    \item \textbf{Private DeFi}: Financial applications that preserve user privacy while ensuring compliance with regulations.
+    
+    \item \textbf{Confidential Identity}: Identity systems that allow selective disclosure of attributes without revealing unnecessary information.
+    
+    \item \textbf{Secure Multi-Party Analytics}: Collaborative analytics on sensitive data without exposing the raw data to any party.
+    
+    \item \textbf{Private Governance}: Voting and governance systems that protect voter privacy while ensuring correct tallying.
+    
+    \item \textbf{Confidential Supply Chain}: Supply chain tracking that preserves commercial confidentiality while enabling verification of claims.
+\end{itemize}
 
 \subsubsection{Abstract Account Service}
 \label{subsubsec:abstract-account}
@@ -477,6 +1139,38 @@ Integration with artificial intelligence technologies will create new capabiliti
     \item \textbf{Verifiable AI Results}: Cryptographic verification of AI model outputs
     \item \textbf{Decentralized Training}: Collaborative training of AI models while preserving data privacy
 \end{itemize}
+
+\subsection{Formal Protocol Specifications}
+\label{subsec:formal-protocols}
+
+This section provides formal specifications for the protocols that govern the operation of the Neo Service Layer components. These specifications define the precise behavior, interactions, and security properties of each component, ensuring consistent implementation and operation across different environments.
+
+\subsection{Event Processing Protocol}
+\label{subsec:event-protocol}
+
+\subsection{Function Deployment and Execution Protocol}
+\label{subsec:function-protocol}
+
+\subsection{Secret Management Protocol}
+\label{subsec:secret-protocol}
+
+\subsection{Sandbox Security Protocol}
+\label{subsec:sandbox-protocol}
+
+\subsection{Gas Bank Operations Protocol}
+\label{subsec:gas-bank-protocol}
+
+\subsection{Meta Transaction Protocol}
+\label{subsec:meta-tx-protocol}
+
+\subsection{Smart Contract Integration Protocol}
+\label{subsec:smart-contract-protocol}
+
+\subsection{Price Data Feed Protocol}
+\label{subsec:price-feed-protocol}
+
+\subsection{Advanced Cryptographic Services Protocol}
+\label{subsec:advanced-crypto-protocol}
 
 \subsection{Conclusion}
 \label{subsec:nsl-conclusion}

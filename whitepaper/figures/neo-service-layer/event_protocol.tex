@@ -1,0 +1,48 @@
+\subsection{Event Messaging Protocol}
+\label{subsec:event-messaging-protocol}
+
+The Event Messaging Protocol defines how events are detected, processed, and routed to appropriate handlers.
+
+\begin{protocol}[Event Processing]
+\label{prot:event-processing}
+\begin{algorithmic}[1]
+\Require Event source $S$, Event registry $R$, Trigger evaluator $T$, Function registry $F$
+\Ensure Proper event processing and function execution
+
+\State \textbf{Event Detection:}
+\State $e \gets \text{DetectEvent}(S)$ \Comment{Detect event from source}
+\State $\text{valid} \gets \text{ValidateEvent}(e, \text{schema}(e.\text{type}))$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} $e$
+\EndIf
+
+\State \textbf{Event Enrichment:}
+\State $e' \gets \text{EnrichEvent}(e, \text{context}(e))$ \Comment{Add context information}
+
+\State \textbf{Trigger Matching:}
+\State $\text{triggers} \gets \emptyset$
+\For{each $t \in R.\text{getTriggers}(e'.\text{type})$}
+    \If{$\text{EvaluateTrigger}(t, e')$}
+        \State $\text{triggers} \gets \text{triggers} \cup \{t\}$
+    \EndIf
+\EndFor
+
+\State \textbf{Function Selection:}
+\State $\text{functions} \gets \emptyset$
+\For{each $t \in \text{triggers}$}
+    \State $\text{functions} \gets \text{functions} \cup F.\text{getFunctions}(t)$
+\EndFor
+
+\State \textbf{Execution Planning:}
+\State $\text{plan} \gets \text{CreateExecutionPlan}(\text{functions}, e')$
+
+\State \textbf{Function Execution:}
+\For{each $f \in \text{plan}.\text{getOrderedFunctions}()$}
+    \State $\text{result}_f \gets \text{ExecuteFunction}(f, e', \text{context}(f))$
+    \State $\text{ProcessResult}(\text{result}_f, f, e')$
+\EndFor
+
+\State \textbf{Event Archiving:}
+\State $\text{ArchiveEvent}(e', \text{triggers}, \text{functions}, \{\text{result}_f\})$
+\end{algorithmic}
+\end{protocol}

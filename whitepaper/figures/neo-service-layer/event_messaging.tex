@@ -1,0 +1,29 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (blockchain) {Neo N3 Blockchain};
+    \node [block, below of=blockchain] (event) {Event System};
+    \node [block, below of=event] (registry) {Event Registry};
+    \node [block, left of=event, node distance=4cm] (trigger) {Trigger Evaluator};
+    \node [block, right of=event, node distance=4cm] (processor) {Event Processor};
+    \node [block, below of=processor] (function) {Function Executor};
+    
+    % Draw edges
+    \path [line] (blockchain) -- node {Events} (event);
+    \path [line] (event) -- node {Register} (registry);
+    \path [line] (event) -- node {Evaluate} (trigger);
+    \path [line] (trigger) -- node {Match} (processor);
+    \path [line] (event) -- node {Process} (processor);
+    \path [line] (processor) -- node {Execute} (function);
+    \path [line] (registry) -- node {Lookup} (processor);
+    
+\end{tikzpicture}
+\caption{Neo Service Layer Event Messaging System}
+\label{fig:event-messaging}
+\end{figure}

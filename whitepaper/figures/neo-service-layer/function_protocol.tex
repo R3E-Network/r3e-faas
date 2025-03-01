@@ -1,0 +1,98 @@
+\subsection{Function Deployment and Execution Protocol}
+\label{subsec:function-protocol}
+
+The Function Deployment and Execution Protocol defines how functions are deployed, managed, and executed within the Neo Service Layer.
+
+\begin{protocol}[Function Deployment]
+\label{prot:function-deployment}
+\begin{algorithmic}[1]
+\Require Function code $C$, Configuration $\text{conf}$, Metadata $M$, Function Registry $R$, Storage System $S$
+\Ensure Function is properly deployed and available for execution
+
+\State \textbf{Function Submission:}
+\State $F \gets \{\text{code}: C, \text{config}: \text{conf}, \text{metadata}: M\}$
+
+\State \textbf{Code Validation:}
+\State $\text{valid} \gets \text{ValidateCode}(F.\text{code})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} $F$
+\EndIf
+
+\State \textbf{Dependency Resolution:}
+\State $\text{deps} \gets \text{ResolveDependencies}(F.\text{code}, F.\text{config})$
+\State $F.\text{dependencies} \gets \text{deps}$
+
+\State \textbf{Function Registration:}
+\State $\text{id} \gets \text{GenerateUniqueID}(F.\text{metadata}.\text{name})$
+\State $F.\text{id} \gets \text{id}$
+\State $R.\text{registerFunction}(F)$
+
+\State \textbf{Storage:}
+\State $S.\text{storeFunction}(F)$
+
+\State \textbf{Trigger Registration:}
+\For{each $t \in F.\text{config}.\text{triggers}$}
+    \State $\text{EventRegistry}.\text{registerTrigger}(t, F.\text{id})$
+\EndFor
+
+\State \textbf{Distribution:}
+\For{each $\text{node} \in \text{WorkerNodes}$}
+    \State $\text{DistributeFunction}(F, \text{node})$
+\EndFor
+
+\State \Return $F.\text{id}$
+\end{algorithmic}
+\end{protocol}
+
+\begin{protocol}[Function Execution]
+\label{prot:function-execution}
+\begin{algorithmic}[1]
+\Require Function ID $\text{id}$, Input data $D$, Context $\text{ctx}$, Scheduler $\text{sched}$, Worker Nodes $W$
+\Ensure Function is executed securely and results are properly handled
+
+\State \textbf{Function Lookup:}
+\State $F \gets \text{FunctionRegistry}.\text{getFunction}(\text{id})$
+
+\State \textbf{Worker Assignment:}
+\State $\text{worker} \gets \text{sched}.\text{assignWorker}(F, D, \text{ctx})$
+
+\State \textbf{Resource Allocation:}
+\State $\text{resources} \gets \text{worker}.\text{allocateResources}(F.\text{config}.\text{resources})$
+
+\State \textbf{Sandbox Creation:}
+\State $\text{sandbox} \gets \text{worker}.\text{createSandbox}(\text{resources})$
+
+\State \textbf{Runtime Initialization:}
+\State $\text{runtime} \gets \text{sandbox}.\text{initializeRuntime}(F.\text{config}.\text{runtime})$
+\State $\text{runtime}.\text{setPermissions}(F.\text{config}.\text{permissions})$
+
+\State \textbf{Function Loading:}
+\State $\text{runtime}.\text{loadFunction}(F.\text{code}, F.\text{dependencies})$
+
+\State \textbf{Execution:}
+\State $\text{result} \gets \text{runtime}.\text{executeFunction}(F.\text{metadata}.\text{entrypoint}, D, \text{ctx})$
+
+\State \textbf{Monitoring:}
+\While{$\text{runtime}.\text{isExecuting}()$}
+    \State $\text{metrics} \gets \text{runtime}.\text{getMetrics}()$
+    \If{$\text{metrics}.\text{exceedsLimits}(F.\text{config}.\text{limits})$}
+        \State $\text{runtime}.\text{terminate}()$
+        \State \Return $\{\text{error}: \text{"Resource limits exceeded"}\}$
+    \EndIf
+\EndWhile
+
+\State \textbf{Result Capture:}
+\State $\text{output} \gets \text{runtime}.\text{getOutput}()$
+\State $\text{errors} \gets \text{runtime}.\text{getErrors}()$
+\State $\text{logs} \gets \text{runtime}.\text{getLogs}()$
+
+\State \textbf{Resource Cleanup:}
+\State $\text{sandbox}.\text{cleanup}()$
+\State $\text{worker}.\text{releaseResources}(\text{resources})$
+
+\State \textbf{Result Processing:}
+\State $\text{ProcessFunctionResult}(\text{output}, \text{errors}, \text{logs}, F, D, \text{ctx})$
+
+\State \Return $\{\text{output}: \text{output}, \text{errors}: \text{errors}, \text{logs}: \text{logs}\}$
+\end{algorithmic}
+\end{protocol}

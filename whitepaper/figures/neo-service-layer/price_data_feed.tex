@@ -1,0 +1,37 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (contract) {Smart Contract};
+    \node [block, right of=contract, node distance=4cm] (oracle) {Oracle Service};
+    \node [block, below of=oracle] (price) {Price Provider};
+    \node [block, left of=price, node distance=4cm] (registry) {Price Index Registry};
+    \node [block, right of=price, node distance=4cm] (cache) {Price Cache};
+    \node [block, below of=price] (sources) {External Sources};
+    \node [cloud, below of=sources, node distance=2cm] (coinGecko) {CoinGecko};
+    \node [cloud, left of=coinGecko, node distance=3cm] (binance) {Binance};
+    \node [cloud, right of=coinGecko, node distance=3cm] (other) {Other APIs};
+    
+    % Draw edges
+    \path [line] (contract) -- node {Request Price} (oracle);
+    \path [line] (oracle) -- node {Forward} (price);
+    \path [line] (price) -- node {Lookup Symbol} (registry);
+    \path [line] (price) -- node {Check} (cache);
+    \path [line] (price) -- node {Fetch} (sources);
+    \path [line] (sources) -- node {} (coinGecko);
+    \path [line] (sources) -- node {} (binance);
+    \path [line] (sources) -- node {} (other);
+    \path [line] (sources) to [bend left] node {Return Data} (price);
+    \path [line] (price) to [bend left] node {Update} (cache);
+    \path [line] (price) to [bend left] node {Respond} (oracle);
+    \path [line] (oracle) to [bend left] node {Deliver} (contract);
+    
+\end{tikzpicture}
+\caption{Price Data Feed System in Neo Service Layer}
+\label{fig:price-data-feed}
+\end{figure}

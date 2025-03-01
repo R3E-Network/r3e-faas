@@ -1,0 +1,31 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (user) {User};
+    \node [block, right of=user, node distance=4cm] (app) {Application};
+    \node [block, below of=app] (meta_tx) {Meta Transaction Service};
+    \node [block, below of=meta_tx] (verifier) {Signature Verifier};
+    \node [block, left of=meta_tx, node distance=4cm] (gas_bank) {Gas Bank};
+    \node [block, right of=meta_tx, node distance=4cm] (blockchain) {Neo N3 Blockchain};
+    
+    % Draw edges
+    \path [line] (user) -- node {Sign Transaction} (app);
+    \path [line] (app) -- node {Submit} (meta_tx);
+    \path [line] (meta_tx) -- node {Verify} (verifier);
+    \path [line] (meta_tx) -- node {Request Fees} (gas_bank);
+    \path [line] (gas_bank) -- node {Provide Fees} (meta_tx);
+    \path [line] (meta_tx) -- node {Submit} (blockchain);
+    \path [line] (blockchain) to [bend left] node {Confirm} (meta_tx);
+    \path [line] (meta_tx) to [bend left] node {Notify} (app);
+    \path [line] (app) to [bend left] node {Update} (user);
+    
+\end{tikzpicture}
+\caption{Meta Transaction Flow in Neo Service Layer}
+\label{fig:metatransaction}
+\end{figure}
