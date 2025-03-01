@@ -12,9 +12,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 use uuid::Uuid;
 
+pub mod audit;
 pub mod rocksdb;
 pub mod service;
 pub mod storage;
+pub mod vault;
 
 /// Error types for secret management
 #[derive(Debug, Error)]
