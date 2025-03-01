@@ -1,15 +1,13 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-//! Storage trait definitions for the store crate.
-
 use crate::error::{
     DeleteError, GetError, MultiDeleteError, MultiGetError, MultiPutError, PutError, ScanError,
 };
 use crate::types::{PutInput, ScanInput, ScanOutput};
 
-/// Key-value store trait
-pub trait KvStore {
+/// Key-value store
+pub trait KvStore: Send + Sync {
     /// Put a key-value pair
     fn put(&self, table: &str, input: PutInput) -> Result<(), PutError>;
 
@@ -20,13 +18,13 @@ pub trait KvStore {
     fn delete(&self, table: &str, key: &[u8]) -> Result<Option<Vec<u8>>, DeleteError>;
 }
 
-/// Sorted key-value store trait
+/// Sorted key-value store
 pub trait SortedKvStore: KvStore {
     /// Scan key-value pairs
     fn scan(&self, table: &str, input: ScanInput) -> Result<ScanOutput, ScanError>;
 }
 
-/// Batch key-value store trait
+/// Batch key-value store
 pub trait BatchKvStore: KvStore {
     /// Put multiple key-value pairs
     fn multi_put(&self, inputs: &[(&str, PutInput)]) -> Result<(), MultiPutError>;
@@ -42,6 +40,8 @@ pub trait BatchKvStore: KvStore {
 }
 
 pub mod memory;
+pub mod rocksdb;
 
-// Re-export module that doesn't exist as a separate file
-pub use crate::rocksdb::RocksDBStore;
+// Re-export stores
+pub use self::memory::MemoryStore;
+pub use self::rocksdb::RocksDBStore;
