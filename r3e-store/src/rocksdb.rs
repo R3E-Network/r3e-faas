@@ -486,13 +486,14 @@ impl RocksDbClient {
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
         let mut read_opts = ReadOptions::default();
         read_opts.set_prefix_same_as_start(true);
 
         let iter = db.iterator_cf_opt(
-            &cf,
+            cf,
             read_opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         );
@@ -542,12 +543,13 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &ColumnFamily) -> DbResult<()>,
+        F: for<'a> FnOnce(&mut WriteBatch, &'a rocksdb::ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
         f(&mut batch, cf)?;
 
         db.write(batch)?;
@@ -569,9 +571,10 @@ impl RocksDbClient {
     /// Flush a column family
     pub fn flush_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
-        db.flush_cf(&cf)?;
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        db.flush_cf(cf)?;
         Ok(())
     }
 
@@ -585,9 +588,10 @@ impl RocksDbClient {
     /// Compact a column family
     pub fn compact_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
-        db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        db.compact_range_cf::<&[u8], &[u8]>(cf, None, None);
         Ok(())
     }
 }
