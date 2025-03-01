@@ -353,7 +353,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf_handle(&self, cf_name: &str) -> DbResult<ColumnFamily> {
+    fn get_cf_handle(&self, cf_name: &str) -> DbResult<&ColumnFamily> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
@@ -375,7 +375,7 @@ impl RocksDbClient {
         
         // Get the column family handle directly from the DB
         match db.cf_handle(cf_name) {
-            Some(cf) => Ok(cf.clone()),
+            Some(cf) => Ok(cf),
             None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
         }
     }
@@ -546,7 +546,7 @@ impl RocksDbClient {
         let cf = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
-        f(&mut batch, cf)?;
+        f(&mut batch, &cf)?;
 
         db.write(batch)?;
         Ok(())
