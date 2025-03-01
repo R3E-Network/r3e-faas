@@ -550,7 +550,7 @@ impl RocksDbClient {
         let mut batch = WriteBatch::default();
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        f(&mut batch, cf)?;
+        f(&mut batch, &cf)?;
 
         db.write(batch)?;
         Ok(())
