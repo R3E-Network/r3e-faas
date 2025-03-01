@@ -1,11 +1,10 @@
-cargo-features = ["edition2024"]
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
 [package]
 name = "r3e-worker"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 
 [dependencies]

@@ -1,8 +1,7 @@
-cargo-features = ["edition2024"]
 [package]
 name = "r3e-neo-services"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 authors = ["R3E Network"]
 description = "Neo N3 blockchain services for r3e-faas platform"
 license = "MIT"

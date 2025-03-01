@@ -1,16 +1,9 @@
-// Example: Auto Contract
-// This example demonstrates how to invoke a function on the R3E FaaS platform
-
 const http = require('http');
 
 // Function to invoke
 const data = {
-  function: 'autoContract',
-  args: { 
-    contractName: 'SimpleStorage',
-    initialValue: 42,
-    network: 'neo-testnet'
-  }
+  function: 'helloWorld',
+  args: { name: 'R3E Network' }
 };
 
 // Make request
@@ -25,7 +18,6 @@ const req = http.request({
   res.on('data', chunk => { data += chunk; });
   res.on('end', () => {
     console.log('Response:', JSON.parse(data));
-    console.log('Contract deployed successfully!');
   });
 });
 
@@ -35,5 +27,3 @@ req.on('error', error => {
 
 req.write(JSON.stringify(data));
 req.end();
-
-console.log('Deploying auto contract...');

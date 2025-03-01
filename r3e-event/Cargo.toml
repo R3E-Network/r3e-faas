@@ -1,11 +1,10 @@
-cargo-features = ["edition2024"]
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
 [package]
 name = "r3e-event"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 
 [dependencies]
@@ -33,7 +32,7 @@ deno_core   = { version = "0.340.0" }
 
 serde_json  = { version = "1" }
 serde_v8    = { version = "0.180.0" }
-v8          = { version = "134.5.0", default-features = false }
+v8 = { version = "0.87.0", default-features = false }
 
 [build-dependencies]
 prost-build = { version = "0.13" }
