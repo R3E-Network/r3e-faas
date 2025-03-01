@@ -42,7 +42,10 @@ async fn test_store_and_get_secret() {
         .unwrap();
 
     // Get the secret
-    let retrieved_value = vault.get_secret(user_id, function_id, &secret_id).await.unwrap();
+    let retrieved_value = vault
+        .get_secret(user_id, function_id, &secret_id)
+        .await
+        .unwrap();
     assert_eq!(retrieved_value, value);
 
     // Get the metadata
@@ -94,11 +97,15 @@ async fn test_unauthorized_access() {
         .unwrap();
 
     // Try to access with wrong user ID
-    let result = vault.get_secret("wrong_user", function_id, &secret_id).await;
+    let result = vault
+        .get_secret("wrong_user", function_id, &secret_id)
+        .await;
     assert!(matches!(result, Err(SecretError::Unauthorized(_))));
 
     // Try to access with wrong function ID
-    let result = vault.get_secret(user_id, "wrong_function", &secret_id).await;
+    let result = vault
+        .get_secret(user_id, "wrong_function", &secret_id)
+        .await;
     assert!(matches!(result, Err(SecretError::Unauthorized(_))));
 }
 
@@ -143,7 +150,10 @@ async fn test_secret_rotation() {
         .unwrap();
 
     // Get the rotated secret
-    let retrieved_value = vault.get_secret(user_id, function_id, &secret_id).await.unwrap();
+    let retrieved_value = vault
+        .get_secret(user_id, function_id, &secret_id)
+        .await
+        .unwrap();
     assert_eq!(retrieved_value, new_value);
 
     // Get the metadata
@@ -232,7 +242,10 @@ async fn test_master_key_rotation() {
     vault.rotate_master_key(new_master_key).await.unwrap();
 
     // Get the secret after key rotation
-    let retrieved_value = vault.get_secret(user_id, function_id, &secret_id).await.unwrap();
+    let retrieved_value = vault
+        .get_secret(user_id, function_id, &secret_id)
+        .await
+        .unwrap();
     assert_eq!(retrieved_value, value);
 }
 
@@ -248,7 +261,7 @@ async fn test_list_secrets() {
     // Store multiple secrets
     let user_id = "user1";
     let function_id = "function1";
-    
+
     // Secret 1
     let name1 = "api_key";
     let value1 = b"secret_value1";

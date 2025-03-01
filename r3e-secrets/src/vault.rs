@@ -9,8 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::{EncryptedSecret, SecretEncryption, SecretError};
 use crate::storage::SecretStorage;
+use crate::{EncryptedSecret, SecretEncryption, SecretError};
 
 /// Secret metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
