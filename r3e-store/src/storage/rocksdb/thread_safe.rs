@@ -24,6 +24,12 @@ impl ThreadSafeRocksDBStore {
             inner: Arc::new(Mutex::new(inner)),
         }
     }
+
+    /// Open the database
+    pub async fn open(&self) -> Result<(), PutError> {
+        let mut inner = self.inner.lock().await;
+        inner.open()
+    }
 }
 
 impl KvStore for ThreadSafeRocksDBStore {

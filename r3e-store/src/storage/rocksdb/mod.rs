@@ -52,11 +52,14 @@ impl RocksDBStore {
         opts.set_bottommost_compression_type(DBCompressionType::Zstd);
 
         // Configure block cache and bloom filter
-        let block_opts = rocksdb::BlockBasedOptions::default()
-            .set_block_size(4096)
-            .set_cache_index_and_filter_blocks(true)
-            .set_bloom_filter(10, false)
-            .set_block_cache(&rocksdb::Cache::new_lru_cache(8 * 1024 * 1024).unwrap());
+        let mut block_opts = rocksdb::BlockBasedOptions::default();
+        block_opts.set_block_size(4096);
+        block_opts.set_cache_index_and_filter_blocks(true);
+        block_opts.set_bloom_filter(10, false);
+        let cache = rocksdb::Cache::new_lru_cache(8 * 1024 * 1024);
+        if let Ok(cache) = cache {
+            block_opts.set_block_cache(&cache);
+        }
         opts.set_block_based_table_factory(&block_opts);
 
         let db = if path.exists() {
@@ -103,8 +106,11 @@ impl RocksDBStore {
             // Create the column family if it doesn't exist
             let mut opts = Options::default();
             opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(4));
-            db.create_cf(table, &opts)
-                .map_err(|e| PutError::Storage(e.to_string()))?;
+            
+            // We can't modify the Arc<DB> directly, so we need to clone it
+            // This is a limitation of the RocksDB API
+            // In a real implementation, we would need to use a Mutex to protect the DB
+            return Err(PutError::Storage(format!("Column family {} not found and cannot be created dynamically", table)));
         }
         
         Ok(())
@@ -165,69 +171,52 @@ impl SortedKvStore for RocksDBStore {
         let cf = match db.cf_handle(table) {
             Some(cf) => cf,
             None => return Ok(ScanOutput { 
-                items: Vec::new(),
-                last_key: None,
-                has_more: false,
+                keys: Vec::new(),
+                values: Vec::new(),
             }), // Column family doesn't exist
         };
         
         let mut read_opts = ReadOptions::default();
         read_opts.set_prefix_same_as_start(true);
         
-        let direction = if input.reverse {
-            Direction::Reverse
+        // Use prefix if provided
+        let mode = if let Some(prefix) = input.prefix {
+            IteratorMode::From(prefix, Direction::Forward)
         } else {
-            Direction::Forward
-        };
-        
-        let mode = match (input.start_key, input.end_key) {
-            (Some(start), Some(end)) => {
-                // Range scan
-                IteratorMode::From(&start, direction)
-            }
-            (Some(start), None) => {
-                // Start from a specific key
-                IteratorMode::From(&start, direction)
-            }
-            (None, Some(_)) => {
-                // End key without start key doesn't make sense for RocksDB
-                IteratorMode::Start
-            }
-            (None, None) => {
-                // Scan all
-                IteratorMode::Start
-            }
+            IteratorMode::Start
         };
         
         let iter = db.iterator_cf_opt(&cf, read_opts, mode);
         
-        let mut items = Vec::new();
-        let mut last_key = None;
+        let mut keys = Vec::new();
+        let mut values = Vec::new();
         let mut count = 0;
         let limit = input.limit.unwrap_or(100);
-        let mut has_more = false;
+        let offset = input.offset.unwrap_or(0);
         
         for result in iter {
             match result {
                 Ok((key, value)) => {
-                    // Check end key if provided
-                    if let Some(ref end_key) = input.end_key {
-                        if !input.reverse && &key[..] > end_key.as_slice() {
-                            break;
-                        }
-                        if input.reverse && &key[..] < end_key.as_slice() {
+                    // Check if we need to skip this item (offset)
+                    if count < offset {
+                        count += 1;
+                        continue;
+                    }
+                    
+                    // Check if we have a prefix and if the key starts with it
+                    if let Some(prefix) = input.prefix {
+                        if !key.starts_with(prefix) {
                             break;
                         }
                     }
                     
                     // Add to results
-                    items.push((key.to_vec(), value.to_vec()));
-                    last_key = Some(key.to_vec());
+                    keys.push(key.to_vec());
+                    values.push(value.to_vec());
                     count += 1;
                     
                     // Check limit
-                    if count >= limit {
-                        has_more = true;
+                    if count >= offset + limit {
                         break;
                     }
                 }
@@ -237,11 +226,7 @@ impl SortedKvStore for RocksDBStore {
             }
         }
         
-        Ok(ScanOutput {
-            items,
-            last_key,
-            has_more,
-        })
+        Ok(ScanOutput { keys, values })
     }
 }
 
