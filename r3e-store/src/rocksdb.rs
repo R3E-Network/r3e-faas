@@ -156,7 +156,7 @@ fn default_min_write_buffer_number_to_merge() -> i32 {
 pub struct RocksDbClient {
     db: Option<Arc<DB>>,
     config: RocksDbConfig,
-    // We store column family names instead of handles to avoid thread-safety issues
+    // We store column family names to track which ones we know about
     column_families: Arc<Mutex<HashSet<String>>>,
 }
 
@@ -353,7 +353,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf_handle(&self, cf_name: &str) -> DbResult<Arc<BoundColumnFamily<'static>>> {
+    fn get_cf_handle<'a>(&'a self, cf_name: &str) -> DbResult<&'a ColumnFamily> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
@@ -374,15 +374,8 @@ impl RocksDbClient {
         }
         
         // Get the column family handle directly from the DB
-        // Note: This is a workaround for lifetime issues. In a real implementation,
-        // we would need to store the column family handles in the RocksDbClient struct.
         match db.cf_handle(cf_name) {
-            Some(cf) => {
-                // This is unsafe but necessary due to lifetime constraints
-                // The DB is stored in an Arc, so it will outlive this function
-                let cf_static = unsafe { std::mem::transmute(cf) };
-                Ok(cf_static)
-            },
+            Some(cf) => Ok(cf),
             None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
         }
     }
@@ -547,13 +540,13 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &Arc<BoundColumnFamily<'_>>) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, &ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
-        f(&mut batch, &cf)?;
+        f(&mut batch, cf)?;
 
         db.write(batch)?;
         Ok(())
