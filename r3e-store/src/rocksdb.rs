@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use ::rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamilyDescriptor, DBCompactionStyle, 
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
     DBCompressionType, Direction, Error as RocksError, IteratorMode, Options, ReadOptions, 
     SliceTransform, WriteBatch, DB,
 };
@@ -390,7 +390,7 @@ impl RocksDbClient {
             bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        db.put_cf(cf, key, serialized_value)?;
+        db.put_cf(&cf, key, serialized_value)?;
         Ok(())
     }
 
@@ -404,7 +404,7 @@ impl RocksDbClient {
         let cf_name = self.get_cf_handle(cf_name)?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        match db.get_cf(cf, key)? {
+        match db.get_cf(&cf, key)? {
             Some(data) => {
                 let value = bincode::deserialize(&data)
                     .map_err(|e| DbError::Deserialization(e.to_string()))?;
@@ -423,7 +423,7 @@ impl RocksDbClient {
         let cf_name = self.get_cf_handle(cf_name)?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        db.delete_cf(cf, key)?;
+        db.delete_cf(&cf, key)?;
         Ok(())
     }
 
@@ -436,7 +436,7 @@ impl RocksDbClient {
         let cf_name = self.get_cf_handle(cf_name)?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        let value = db.get_cf(cf, key)?;
+        let value = db.get_cf(&cf, key)?;
         Ok(value.is_some())
     }
 
@@ -453,7 +453,7 @@ impl RocksDbClient {
         let cf_name = self.get_cf_handle(cf_name)?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        let iter = db.iterator_cf(cf, mode);
+        let iter = db.iterator_cf(&cf, mode);
 
         let results: Vec<(Box<[u8]>, V)> = iter
             .map(|result| {
@@ -493,7 +493,7 @@ impl RocksDbClient {
         read_opts.set_prefix_same_as_start(true);
 
         let iter = db.iterator_cf_opt(
-            cf,
+            &cf,
             read_opts,
             IteratorMode::From(prefix.as_ref(), Direction::Forward),
         );
@@ -543,7 +543,7 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: for<'a> FnOnce(&mut WriteBatch, &'a rocksdb::ColumnFamily) -> DbResult<()>,
+        F: for<'a> FnOnce(&mut WriteBatch, &'a ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf_name = self.get_cf_handle(cf_name)?;
@@ -574,7 +574,7 @@ impl RocksDbClient {
         let cf_name = self.get_cf_handle(cf_name)?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        db.flush_cf(cf)?;
+        db.flush_cf(&cf)?;
         Ok(())
     }
 
@@ -591,7 +591,7 @@ impl RocksDbClient {
         let cf_name = self.get_cf_handle(cf_name)?;
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        db.compact_range_cf::<&[u8], &[u8]>(cf, None, None);
+        db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
         Ok(())
     }
 }
