@@ -11,9 +11,11 @@ use r3e_neo_services::gas_bank::service::GasBankService;
 use r3e_neo_services::meta_tx::service::MetaTxService;
 use r3e_neo_services::meta_tx::storage::MetaTxStorage;
 use r3e_neo_services::types::FeeModel;
+use r3e_secrets::service::{SecretService, SecretServiceImpl};
 use sqlx::PgPool;
 use url::Url;
 
+use crate::auth::key_rotation::KeyRotationService;
 use crate::config::Config;
 use crate::error::Error;
 
@@ -36,6 +38,12 @@ pub struct EndpointService {
 
     /// Meta transaction service
     pub meta_tx_service: Arc<MetaTxService<dyn MetaTxStorage>>,
+    
+    /// Secret service
+    pub secret_service: Arc<dyn SecretService>,
+    
+    /// Key rotation service
+    pub key_rotation_service: Arc<KeyRotationService>,
 }
 
 impl EndpointService {
@@ -91,6 +99,16 @@ impl EndpointService {
             "mainnet".to_string(),
             FeeModel::Percentage(1.0),
         ));
+        
+        // Create Secret service
+        let secret_storage = Arc::new(r3e_secrets::rocksdb::RocksDBSecretStorage::new("./data/secrets")
+            .await
+            .map_err(|e| Error::Database(format!("Failed to create Secret storage: {}", e)))?);
+        
+        let secret_service = Arc::new(SecretServiceImpl::new(secret_storage));
+        
+        // Create Key Rotation service
+        let key_rotation_service = Arc::new(KeyRotationService::new(secret_service.clone()));
 
         Ok(Self {
             config,
@@ -99,7 +117,14 @@ impl EndpointService {
             relayer_wallet,
             gas_bank_service,
             meta_tx_service,
+            secret_service,
+            key_rotation_service,
         })
+    }
+    
+    /// Get the key rotation service
+    pub fn key_rotation_service(&self) -> Arc<KeyRotationService> {
+        self.key_rotation_service.clone()
     }
 }
 

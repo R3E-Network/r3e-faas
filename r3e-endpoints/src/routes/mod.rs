@@ -10,14 +10,18 @@ mod wallet;
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, post},
+    routing::{get, post, delete},
     Router,
 };
 
+use crate::middleware::KeyRotationLayer;
 use crate::service::EndpointService;
 
 /// Create the router
 pub fn create_router(service: Arc<EndpointService>) -> Router {
+    // Create the key rotation layer
+    let key_rotation_layer = KeyRotationLayer::new(service.key_rotation_service());
+    
     // Create the router
     Router::new()
         // Health routes
@@ -26,6 +30,11 @@ pub fn create_router(service: Arc<EndpointService>) -> Router {
         .route("/auth/login", post(auth::login))
         .route("/auth/register", post(auth::register))
         .route("/auth/refresh", post(auth::refresh))
+        // API key routes
+        .route("/auth/api-keys", post(auth::api_keys::create_api_key))
+        .route("/auth/api-keys/:key_id", post(auth::api_keys::rotate_api_key))
+        .route("/auth/api-keys/:key_id", delete(auth::api_keys::revoke_api_key))
+        .route("/auth/api-keys/user/:user_id", get(auth::api_keys::list_api_keys))
         // Wallet routes
         .route("/wallet/connect", post(wallet::connect))
         .route("/wallet/sign", post(wallet::sign_message))
@@ -41,6 +50,8 @@ pub fn create_router(service: Arc<EndpointService>) -> Router {
         .route("/services/:id/invoke", post(services::invoke_service))
         // Add the service state
         .with_state(service)
+        // Add the key rotation middleware
+        .layer(key_rotation_layer)
 }
 
 pub fn auth_routes() -> Router<Arc<EndpointService>> {
@@ -50,4 +61,9 @@ pub fn auth_routes() -> Router<Arc<EndpointService>> {
         .route("/wallet/authenticate", post(auth::authenticate_wallet))
         // Token refresh route
         .route("/refresh", post(auth::refresh))
+        // API key routes
+        .route("/api-keys", post(auth::api_keys::create_api_key))
+        .route("/api-keys/:key_id", post(auth::api_keys::rotate_api_key))
+        .route("/api-keys/:key_id", delete(auth::api_keys::revoke_api_key))
+        .route("/api-keys/user/:user_id", get(auth::api_keys::list_api_keys))
 }
