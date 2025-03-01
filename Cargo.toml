@@ -49,3 +49,6 @@ edition = "2021"
 serde = { version = "1", features = ["derive"] }
 serde_v8 = { version = "0.180.0" }
 v8 = { version = "0.87.0", default-features = false }
+
+[patch.crates-io]
+home = "=0.5.5"
