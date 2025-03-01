@@ -215,7 +215,7 @@ impl FunctionExecutor {
     /// Execute a function
     #[instrument(
         name = "function_execution",
-        skip(self, code, input),
+        skip(self, code, input, metrics_manager),
         fields(
             function_id = %function_id,
             user_id = %user_id,
@@ -228,6 +228,7 @@ impl FunctionExecutor {
         user_id: u64,
         code: String,
         input: Value,
+        metrics_manager: Option<&crate::metrics::MetricsManager>,
     ) -> Result<FunctionExecutionResult> {
         // Check if we have a preloaded function
         let actual_code = if let Some(preloaded) = &self.preloaded_function {
@@ -312,8 +313,11 @@ impl FunctionExecutor {
             Ok(result) => {
                 // Log execution success
                 let execution_time = context.execution_time_ms();
+                let memory_usage = sandbox_executor.get_memory_usage_mb();
+                
                 info!(
                     execution_time_ms = execution_time,
+                    memory_usage_mb = memory_usage,
                     result_size = result.len(),
                     "Function executed successfully"
                 );
@@ -322,6 +326,17 @@ impl FunctionExecutor {
                     "Function executed successfully in {}ms with result: {}",
                     execution_time, result
                 )).await;
+                
+                // Record metrics if metrics manager is provided
+                if let Some(metrics) = metrics_manager {
+                    metrics.record_function_execution(
+                        &function_id.to_string(),
+                        &user_id.to_string(),
+                        execution_time,
+                        memory_usage,
+                        true,
+                    );
+                }
                 
                 // Parse the result
                 match serde_json::from_str::<Value>(&result) {
@@ -340,21 +355,47 @@ impl FunctionExecutor {
                             "Failed to parse result: {}", e
                         )).await;
                         
+                        // Record error metrics if metrics manager is provided
+                        if let Some(metrics) = metrics_manager {
+                            metrics.record_function_execution(
+                                &function_id.to_string(),
+                                &user_id.to_string(),
+                                execution_time,
+                                memory_usage,
+                                false,
+                            );
+                        }
+                        
                         Err(Error::Serialization(e))
                     }
                 }
             },
             Err(e) => {
                 // Log execution error
+                let execution_time = context.execution_time_ms();
+                let memory_usage = sandbox_executor.get_memory_usage_mb();
+                
                 error!(
                     error = %e,
-                    execution_time_ms = context.execution_time_ms(),
+                    execution_time_ms = execution_time,
+                    memory_usage_mb = memory_usage,
                     "Function execution failed"
                 );
                 
                 context.add_log(&format!(
                     "Function execution failed: {}", e
                 )).await;
+                
+                // Record error metrics if metrics manager is provided
+                if let Some(metrics) = metrics_manager {
+                    metrics.record_function_execution(
+                        &function_id.to_string(),
+                        &user_id.to_string(),
+                        execution_time,
+                        memory_usage,
+                        false,
+                    );
+                }
                 
                 Err(Error::Execution(format!("Function execution failed: {}", e)))
             }

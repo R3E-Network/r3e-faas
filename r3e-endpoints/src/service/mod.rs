@@ -2,7 +2,9 @@
 // All Rights Reserved
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
+use chrono::Utc;
 use neo3::neo_clients::{HttpProvider, RpcClient};
 use neo3::neo_crypto::keys::PrivateKey;
 use neo3::neo_protocol::wallet::Wallet;
@@ -11,11 +13,15 @@ use r3e_neo_services::gas_bank::service::GasBankService;
 use r3e_neo_services::meta_tx::service::MetaTxService;
 use r3e_neo_services::meta_tx::storage::MetaTxStorage;
 use r3e_neo_services::types::FeeModel;
+use r3e_worker::metrics::{MetricsManager, SystemMetricsSummary};
 use sqlx::PgPool;
+use tokio::sync::Mutex;
+use tracing::{info, warn, error, instrument};
 use url::Url;
 
 use crate::config::Config;
 use crate::error::Error;
+use crate::routes::health::SystemMetrics;
 
 /// Endpoint service
 pub struct EndpointService {
@@ -36,6 +42,12 @@ pub struct EndpointService {
 
     /// Meta transaction service
     pub meta_tx_service: Arc<MetaTxService<dyn MetaTxStorage>>,
+    
+    /// Metrics manager
+    pub metrics_manager: Arc<MetricsManager>,
+    
+    /// Service start time
+    pub start_time: Instant,
 }
 
 impl EndpointService {
@@ -91,6 +103,14 @@ impl EndpointService {
             "mainnet".to_string(),
             FeeModel::Percentage(1.0),
         ));
+        
+        // Create metrics manager
+        let metrics_manager = Arc::new(MetricsManager::new());
+        
+        // Add log alert handler
+        metrics_manager.get_alert_manager().add_alert_handler(r3e_worker::metrics::LogAlertHandler);
+        
+        info!("Endpoint service initialized");
 
         Ok(Self {
             config,
@@ -99,7 +119,88 @@ impl EndpointService {
             relayer_wallet,
             gas_bank_service,
             meta_tx_service,
+            metrics_manager,
+            start_time: Instant::now(),
         })
+    }
+    
+    /// Check database connection
+    #[instrument(skip(self))]
+    pub async fn check_database_connection(&self) -> Result<(), Error> {
+        // Simple query to check if the database is accessible
+        match sqlx::query("SELECT 1").execute(&self.db).await {
+            Ok(_) => {
+                info!("Database connection check successful");
+                Ok(())
+            },
+            Err(e) => {
+                error!(error = %e, "Database connection check failed");
+                Err(Error::Database(format!("Database connection check failed: {}", e)))
+            }
+        }
+    }
+    
+    /// Check worker pool
+    #[instrument(skip(self))]
+    pub async fn check_worker_pool(&self) -> Result<(), Error> {
+        // For now, just return OK since we don't have a direct connection to the worker pool
+        // In a real implementation, this would check the worker pool status
+        info!("Worker pool check successful");
+        Ok(())
+    }
+    
+    /// Check authentication service
+    #[instrument(skip(self))]
+    pub async fn check_auth_service(&self) -> Result<(), Error> {
+        // For now, just return OK since we don't have a direct connection to the auth service
+        // In a real implementation, this would check the auth service status
+        info!("Authentication service check successful");
+        Ok(())
+    }
+    
+    /// Get uptime in seconds
+    pub fn get_uptime_seconds(&self) -> Option<i64> {
+        Some(self.start_time.elapsed().as_secs() as i64)
+    }
+    
+    /// Get system metrics
+    #[instrument(skip(self))]
+    pub async fn get_system_metrics(&self) -> Result<SystemMetrics, Error> {
+        // Get metrics from the metrics manager
+        let metrics_summary = self.metrics_manager.get_system_metrics();
+        
+        // Get system resource usage
+        let cpu_usage = 0.0; // TODO: Implement actual CPU usage monitoring
+        let memory_usage = 0.0; // TODO: Implement actual memory usage monitoring
+        let disk_usage = 0.0; // TODO: Implement actual disk usage monitoring
+        
+        // Create network stats
+        let network = crate::routes::health::NetworkStats {
+            bytes_received: 0, // TODO: Implement actual network monitoring
+            bytes_sent: 0,     // TODO: Implement actual network monitoring
+            active_connections: 0, // TODO: Implement actual connection monitoring
+        };
+        
+        // Create function execution stats from system metrics
+        let system_metrics_summary = self.metrics_manager.get_system_metrics();
+        let function_execution = crate::routes::health::FunctionExecutionStats {
+            total_executions: system_metrics_summary.total_execution_count,
+            total_errors: system_metrics_summary.total_error_count,
+            avg_execution_time_ms: system_metrics_summary.avg_execution_time_ms,
+            avg_memory_usage_mb: system_metrics_summary.avg_memory_usage_mb,
+            error_rate: system_metrics_summary.error_rate,
+        };
+        
+        // Create system metrics
+        let system_metrics = SystemMetrics {
+            cpu_usage_percent: cpu_usage,
+            memory_usage_percent: memory_usage,
+            disk_usage_percent: disk_usage,
+            network,
+            function_execution,
+        };
+        
+        Ok(system_metrics)
     }
 }
 

@@ -26,8 +26,10 @@ pub fn create_app(service: Arc<EndpointService>) -> Router {
         .nest("/services", routes::service_routes())
         // Auth routes
         .nest("/auth", routes::auth_routes())
+        // Health routes
+        .merge(routes::health::create_routes())
         // Add middlewares
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(service)
-} 
+}  
