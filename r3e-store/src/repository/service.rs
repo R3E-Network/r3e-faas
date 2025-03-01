@@ -134,6 +134,7 @@ impl ServiceRepository {
         tokio::task::spawn_blocking(move || {
             let iter = inner.iter_cf::<Service>(&cf_name, rocksdb::IteratorMode::Start)?;
             let services: Vec<Service> = iter
+                .into_iter()
                 .filter_map(|(_, service)| {
                     if service.owner_id == owner_id {
                         Some(service)
@@ -159,6 +160,7 @@ impl ServiceRepository {
         tokio::task::spawn_blocking(move || {
             let iter = inner.iter_cf::<Service>(&cf_name, rocksdb::IteratorMode::Start)?;
             let services: Vec<Service> = iter
+                .into_iter()
                 .filter_map(
                     |(_, service)| match (&service.service_type, &service_type) {
                         (ServiceType::Rest, ServiceType::Rest) => Some(service),
@@ -189,6 +191,7 @@ impl ServiceRepository {
         tokio::task::spawn_blocking(move || {
             let iter = inner.iter_cf::<Service>(&cf_name, rocksdb::IteratorMode::Start)?;
             let services: Vec<Service> = iter
+                .into_iter()
                 .filter_map(
                     |(_, service)| {
                         if service.enabled {
@@ -219,6 +222,7 @@ impl ServiceRepository {
         tokio::task::spawn_blocking(move || {
             let iter = inner.iter_cf::<Service>(&cf_name, rocksdb::IteratorMode::Start)?;
             let services: Vec<Service> = iter
+                .into_iter()
                 .filter_map(|(_, service)| {
                     if let Some(ref service_blockchain) = service.blockchain_type {
                         match (service_blockchain, &blockchain_type) {
@@ -249,5 +253,5 @@ crate::rocksdb::impl_db_repository!(
     Service,
     String,
     CF_SERVICES,
-    |service: &Service| service.id.clone().into()
+    |service: &Service| -> String { service.id.clone() }
 );
