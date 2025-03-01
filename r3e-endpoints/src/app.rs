@@ -6,7 +6,11 @@ use axum::{Router, routing::get};
 use tower_http::cors::{CorsLayer, Any};
 use tower_http::trace::TraceLayer;
 
-use crate::{middleware::SecurityHeadersLayer, routes, service::EndpointService};
+use crate::{
+    middleware::{SecurityHeadersLayer, ValidationLayer},
+    routes, 
+    service::EndpointService
+};
 
 /// Create the application
 pub fn create_app(service: Arc<EndpointService>) -> Router {
@@ -19,6 +23,9 @@ pub fn create_app(service: Arc<EndpointService>) -> Router {
     // Set up security headers
     let security_headers = SecurityHeadersLayer::new();
     
+    // Set up validation
+    let validation = ValidationLayer::new();
+    
     // Build the router
     Router::new()
         // API routes
@@ -30,8 +37,9 @@ pub fn create_app(service: Arc<EndpointService>) -> Router {
         // Auth routes
         .nest("/auth", routes::auth_routes())
         // Add middlewares
+        .layer(validation)
         .layer(security_headers)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(service)
-}   
+}         
