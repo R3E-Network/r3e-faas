@@ -94,9 +94,9 @@ impl RocksDbFheStorage {
         key: K,
     ) -> FheResult<Option<T>> {
         let db = self.db.lock().await;
-        let cf = db
-            .cf_handle(cf_name)
-            .ok_or_else(|| FheError::StorageError(format!("Column family not found: {}", cf_name)))?;
+        let cf = db.cf_handle(cf_name).ok_or_else(|| {
+            FheError::StorageError(format!("Column family not found: {}", cf_name))
+        })?;
 
         match db.get_cf(cf, key.as_ref()) {
             Ok(Some(data)) => {
@@ -119,9 +119,9 @@ impl RocksDbFheStorage {
         value: &T,
     ) -> FheResult<()> {
         let db = self.db.lock().await;
-        let cf = db
-            .cf_handle(cf_name)
-            .ok_or_else(|| FheError::StorageError(format!("Column family not found: {}", cf_name)))?;
+        let cf = db.cf_handle(cf_name).ok_or_else(|| {
+            FheError::StorageError(format!("Column family not found: {}", cf_name))
+        })?;
 
         let serialized = Self::serialize(value)?;
         db.put_cf(cf, key.as_ref(), serialized)
@@ -129,26 +129,23 @@ impl RocksDbFheStorage {
     }
 
     /// Delete a value from a column family.
-    async fn delete<K: AsRef<[u8]> + Debug>(
-        &self,
-        cf_name: &str,
-        key: K,
-    ) -> FheResult<()> {
+    async fn delete<K: AsRef<[u8]> + Debug>(&self, cf_name: &str, key: K) -> FheResult<()> {
         let db = self.db.lock().await;
-        let cf = db
-            .cf_handle(cf_name)
-            .ok_or_else(|| FheError::StorageError(format!("Column family not found: {}", cf_name)))?;
+        let cf = db.cf_handle(cf_name).ok_or_else(|| {
+            FheError::StorageError(format!("Column family not found: {}", cf_name))
+        })?;
 
-        db.delete_cf(cf, key.as_ref())
-            .map_err(|e| FheError::RocksDbError(format!("Failed to delete value from RocksDB: {}", e)))
+        db.delete_cf(cf, key.as_ref()).map_err(|e| {
+            FheError::RocksDbError(format!("Failed to delete value from RocksDB: {}", e))
+        })
     }
 
     /// List all values in a column family.
     async fn list<T: DeserializeOwned>(&self, cf_name: &str) -> FheResult<Vec<T>> {
         let db = self.db.lock().await;
-        let cf = db
-            .cf_handle(cf_name)
-            .ok_or_else(|| FheError::StorageError(format!("Column family not found: {}", cf_name)))?;
+        let cf = db.cf_handle(cf_name).ok_or_else(|| {
+            FheError::StorageError(format!("Column family not found: {}", cf_name))
+        })?;
 
         let mut values = Vec::new();
         let iter = db.iterator_cf(cf, rocksdb::IteratorMode::Start);
@@ -181,9 +178,15 @@ impl FheStorage for RocksDbFheStorage {
 
     async fn get_key_pair(&self, id: &FheKeyPairId) -> FheResult<FheKeyPair> {
         debug!("Getting key pair: {}", id);
-        match self.get::<FheKeyPair, _>(CF_KEY_PAIRS, id.0.to_string()).await? {
+        match self
+            .get::<FheKeyPair, _>(CF_KEY_PAIRS, id.0.to_string())
+            .await?
+        {
             Some(key_pair) => Ok(key_pair),
-            None => Err(FheError::MissingDataError(format!("Key pair not found: {}", id))),
+            None => Err(FheError::MissingDataError(format!(
+                "Key pair not found: {}",
+                id
+            ))),
         }
     }
 
@@ -209,7 +212,10 @@ impl FheStorage for RocksDbFheStorage {
             .await?
         {
             Some(key) => Ok(key),
-            None => Err(FheError::MissingDataError(format!("Public key not found: {}", id))),
+            None => Err(FheError::MissingDataError(format!(
+                "Public key not found: {}",
+                id
+            ))),
         }
     }
 
@@ -235,7 +241,10 @@ impl FheStorage for RocksDbFheStorage {
             .await?
         {
             Some(key) => Ok(key),
-            None => Err(FheError::MissingDataError(format!("Private key not found: {}", id))),
+            None => Err(FheError::MissingDataError(format!(
+                "Private key not found: {}",
+                id
+            ))),
         }
     }
 
@@ -262,7 +271,10 @@ impl FheStorage for RocksDbFheStorage {
             .await?
         {
             Some(ciphertext) => Ok(ciphertext),
-            None => Err(FheError::MissingDataError(format!("Ciphertext not found: {}", id))),
+            None => Err(FheError::MissingDataError(format!(
+                "Ciphertext not found: {}",
+                id
+            ))),
         }
     }
 

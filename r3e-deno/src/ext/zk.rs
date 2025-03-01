@@ -26,10 +26,13 @@ pub fn op_zk_compile_circuit(
     #[serde] parameters: serde_json::Value,
 ) -> Result<ZkCircuitId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_zk_compile_circuit", &serde_json::json!({
-        "circuit_type": circuit_type,
-        "circuit_name": circuit_name,
-    }))?;
+    super::op_allowed(
+        "op_zk_compile_circuit",
+        &serde_json::json!({
+            "circuit_type": circuit_type,
+            "circuit_name": circuit_name,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -60,9 +63,12 @@ pub fn op_zk_generate_keys(
     #[serde] parameters: serde_json::Value,
 ) -> Result<(ZkProvingKeyId, ZkVerificationKeyId), AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_zk_generate_keys", &serde_json::json!({
-        "circuit_id": circuit_id,
-    }))?;
+    super::op_allowed(
+        "op_zk_generate_keys",
+        &serde_json::json!({
+            "circuit_id": circuit_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -97,10 +103,13 @@ pub fn op_zk_generate_proof(
     #[serde] parameters: serde_json::Value,
 ) -> Result<ZkProofId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_zk_generate_proof", &serde_json::json!({
-        "circuit_id": circuit_id,
-        "proving_key_id": proving_key_id,
-    }))?;
+    super::op_allowed(
+        "op_zk_generate_proof",
+        &serde_json::json!({
+            "circuit_id": circuit_id,
+            "proving_key_id": proving_key_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -133,10 +142,13 @@ pub fn op_zk_verify_proof(
     #[serde] parameters: serde_json::Value,
 ) -> Result<bool, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_zk_verify_proof", &serde_json::json!({
-        "proof_id": proof_id,
-        "verification_key_id": verification_key_id,
-    }))?;
+    super::op_allowed(
+        "op_zk_verify_proof",
+        &serde_json::json!({
+            "proof_id": proof_id,
+            "verification_key_id": verification_key_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state

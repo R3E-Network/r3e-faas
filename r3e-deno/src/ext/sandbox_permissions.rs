@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use crate::sandbox::{SandboxConfig, check_permission};
+use crate::sandbox::{check_permission, SandboxConfig};
 
 /// Sandbox permission request
 #[derive(Debug, Serialize, Deserialize)]
@@ -30,7 +30,7 @@ pub fn op_request_permission(
     #[state] sandbox_config: &Arc<Mutex<SandboxConfig>>,
 ) -> Result<PermissionResponse, AnyError> {
     let config = sandbox_config.lock().unwrap();
-    
+
     match check_permission(&request.operation, &config) {
         Ok(_) => Ok(PermissionResponse {
             granted: true,

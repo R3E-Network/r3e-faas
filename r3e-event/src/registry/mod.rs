@@ -213,7 +213,7 @@ impl ServiceRegistry {
     pub async fn get_service(&self, service_id: &Uuid) -> Result<Option<Service>, String> {
         // Check if we need to refresh the cache
         self.maybe_refresh_cache().await?;
-        
+
         // Try to get from cache first
         {
             let cache = self.service_cache.read().await;
@@ -221,7 +221,7 @@ impl ServiceRegistry {
                 return Ok(Some(service.clone()));
             }
         }
-        
+
         // If not in cache, get from database
         match self.db_client.get_service(service_id).await {
             Ok(Some(service)) => {
@@ -239,11 +239,11 @@ impl ServiceRegistry {
     pub async fn list_services(&self) -> Result<Vec<Service>, String> {
         // Check if we need to refresh the cache
         self.maybe_refresh_cache().await?;
-        
+
         // Get from cache
         let cache = self.service_cache.read().await;
         let services: Vec<Service> = cache.values().cloned().collect();
-        
+
         // If cache is empty, get from database
         if services.is_empty() {
             match self.db_client.list_services().await {
@@ -318,12 +318,12 @@ impl ServiceRegistry {
             Some(s) => s,
             None => return Err(format!("Service not found: {}", service_id)),
         };
-        
+
         // Check if service is enabled
         if !service.is_enabled {
             return Err(format!("Service is disabled: {}", service_id));
         }
-        
+
         // Find the function
         let function = service.functions.iter().find(|f| f.name == function_name);
         let function = match function {
@@ -335,17 +335,23 @@ impl ServiceRegistry {
                 ))
             }
         };
-        
+
         // Check function auth requirements
         if function.requires_auth && auth_token.is_none() {
-            return Err(format!("Auth token required for function: {}.{}", service_id, function_name));
+            return Err(format!(
+                "Auth token required for function: {}.{}",
+                service_id, function_name
+            ));
         }
-        
+
         // Check signature requirements
         if function.requires_signature && signature.is_none() {
-            return Err(format!("Signature required for function: {}.{}", service_id, function_name));
+            return Err(format!(
+                "Signature required for function: {}.{}",
+                service_id, function_name
+            ));
         }
-        
+
         // Validate parameters
         for param_def in &function.parameters {
             if param_def.required {
@@ -364,25 +370,56 @@ impl ServiceRegistry {
                 }
             }
         }
-        
+
         // Execute the function based on the adapter type
         match service.adapter_type.as_str() {
             "http" => {
-                self.execute_http_function(&service, function_name, parameters, auth_token, signature).await
-            },
+                self.execute_http_function(
+                    &service,
+                    function_name,
+                    parameters,
+                    auth_token,
+                    signature,
+                )
+                .await
+            }
             "grpc" => {
-                self.execute_grpc_function(&service, function_name, parameters, auth_token, signature).await
-            },
+                self.execute_grpc_function(
+                    &service,
+                    function_name,
+                    parameters,
+                    auth_token,
+                    signature,
+                )
+                .await
+            }
             "blockchain" => {
-                self.execute_blockchain_function(&service, function_name, parameters, auth_token, signature).await
-            },
+                self.execute_blockchain_function(
+                    &service,
+                    function_name,
+                    parameters,
+                    auth_token,
+                    signature,
+                )
+                .await
+            }
             "local" => {
-                self.execute_local_function(&service, function_name, parameters, auth_token, signature).await
-            },
-            _ => Err(format!("Unsupported adapter type: {}", service.adapter_type)),
+                self.execute_local_function(
+                    &service,
+                    function_name,
+                    parameters,
+                    auth_token,
+                    signature,
+                )
+                .await
+            }
+            _ => Err(format!(
+                "Unsupported adapter type: {}",
+                service.adapter_type
+            )),
         }
     }
-    
+
     /// Refresh the service cache if needed
     async fn maybe_refresh_cache(&self) -> Result<(), String> {
         let now = std::time::Instant::now();
@@ -390,11 +427,11 @@ impl ServiceRegistry {
             let last_refresh = self.last_cache_refresh.read().await;
             now.duration_since(*last_refresh) > self.cache_ttl
         };
-        
+
         if should_refresh {
             // Update the last refresh time
             *self.last_cache_refresh.write().await = now;
-            
+
             // Refresh the cache
             match self.db_client.list_services().await {
                 Ok(services) => {
@@ -411,7 +448,7 @@ impl ServiceRegistry {
             Ok(())
         }
     }
-    
+
     /// Execute an HTTP function
     async fn execute_http_function(
         &self,
@@ -426,27 +463,31 @@ impl ServiceRegistry {
             Value::Object(config) => config,
             _ => return Err("Invalid adapter configuration".to_string()),
         };
-        
+
         let base_url = match config.get("base_url") {
             Some(Value::String(url)) => url,
             _ => return Err("Missing or invalid base_url in adapter configuration".to_string()),
         };
-        
+
         // Find the function endpoint
-        let function = service.functions.iter().find(|f| f.name == function_name).unwrap();
+        let function = service
+            .functions
+            .iter()
+            .find(|f| f.name == function_name)
+            .unwrap();
         let endpoint = match &function.adapter_config {
-            Value::Object(config) => {
-                match config.get("endpoint") {
-                    Some(Value::String(endpoint)) => endpoint,
-                    _ => return Err("Missing or invalid endpoint in function configuration".to_string()),
+            Value::Object(config) => match config.get("endpoint") {
+                Some(Value::String(endpoint)) => endpoint,
+                _ => {
+                    return Err("Missing or invalid endpoint in function configuration".to_string())
                 }
             },
             _ => return Err("Invalid function adapter configuration".to_string()),
         };
-        
+
         // Build the full URL
         let url = format!("{}{}", base_url, endpoint);
-        
+
         // Determine the HTTP method
         let method = match &function.adapter_config {
             Value::Object(config) => {
@@ -454,10 +495,10 @@ impl ServiceRegistry {
                     Some(Value::String(method)) => method.to_uppercase(),
                     _ => "POST".to_string(), // Default to POST
                 }
-            },
+            }
             _ => "POST".to_string(),
         };
-        
+
         // Build the request
         let client = reqwest::Client::new();
         let mut request_builder = match method.as_str() {
@@ -468,7 +509,7 @@ impl ServiceRegistry {
             "PATCH" => client.patch(&url),
             _ => return Err(format!("Unsupported HTTP method: {}", method)),
         };
-        
+
         // Add headers
         if let Some(Value::Object(headers)) = config.get("headers") {
             for (key, value) in headers {
@@ -477,17 +518,18 @@ impl ServiceRegistry {
                 }
             }
         }
-        
+
         // Add authentication if provided
         if let Some(token) = auth_token {
             let auth_type = match config.get("auth_type") {
                 Some(Value::String(auth_type)) => auth_type,
                 _ => "Bearer", // Default to Bearer
             };
-            
-            request_builder = request_builder.header("Authorization", format!("{} {}", auth_type, token));
+
+            request_builder =
+                request_builder.header("Authorization", format!("{} {}", auth_type, token));
         }
-        
+
         // Add signature if provided
         if let Some(sig) = signature {
             // Add custom headers for signature verification
@@ -498,7 +540,7 @@ impl ServiceRegistry {
                 request_builder = request_builder.header("X-Signature-Curve", curve);
             }
         }
-        
+
         // Add parameters
         let request = if method == "GET" {
             if let Value::Object(params) = parameters {
@@ -517,7 +559,7 @@ impl ServiceRegistry {
         } else {
             request_builder.json(parameters)
         };
-        
+
         // Send the request
         match request.send().await {
             Ok(response) => {
@@ -528,7 +570,7 @@ impl ServiceRegistry {
                         response.status()
                     ));
                 }
-                
+
                 // Parse the response body as JSON
                 match response.json::<Value>().await {
                     Ok(result) => Ok(result),
@@ -538,7 +580,7 @@ impl ServiceRegistry {
             Err(e) => Err(format!("HTTP request failed: {}", e)),
         }
     }
-    
+
     /// Execute a gRPC function
     async fn execute_grpc_function(
         &self,
@@ -553,51 +595,60 @@ impl ServiceRegistry {
             Value::Object(config) => config,
             _ => return Err("Invalid adapter configuration".to_string()),
         };
-        
+
         let endpoint = match config.get("endpoint") {
             Some(Value::String(url)) => url,
             _ => return Err("Missing or invalid endpoint in adapter configuration".to_string()),
         };
-        
+
         // Find the service and method names
-        let function = service.functions.iter().find(|f| f.name == function_name).unwrap();
+        let function = service
+            .functions
+            .iter()
+            .find(|f| f.name == function_name)
+            .unwrap();
         let grpc_service = match &function.adapter_config {
-            Value::Object(config) => {
-                match config.get("service") {
-                    Some(Value::String(service)) => service,
-                    _ => return Err("Missing or invalid gRPC service name in function configuration".to_string()),
+            Value::Object(config) => match config.get("service") {
+                Some(Value::String(service)) => service,
+                _ => {
+                    return Err(
+                        "Missing or invalid gRPC service name in function configuration"
+                            .to_string(),
+                    )
                 }
             },
             _ => return Err("Invalid function adapter configuration".to_string()),
         };
-        
+
         let grpc_method = match &function.adapter_config {
-            Value::Object(config) => {
-                match config.get("method") {
-                    Some(Value::String(method)) => method,
-                    _ => return Err("Missing or invalid gRPC method name in function configuration".to_string()),
+            Value::Object(config) => match config.get("method") {
+                Some(Value::String(method)) => method,
+                _ => {
+                    return Err(
+                        "Missing or invalid gRPC method name in function configuration".to_string(),
+                    )
                 }
             },
             _ => return Err("Invalid function adapter configuration".to_string()),
         };
-        
+
         // Use tonic to create a gRPC client and make the call
         // For a real implementation, we would need to use reflection or generated code
         // This is a simplified version that uses the gRPC reflection service
-        
+
         // Convert parameters to bytes
         let param_bytes = match serde_json::to_vec(parameters) {
             Ok(bytes) => bytes,
             Err(e) => return Err(format!("Failed to serialize parameters: {}", e)),
         };
-        
+
         // Use the Reflection API to make a dynamic gRPC call
         // Note: In a real implementation, we would use generated code for type safety
-        
+
         // For this simplified example, we'll use the grpcurl command-line tool
         // In a real implementation, we would use a proper gRPC client library
         use std::process::Command;
-        
+
         let output = Command::new("grpcurl")
             .arg("-d")
             .arg(format!("'{}'", serde_json::to_string(parameters).unwrap()))
@@ -606,21 +657,21 @@ impl ServiceRegistry {
             .arg(format!("{}/{}", grpc_service, grpc_method))
             .output()
             .map_err(|e| format!("Failed to execute gRPC call: {}", e))?;
-        
+
         if !output.status.success() {
             return Err(format!(
                 "gRPC call failed: {}",
                 String::from_utf8_lossy(&output.stderr)
             ));
         }
-        
+
         // Parse the response JSON
         match serde_json::from_slice::<Value>(&output.stdout) {
             Ok(result) => Ok(result),
             Err(e) => Err(format!("Failed to parse gRPC response: {}", e)),
         }
     }
-    
+
     /// Execute a blockchain function
     async fn execute_blockchain_function(
         &self,
@@ -635,39 +686,51 @@ impl ServiceRegistry {
             Value::Object(config) => config,
             _ => return Err("Invalid adapter configuration".to_string()),
         };
-        
+
         let blockchain_type = match config.get("blockchain_type") {
             Some(Value::String(blockchain_type)) => blockchain_type,
-            _ => return Err("Missing or invalid blockchain_type in adapter configuration".to_string()),
+            _ => {
+                return Err(
+                    "Missing or invalid blockchain_type in adapter configuration".to_string(),
+                )
+            }
         };
-        
+
         let network = match config.get("network") {
             Some(Value::String(network)) => network,
             _ => return Err("Missing or invalid network in adapter configuration".to_string()),
         };
-        
+
         // Find the contract address and method
-        let function = service.functions.iter().find(|f| f.name == function_name).unwrap();
+        let function = service
+            .functions
+            .iter()
+            .find(|f| f.name == function_name)
+            .unwrap();
         let contract_address = match &function.adapter_config {
-            Value::Object(config) => {
-                match config.get("contract_address") {
-                    Some(Value::String(address)) => address,
-                    _ => return Err("Missing or invalid contract_address in function configuration".to_string()),
+            Value::Object(config) => match config.get("contract_address") {
+                Some(Value::String(address)) => address,
+                _ => {
+                    return Err(
+                        "Missing or invalid contract_address in function configuration".to_string(),
+                    )
                 }
             },
             _ => return Err("Invalid function adapter configuration".to_string()),
         };
-        
+
         let contract_method = match &function.adapter_config {
-            Value::Object(config) => {
-                match config.get("method") {
-                    Some(Value::String(method)) => method,
-                    _ => return Err("Missing or invalid contract method in function configuration".to_string()),
+            Value::Object(config) => match config.get("method") {
+                Some(Value::String(method)) => method,
+                _ => {
+                    return Err(
+                        "Missing or invalid contract method in function configuration".to_string(),
+                    )
                 }
             },
             _ => return Err("Invalid function adapter configuration".to_string()),
         };
-        
+
         // Check if this is a read-only operation
         let is_readonly = match &function.adapter_config {
             Value::Object(config) => {
@@ -675,10 +738,10 @@ impl ServiceRegistry {
                     Some(Value::Bool(readonly)) => *readonly,
                     _ => true, // Default to read-only
                 }
-            },
+            }
             _ => true,
         };
-        
+
         // Execute the blockchain function based on the blockchain type
         match blockchain_type.as_str() {
             "ethereum" => {
@@ -689,8 +752,9 @@ impl ServiceRegistry {
                     network,
                     is_readonly,
                     signature,
-                ).await
-            },
+                )
+                .await
+            }
             "neo_n3" => {
                 self.execute_neo_function(
                     contract_address,
@@ -699,8 +763,9 @@ impl ServiceRegistry {
                     network,
                     is_readonly,
                     signature,
-                ).await
-            },
+                )
+                .await
+            }
             "solana" => {
                 self.execute_solana_function(
                     contract_address,
@@ -709,12 +774,13 @@ impl ServiceRegistry {
                     network,
                     is_readonly,
                     signature,
-                ).await
-            },
+                )
+                .await
+            }
             _ => Err(format!("Unsupported blockchain type: {}", blockchain_type)),
         }
     }
-    
+
     /// Execute an Ethereum blockchain function
     async fn execute_ethereum_function(
         &self,
@@ -731,11 +797,12 @@ impl ServiceRegistry {
             providers::{Http, Provider},
             signers::{LocalWallet, Signer},
         };
-        
+
         // Parse the contract address
-        let address = contract_address.parse::<Address>()
+        let address = contract_address
+            .parse::<Address>()
             .map_err(|e| format!("Invalid Ethereum address: {}", e))?;
-        
+
         // Get the RPC URL based on the network
         let rpc_url = match network {
             "mainnet" => "https://mainnet.infura.io/v3/your-project-id",
@@ -743,11 +810,11 @@ impl ServiceRegistry {
             "goerli" => "https://goerli.infura.io/v3/your-project-id",
             _ => return Err(format!("Unsupported Ethereum network: {}", network)),
         };
-        
+
         // Create a provider
         let provider = Provider::<Http>::try_from(rpc_url)
             .map_err(|e| format!("Failed to create Ethereum provider: {}", e))?;
-        
+
         // Create a contract instance
         // For simplicity, we'll assume an ABI for common ERC20 functions
         // In a real implementation, we would use a dynamic ABI based on the contract
@@ -761,67 +828,62 @@ impl ServiceRegistry {
                 function transferFrom(address from, address to, uint256 amount) returns (bool)
             ]"#
         );
-        
+
         // Create a contract instance
         let contract = ERC20::new(address, Arc::new(provider.clone()));
-        
+
         // Execute the contract method based on the name
         match contract_method {
             "balanceOf" => {
                 // Get the owner address from parameters
                 let owner = match parameters.get("owner") {
-                    Some(Value::String(owner)) => {
-                        owner.parse::<Address>()
-                            .map_err(|e| format!("Invalid owner address: {}", e))?
-                    },
+                    Some(Value::String(owner)) => owner
+                        .parse::<Address>()
+                        .map_err(|e| format!("Invalid owner address: {}", e))?,
                     _ => return Err("Missing or invalid owner parameter".to_string()),
                 };
-                
+
                 // Call the balanceOf method
                 match contract.balance_of(owner).call().await {
-                    Ok(balance) => {
-                        Ok(serde_json::json!({
-                            "balance": balance.to_string()
-                        }))
-                    },
+                    Ok(balance) => Ok(serde_json::json!({
+                        "balance": balance.to_string()
+                    })),
                     Err(e) => Err(format!("Failed to call balanceOf: {}", e)),
                 }
-            },
+            }
             "transfer" => {
                 if is_readonly {
                     return Err("Cannot call transfer method in read-only mode".to_string());
                 }
-                
+
                 // We need a signature for a write operation
                 if signature.is_none() {
                     return Err("Signature required for transfer method".to_string());
                 }
-                
+
                 // Get the parameters
                 let to = match parameters.get("to") {
-                    Some(Value::String(to)) => {
-                        to.parse::<Address>()
-                            .map_err(|e| format!("Invalid to address: {}", e))?
-                    },
+                    Some(Value::String(to)) => to
+                        .parse::<Address>()
+                        .map_err(|e| format!("Invalid to address: {}", e))?,
                     _ => return Err("Missing or invalid to parameter".to_string()),
                 };
-                
+
                 let amount = match parameters.get("amount") {
-                    Some(Value::String(amount)) => {
-                        amount.parse::<U256>()
-                            .map_err(|e| format!("Invalid amount: {}", e))?
-                    },
+                    Some(Value::String(amount)) => amount
+                        .parse::<U256>()
+                        .map_err(|e| format!("Invalid amount: {}", e))?,
                     _ => return Err("Missing or invalid amount parameter".to_string()),
                 };
-                
+
                 // Get the wallet from the signature
                 // This is a simplified example - in reality, we'd recover the wallet from the signature
                 let wallet = LocalWallet::new(&mut rand::thread_rng());
-                
+
                 // Create a new client with the wallet
                 let client = ethers::providers::SignerMiddleware::new(provider, wallet);
                 let contract = ERC20::new(address, Arc::new(client));
-                
+
                 // Call the transfer method
                 match contract.transfer(to, amount).send().await {
                     Ok(tx) => {
@@ -829,14 +891,17 @@ impl ServiceRegistry {
                         Ok(serde_json::json!({
                             "tx_hash": format!("{:?}", tx_hash)
                         }))
-                    },
+                    }
                     Err(e) => Err(format!("Failed to call transfer: {}", e)),
                 }
-            },
-            _ => Err(format!("Unsupported Ethereum contract method: {}", contract_method)),
+            }
+            _ => Err(format!(
+                "Unsupported Ethereum contract method: {}",
+                contract_method
+            )),
         }
     }
-    
+
     /// Execute a Neo N3 blockchain function
     async fn execute_neo_function(
         &self,
@@ -848,36 +913,37 @@ impl ServiceRegistry {
         signature: Option<&ServiceSignature>,
     ) -> Result<Value, String> {
         use neo::prelude::*;
-        
+
         // Get the RPC URL based on the network
         let rpc_url = match network {
             "mainnet" => "http://seed1.neo.org:10332",
             "testnet" => "http://seed1t5.neo.org:20332",
             _ => return Err(format!("Unsupported Neo network: {}", network)),
         };
-        
+
         // Create a provider
         let provider = HttpProvider::new(rpc_url);
         let client = ProviderClient::new(provider);
-        
+
         // Parse the contract hash
-        let contract_hash = contract_address.parse::<ScriptHash>()
+        let contract_hash = contract_address
+            .parse::<ScriptHash>()
             .map_err(|e| format!("Invalid Neo contract hash: {}", e))?;
-        
+
         // Execute the contract method based on whether it's read-only or not
         if is_readonly {
             // Create a contract call for reading data
             let call_builder = client.invoke_function(contract_hash, contract_method);
-            
+
             // Add parameters
             let call_builder = add_neo_parameters(call_builder, parameters)?;
-            
+
             // Call the contract
             match call_builder.test_invoke().await {
                 Ok(result) => {
                     // Parse the result
                     parse_neo_result(&result)
-                },
+                }
                 Err(e) => Err(format!("Failed to call Neo contract: {}", e)),
             }
         } else {
@@ -885,30 +951,28 @@ impl ServiceRegistry {
             if signature.is_none() {
                 return Err("Signature required for write operations".to_string());
             }
-            
+
             // Get wallet from the signature
             // This is a simplified example - in reality, we'd recover the wallet from the signature
             let wallet = Wallet::new_from_wif("your_wif_private_key")
                 .map_err(|e| format!("Failed to create Neo wallet: {}", e))?;
-            
+
             // Create a contract call for writing data
             let call_builder = client.invoke_function(contract_hash, contract_method);
-            
+
             // Add parameters
             let call_builder = add_neo_parameters(call_builder, parameters)?;
-            
+
             // Send the transaction
             match call_builder.sign_and_invoke(&wallet).await {
-                Ok(result) => {
-                    Ok(serde_json::json!({
-                        "tx_hash": result.tx_id.to_string()
-                    }))
-                },
+                Ok(result) => Ok(serde_json::json!({
+                    "tx_hash": result.tx_id.to_string()
+                })),
                 Err(e) => Err(format!("Failed to call Neo contract: {}", e)),
             }
         }
     }
-    
+
     /// Add parameters to a Neo function call
     fn add_neo_parameters(
         mut builder: InvokeMethodBuilder,
@@ -919,33 +983,35 @@ impl ServiceRegistry {
                 match value {
                     Value::String(s) => {
                         builder = builder.with_parameter_string(s);
-                    },
+                    }
                     Value::Number(n) => {
                         if n.is_i64() {
                             builder = builder.with_parameter_integer(n.as_i64().unwrap());
                         } else {
-                            return Err("Only integer numbers are supported for Neo parameters".to_string());
+                            return Err(
+                                "Only integer numbers are supported for Neo parameters".to_string()
+                            );
                         }
-                    },
+                    }
                     Value::Bool(b) => {
                         builder = builder.with_parameter_bool(*b);
-                    },
+                    }
                     Value::Array(_) => {
                         return Err("Array parameters are not supported".to_string());
-                    },
+                    }
                     Value::Object(_) => {
                         return Err("Nested object parameters are not supported".to_string());
-                    },
+                    }
                     Value::Null => {
                         builder = builder.with_parameter_null();
-                    },
+                    }
                 }
             }
         }
-        
+
         Ok(builder)
     }
-    
+
     /// Parse a Neo contract result
     fn parse_neo_result(result: &InvokeResult) -> Result<Value, String> {
         if !result.has_state_fault() {
@@ -953,15 +1019,9 @@ impl ServiceRegistry {
             if let Some(stack) = result.stack() {
                 if let Some(item) = stack.first() {
                     match item {
-                        StackItem::Integer(n) => {
-                            Ok(serde_json::json!({ "result": n.to_string() }))
-                        },
-                        StackItem::String(s) => {
-                            Ok(serde_json::json!({ "result": s }))
-                        },
-                        StackItem::Bool(b) => {
-                            Ok(serde_json::json!({ "result": b }))
-                        },
+                        StackItem::Integer(n) => Ok(serde_json::json!({ "result": n.to_string() })),
+                        StackItem::String(s) => Ok(serde_json::json!({ "result": s })),
+                        StackItem::Bool(b) => Ok(serde_json::json!({ "result": b })),
                         _ => Err("Unsupported Neo result type".to_string()),
                     }
                 } else {
@@ -971,10 +1031,13 @@ impl ServiceRegistry {
                 Ok(serde_json::json!({ "result": null }))
             }
         } else {
-            Err(format!("Neo contract execution failed: {:?}", result.exception()))
+            Err(format!(
+                "Neo contract execution failed: {:?}",
+                result.exception()
+            ))
         }
     }
-    
+
     /// Execute a Solana blockchain function
     async fn execute_solana_function(
         &self,
@@ -986,7 +1049,7 @@ impl ServiceRegistry {
         signature: Option<&ServiceSignature>,
     ) -> Result<Value, String> {
         // This is a simplified implementation - in reality, we'd use the Solana SDK
-        
+
         // Get the RPC URL based on the network
         let rpc_url = match network {
             "mainnet" => "https://api.mainnet-beta.solana.com",
@@ -994,7 +1057,7 @@ impl ServiceRegistry {
             "devnet" => "https://api.devnet.solana.com",
             _ => return Err(format!("Unsupported Solana network: {}", network)),
         };
-        
+
         // For now, we'll just return a mock result
         Ok(serde_json::json!({
             "status": "success",
@@ -1006,7 +1069,7 @@ impl ServiceRegistry {
             "result": "Mock Solana result"
         }))
     }
-    
+
     /// Execute a local function
     async fn execute_local_function(
         &self,
@@ -1021,19 +1084,25 @@ impl ServiceRegistry {
             Value::Object(config) => config,
             _ => return Err("Invalid adapter configuration".to_string()),
         };
-        
+
         let function_path = match config.get("function_path") {
             Some(Value::String(path)) => path,
-            _ => return Err("Missing or invalid function_path in adapter configuration".to_string()),
+            _ => {
+                return Err("Missing or invalid function_path in adapter configuration".to_string())
+            }
         };
-        
+
         // Find the function configuration
-        let function = service.functions.iter().find(|f| f.name == function_name).unwrap();
+        let function = service
+            .functions
+            .iter()
+            .find(|f| f.name == function_name)
+            .unwrap();
         let function_config = match &function.adapter_config {
             Value::Object(config) => config.clone(),
             _ => serde_json::Map::new(),
         };
-        
+
         // For security, we only allow a set of predefined functions
         // In a real implementation, this would be more sophisticated
         match (function_path.as_str(), function_name) {
@@ -1043,15 +1112,18 @@ impl ServiceRegistry {
                     Ok(result) => Ok(result),
                     Err(e) => Err(e),
                 }
-            },
+            }
             ("examples/random_generator", "generate_random") => {
                 // Call the random generator function
                 match crate::registry::examples::generate_random(parameters) {
                     Ok(result) => Ok(result),
                     Err(e) => Err(e),
                 }
-            },
-            _ => Err(format!("Unsupported local function: {}.{}", function_path, function_name)),
+            }
+            _ => Err(format!(
+                "Unsupported local function: {}.{}",
+                function_path, function_name
+            )),
         }
     }
 }

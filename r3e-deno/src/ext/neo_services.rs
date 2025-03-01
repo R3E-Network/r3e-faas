@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 // Import NeoRust SDK types
-use url::Url;
 use neo3::neo_clients::{HttpProvider, RpcClient};
 use neo3::neo_crypto::keys::{KeyPair, PrivateKey};
 use neo3::neo_protocol::{transaction::Transaction, wallet::Wallet};
 use neo3::neo_types::{
     address::Address, contract_parameter::ContractParameter, script_hash::ScriptHash,
 };
+use url::Url;
 
 // Import Neo Services types
 use r3e_neo_services::{

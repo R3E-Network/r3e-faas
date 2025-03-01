@@ -224,7 +224,7 @@ impl RocksDbClient {
                 let mut open_cfs = Vec::new();
 
                 // Create descriptors for existing column families
-                for cf_name in existing_cfs {
+                for cf_name in &existing_cfs {
                     // Find configuration for this CF
                     let cf_config = self
                         .config
@@ -257,7 +257,9 @@ impl RocksDbClient {
 
             // Create missing column families if configured
             if self.config.create_missing_column_families {
-                let existing_cfs_set: HashSet<String> = existing_cfs.iter().cloned().collect();
+                // Create a copy of existing_cfs to avoid ownership issues
+                let existing_cfs_copy = existing_cfs.clone();
+                let existing_cfs_set: HashSet<String> = existing_cfs_copy.into_iter().collect();
                 for cf_config in &self.config.column_families {
                     if !existing_cfs_set.contains(&cf_config.name) {
                         info!("Creating column family: {}", cf_config.name);
@@ -351,7 +353,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf_handle(&self, cf_name: &str) -> DbResult<ColumnFamily> {
+    fn get_cf_handle(&self, cf_name: &str) -> DbResult<&ColumnFamily> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
@@ -373,7 +375,7 @@ impl RocksDbClient {
         
         // Get the column family handle directly from the DB
         match db.cf_handle(cf_name) {
-            Some(cf) => Ok(cf.clone()),
+            Some(cf) => Ok(cf),
             None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
         }
     }
@@ -538,7 +540,7 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, ColumnFamily) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, &ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf = self.get_cf_handle(cf_name)?;
@@ -770,7 +772,7 @@ macro_rules! impl_db_repository {
 
                 tokio::task::spawn_blocking(move || {
                     let iter = inner.iter_cf::<$entity>(&cf_name, ::rocksdb::IteratorMode::Start)?;
-                    let entities: Vec<$entity> = iter.map(|(_, v)| v).collect();
+                    let entities: Vec<$entity> = iter.into_iter().map(|(_, v)| v).collect();
                     Ok(entities)
                 })
                 .await
