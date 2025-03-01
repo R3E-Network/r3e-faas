@@ -131,12 +131,85 @@ impl FunctionExecutionContext {
 pub struct FunctionExecutor {
     /// Sandbox configuration
     sandbox_config: SandboxConfig,
+    
+    /// Preloaded function code
+    preloaded_function: Option<Arc<FunctionDeployment>>,
 }
 
 impl FunctionExecutor {
     /// Create a new function executor
     pub fn new(sandbox_config: SandboxConfig) -> Self {
-        Self { sandbox_config }
+        Self { 
+            sandbox_config,
+            preloaded_function: None,
+        }
+    }
+    
+    /// Preload a function
+    #[instrument(skip(self, function))]
+    pub async fn preload_function(&mut self, function: &FunctionDeployment) -> Result<()> {
+        info!(
+            function_id = %function.id,
+            version = %function.version,
+            "Preloading function"
+        );
+        
+        // Create sandbox executor
+        let sandbox_executor = SandboxExecutor::new(self.sandbox_config.clone());
+        
+        // Prepare the code for preloading
+        let preload_code = format!(
+            r#"
+            // Function code
+            {}
+            
+            // Verify the code can be parsed
+            const fn = (() => {{
+                if (typeof exports.default === 'function') {{
+                    return exports.default;
+                }}
+                
+                // Find the first exported function
+                for (const key in exports) {{
+                    if (typeof exports[key] === 'function') {{
+                        return exports[key];
+                    }}
+                }}
+                
+                throw new Error('No exported function found');
+            }})();
+            
+            // Return success
+            "preloaded"
+            "#,
+            function.code
+        );
+        
+        // Execute the preload code
+        match sandbox_executor.execute(&preload_code).await {
+            Ok(_) => {
+                // Store the preloaded function
+                self.preloaded_function = Some(Arc::new(function.clone()));
+                
+                info!(
+                    function_id = %function.id,
+                    version = %function.version,
+                    "Function preloaded successfully"
+                );
+                
+                Ok(())
+            },
+            Err(e) => {
+                error!(
+                    function_id = %function.id,
+                    version = %function.version,
+                    error = %e,
+                    "Failed to preload function"
+                );
+                
+                Err(Error::Execution(format!("Failed to preload function: {}", e)))
+            }
+        }
     }
     
     /// Execute a function
@@ -156,11 +229,27 @@ impl FunctionExecutor {
         code: String,
         input: Value,
     ) -> Result<FunctionExecutionResult> {
+        // Check if we have a preloaded function
+        let actual_code = if let Some(preloaded) = &self.preloaded_function {
+            if preloaded.id == function_id.to_string() {
+                info!(
+                    function_id = %function_id,
+                    version = %preloaded.version,
+                    "Using preloaded function"
+                );
+                preloaded.code.clone()
+            } else {
+                code
+            }
+        } else {
+            code
+        };
+        
         // Create execution context
         let context = FunctionExecutionContext::new(
             function_id,
             user_id,
-            code,
+            actual_code,
             input.clone(),
             self.sandbox_config.clone(),
         );

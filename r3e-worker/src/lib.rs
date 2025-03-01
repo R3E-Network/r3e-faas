@@ -4,9 +4,12 @@
 pub mod assign;
 pub mod builder;
 pub mod function;
+pub mod function_executor;
 pub mod neo_task_source;
+pub mod pool;
 pub mod runner;
 pub mod sandbox;
+pub mod sandbox_executor;
 pub mod worker;
 
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -64,6 +64,9 @@ pub struct FunctionDeployment {
 
     /// Function deployment updated at
     pub updated_at: DateTime<Utc>,
+    
+    /// Function version
+    pub version: String,
 }
 
 impl FunctionDeployment {
@@ -75,6 +78,7 @@ impl FunctionDeployment {
         code: String,
         runtime: String,
         security_level: String,
+        version: Option<String>,
     ) -> Self {
         let now = Utc::now();
 
@@ -89,6 +93,7 @@ impl FunctionDeployment {
             error: None,
             created_at: now,
             updated_at: now,
+            version: version.unwrap_or_else(|| "1.0.0".to_string()),
         }
     }
 
@@ -189,6 +194,7 @@ impl FunctionDeploymentService {
         code: String,
         runtime: String,
         security_level: String,
+        version: Option<String>,
     ) -> Result<FunctionDeployment, String> {
         // Create a new function deployment
         let mut deployment = FunctionDeployment::new(
@@ -198,6 +204,7 @@ impl FunctionDeploymentService {
             code.clone(),
             runtime.clone(),
             security_level.clone(),
+            version,
         );
 
         // Get the sandbox configuration for the security level
@@ -268,10 +275,22 @@ impl FunctionDeploymentService {
         id: &str,
         user_id: &str,
         input: serde_json::Value,
+        version: Option<&str>,
     ) -> Result<FunctionInvocationResult, String> {
         // Find the deployment
         let deployment = match self.get_function_deployment(id).await {
-            Some(deployment) => deployment,
+            Some(deployment) => {
+                // Check version if specified
+                if let Some(requested_version) = version {
+                    if deployment.version != requested_version {
+                        return Err(format!(
+                            "Function version mismatch: requested {}, found {}",
+                            requested_version, deployment.version
+                        ));
+                    }
+                }
+                deployment
+            },
             None => {
                 return Err(format!("Function deployment not found: {}", id));
             }
