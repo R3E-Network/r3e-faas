@@ -10,7 +10,7 @@ use ::rocksdb::{
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -156,7 +156,8 @@ fn default_min_write_buffer_number_to_merge() -> i32 {
 pub struct RocksDbClient {
     db: Option<Arc<DB>>,
     config: RocksDbConfig,
-    column_families: Arc<Mutex<HashMap<String, Arc<ColumnFamily>>>>,
+    // We store column family names instead of handles to avoid thread-safety issues
+    column_families: Arc<Mutex<HashSet<String>>>,
 }
 
 impl RocksDbClient {
@@ -165,7 +166,7 @@ impl RocksDbClient {
         Self {
             db: None,
             config,
-            column_families: Arc::new(Mutex::new(HashMap::new())),
+            column_families: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -284,12 +285,12 @@ impl RocksDbClient {
             }
         };
 
-        // Store column family handles
-        let mut cf_map = self.column_families.lock().unwrap();
+        // Store column family names
+        let mut cf_set = self.column_families.lock().unwrap();
         for cf_name in cf_names {
             match db.cf_handle(&cf_name) {
-                Some(cf_handle) => {
-                    cf_map.insert(cf_name.clone(), Arc::new(cf_handle));
+                Some(_) => {
+                    cf_set.insert(cf_name.clone());
                 }
                 None => {
                     warn!("Failed to get column family handle for {}", cf_name);
@@ -335,7 +336,7 @@ impl RocksDbClient {
         let mut block_opts = BlockBasedOptions::default();
         block_opts.set_block_size(cf_config.block_size);
         block_opts.set_cache_index_and_filter_blocks(cf_config.cache_index_and_filter_blocks);
-        block_opts.set_bloom_filter(cf_config.bloom_filter_bits, false);
+        block_opts.set_bloom_filter(cf_config.bloom_filter_bits as f64, false);
         block_opts.set_block_cache(&Cache::new_lru_cache(cf_config.block_cache_size));
         opts.set_block_based_table_factory(&block_opts);
     }
@@ -349,34 +350,30 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf(&self, cf_name: &str) -> DbResult<ColumnFamily> {
-        let cf_map = self.column_families.lock().unwrap();
-        match cf_map.get(cf_name) {
-            Some(cf) => {
-                // We need to get the actual ColumnFamily from the DB again
-                // since we can't store it directly in the map due to lifetime issues
-                let db = self.get_db()?;
-                match db.cf_handle(cf_name) {
-                    Some(cf) => Ok(cf),
-                    None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+    fn get_cf(&self, cf_name: &str) -> DbResult<&ColumnFamily> {
+        let db = self.get_db()?;
+        
+        // Check if we know about this column family
+        let cf_set = self.column_families.lock().unwrap();
+        let known = cf_set.contains(cf_name);
+        drop(cf_set); // Release the lock
+        
+        if !known {
+            // Try to get the CF handle from the database
+            match db.cf_handle(cf_name) {
+                Some(_) => {
+                    // Add to our set of known column families
+                    let mut cf_set = self.column_families.lock().unwrap();
+                    cf_set.insert(cf_name.to_string());
                 }
-            },
-            None => {
-                // Try to get the CF handle from the database
-                let db = self.get_db()?;
-                match db.cf_handle(cf_name) {
-                    Some(cf) => {
-                        // We need to store a reference to the column family
-                        // but we can't store the actual ColumnFamily due to lifetime issues
-                        drop(cf_map); // Release the lock before modifying
-                        let mut cf_map = self.column_families.lock().unwrap();
-                        let cf_arc = Arc::new(1); // Just a placeholder to track that we've seen this CF
-                        cf_map.insert(cf_name.to_string(), cf_arc);
-                        Ok(cf)
-                    }
-                    None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
-                }
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
             }
+        }
+        
+        // Get the column family handle directly from the DB
+        match db.cf_handle(cf_name) {
+            Some(cf) => Ok(cf),
+            None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
         }
     }
 
