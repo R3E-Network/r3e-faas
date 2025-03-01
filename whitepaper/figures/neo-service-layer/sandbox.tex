@@ -1,0 +1,33 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (worker) {Worker Node};
+    \node [block, below of=worker] (sandbox) {Sandbox Environment};
+    \node [block, below of=sandbox] (runtime) {JavaScript Runtime (Deno)};
+    \node [block, left of=sandbox, node distance=4cm] (resource) {Resource Limiter};
+    \node [block, right of=sandbox, node distance=4cm] (permission) {Permission Manager};
+    \node [block, below of=runtime] (v8) {V8 Engine};
+    \node [block, left of=runtime, node distance=4cm] (api) {Neo API};
+    \node [block, right of=runtime, node distance=4cm] (services) {Service APIs};
+    
+    % Draw edges
+    \path [line] (worker) -- node {Initialize} (sandbox);
+    \path [line] (sandbox) -- node {Configure} (resource);
+    \path [line] (sandbox) -- node {Set} (permission);
+    \path [line] (sandbox) -- node {Start} (runtime);
+    \path [line] (runtime) -- node {Execute} (v8);
+    \path [line] (runtime) -- node {Access} (api);
+    \path [line] (runtime) -- node {Use} (services);
+    \path [line] (resource) to [bend right] node {Limit} (runtime);
+    \path [line] (permission) to [bend left] node {Control} (runtime);
+    
+\end{tikzpicture}
+\caption{Sandbox Architecture in Neo Service Layer}
+\label{fig:sandbox}
+\end{figure}

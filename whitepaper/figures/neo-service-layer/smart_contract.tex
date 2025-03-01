@@ -1,0 +1,31 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (developer) {Developer};
+    \node [block, right of=developer, node distance=4cm] (contract) {Smart Contract};
+    \node [block, below of=contract] (compiler) {Compiler};
+    \node [block, below of=compiler] (nef) {NEF File};
+    \node [block, right of=nef, node distance=4cm] (manifest) {Manifest};
+    \node [block, below of=nef] (deploy) {Deployment Service};
+    \node [block, below of=deploy] (blockchain) {Neo N3 Blockchain};
+    
+    % Draw edges
+    \path [line] (developer) -- node {Write} (contract);
+    \path [line] (contract) -- node {Compile} (compiler);
+    \path [line] (compiler) -- node {Generate} (nef);
+    \path [line] (compiler) -- node {Create} (manifest);
+    \path [line] (nef) -- node {Submit} (deploy);
+    \path [line] (manifest) -- node {Include} (deploy);
+    \path [line] (deploy) -- node {Deploy} (blockchain);
+    \path [line] (blockchain) to [bend left] node {Confirm} (developer);
+    
+\end{tikzpicture}
+\caption{Smart Contract Deployment in Neo Service Layer}
+\label{fig:smart-contract}
+\end{figure}

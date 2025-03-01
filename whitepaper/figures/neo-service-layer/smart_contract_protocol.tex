@@ -1,0 +1,112 @@
+\subsection{Smart Contract Integration Protocol}
+\label{subsec:smart-contract-protocol}
+
+The Smart Contract Integration Protocol defines how smart contracts are deployed and integrated with the Neo Service Layer.
+
+\begin{protocol}[Smart Contract Deployment]
+\label{prot:smart-contract-deployment}
+\begin{algorithmic}[1]
+\Require Contract source code $C$, Developer $D$, Compiler $\text{comp}$, Blockchain $B$
+\Ensure Contract is properly deployed and registered with Service Layer
+
+\State \textbf{Contract Compilation:}
+\State $\text{nef} \gets \text{comp}.\text{compile}(C)$
+\State $\text{manifest} \gets \text{comp}.\text{generateManifest}(C)$
+
+\State \textbf{Contract Validation:}
+\State $\text{valid} \gets \text{ValidateContract}(\text{nef}, \text{manifest})$
+\If{$\neg \text{valid}$}
+    \State \Return $\{\text{error}: \text{"Invalid contract"}\}$
+\EndIf
+
+\State \textbf{Service Layer Integration:}
+\For{each $\text{service} \in \text{manifest}.\text{services}$}
+    \State $\text{ServiceRegistry}.\text{registerContractService}(\text{service}.\text{name}, \text{service}.\text{config})$
+\EndFor
+
+\State \textbf{Deployment Transaction:}
+\State $\text{tx} \gets B.\text{createDeployTransaction}(\text{nef}, \text{manifest}, D.\text{address})$
+\State $\text{signedTx} \gets D.\text{signTransaction}(\text{tx})$
+
+\State \textbf{Transaction Submission:}
+\State $\text{txHash} \gets B.\text{submitTransaction}(\text{signedTx})$
+
+\State \textbf{Transaction Monitoring:}
+\State $\text{confirmed} \gets \text{false}$
+\While{$\neg \text{confirmed}$}
+    \State $\text{receipt} \gets B.\text{getTransactionReceipt}(\text{txHash})$
+    \If{$\text{receipt} \neq \text{null}$}
+        \State $\text{confirmed} \gets \text{true}$
+        \If{$\text{receipt}.\text{status} = \text{"success"}$}
+            \State $\text{contractHash} \gets \text{receipt}.\text{contractHash}$
+        \Else
+            \State \Return $\{\text{error}: \text{"Deployment failed"}, \text{receipt}: \text{receipt}\}$
+        \EndIf
+    \EndIf
+    \If{$\neg \text{confirmed}$}
+        \State $\text{Sleep}(1\text{ second})$
+    \EndIf
+\EndWhile
+
+\State \textbf{Service Layer Registration:}
+\State $\text{ContractRegistry}.\text{registerContract}(\text{contractHash}, \text{manifest}, \text{nef})$
+
+\State \textbf{Event Listener Setup:}
+\For{each $\text{event} \in \text{manifest}.\text{events}$}
+    \State $\text{EventSystem}.\text{registerEventListener}(\text{contractHash}, \text{event}.\text{name})$
+\EndFor
+
+\State \Return $\{\text{success}: \text{true}, \text{contractHash}: \text{contractHash}, \text{txHash}: \text{txHash}\}$
+\end{algorithmic}
+\end{protocol}
+
+\begin{protocol}[Service Layer Contract Integration]
+\label{prot:service-layer-integration}
+\begin{algorithmic}[1]
+\Require Contract hash $H$, Service type $T$, Integration configuration $I$, Service Layer $S$
+\Ensure Contract is properly integrated with the specified Service Layer component
+
+\State \textbf{Contract Verification:}
+\State $\text{contract} \gets \text{ContractRegistry}.\text{getContract}(H)$
+\If{$\text{contract} = \text{null}$}
+    \State \Return $\{\text{error}: \text{"Contract not found"}\}$
+\EndIf
+
+\State \textbf{Service Verification:}
+\State $\text{service} \gets S.\text{getService}(T)$
+\If{$\text{service} = \text{null}$}
+    \State \Return $\{\text{error}: \text{"Service not found"}\}$
+\EndIf
+
+\State \textbf{Permission Check:}
+\State $\text{hasPermission} \gets \text{contract}.\text{manifest}.\text{permissions}.\text{hasPermission}(T)$
+\If{$\neg \text{hasPermission}$}
+    \State \Return $\{\text{error}: \text{"Contract does not have permission for this service"}\}$
+\EndIf
+
+\State \textbf{Integration Configuration:}
+\State $\text{config} \gets \text{service}.\text{createIntegrationConfig}(H, I)$
+
+\State \textbf{Integration Type-Specific Setup:}
+\If{$T = \text{"GasBank"}$}
+    \State $\text{account} \gets \text{service}.\text{createAccount}(H, I.\text{feeModel})$
+    \State $\text{config}.\text{accountAddress} \gets \text{account}.\text{address}$
+\ElsIf{$T = \text{"MetaTransaction"}$}
+    \State $\text{service}.\text{registerContractForRelaying}(H, I.\text{methods})$
+\ElsIf{$T = \text{"Oracle"}$}
+    \State $\text{service}.\text{registerCallbackContract}(H, I.\text{callbackMethod})$
+\ElsIf{$T = \text{"TEE"}$}
+    \State $\text{service}.\text{registerAttestationVerifier}(H, I.\text{verifierMethod})$
+\EndIf
+
+\State \textbf{Event Listener Setup:}
+\For{each $\text{event} \in I.\text{events}$}
+    \State $\text{EventSystem}.\text{registerServiceEventHandler}(T, H, \text{event}.\text{name}, \text{event}.\text{handler})$
+\EndFor
+
+\State \textbf{Integration Storage:}
+\State $\text{IntegrationRegistry}.\text{storeIntegration}(H, T, \text{config})$
+
+\State \Return $\{\text{success}: \text{true}, \text{contract}: H, \text{service}: T, \text{config}: \text{config}\}$
+\end{algorithmic}
+\end{protocol}

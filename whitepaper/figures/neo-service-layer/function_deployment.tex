@@ -1,0 +1,28 @@
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (developer) {Developer};
+    \node [block, right of=developer, node distance=4cm] (api) {API Service};
+    \node [block, below of=api] (registry) {Function Registry};
+    \node [block, below of=registry] (storage) {Storage System};
+    \node [block, right of=registry, node distance=4cm] (scheduler) {Scheduler};
+    \node [block, below of=scheduler] (worker) {Worker Nodes};
+    
+    % Draw edges
+    \path [line] (developer) -- node {Deploy Function} (api);
+    \path [line] (api) -- node {Register} (registry);
+    \path [line] (registry) -- node {Store} (storage);
+    \path [line] (registry) -- node {Schedule} (scheduler);
+    \path [line] (scheduler) -- node {Distribute} (worker);
+    \path [line] (storage) -- node {Load} (worker);
+    
+\end{tikzpicture}
+\caption{Function Deployment Process in Neo Service Layer}
+\label{fig:function-deployment}
+\end{figure}

@@ -1,0 +1,137 @@
+\subsection{Advanced Cryptographic Services Protocol}
+\label{subsec:advanced-crypto-protocol}
+
+The Advanced Cryptographic Services Protocol defines how the TEE, FHE, and ZK services operate and interact with applications.
+
+\begin{protocol}[TEE Secure Execution]
+\label{prot:tee-execution}
+\begin{algorithmic}[1]
+\Require Code $C$, Input data $D$, TEE Service $T$, Requester $R$
+\Ensure Code is executed securely with confidentiality and integrity guarantees
+
+\State \textbf{TEE Selection:}
+\State $\text{teeType} \gets T.\text{selectTEEType}(C.\text{requirements})$
+\State $\text{teeInstance} \gets T.\text{allocateTEEInstance}(\text{teeType})$
+
+\State \textbf{Enclave Initialization:}
+\State $\text{enclave} \gets \text{teeInstance}.\text{createEnclave}()$
+\State $\text{enclaveID} \gets \text{enclave}.\text{getID}()$
+
+\State \textbf{Remote Attestation:}
+\State $\text{quote} \gets \text{enclave}.\text{generateQuote}(C.\text{hash})$
+\State $\text{attestationReport} \gets T.\text{verifyQuote}(\text{quote}, \text{teeType})$
+\State $T.\text{storeAttestationReport}(\text{enclaveID}, \text{attestationReport})$
+
+\State \textbf{Code Loading:}
+\State $\text{enclave}.\text{loadCode}(C)$
+
+\State \textbf{Secure Input Processing:}
+\State $\text{encryptedInput} \gets T.\text{encryptForEnclave}(D, \text{enclave}.\text{publicKey})$
+\State $\text{enclave}.\text{setInput}(\text{encryptedInput})$
+
+\State \textbf{Secure Execution:}
+\State $\text{enclave}.\text{execute}()$
+
+\State \textbf{Result Retrieval:}
+\State $\text{encryptedResult} \gets \text{enclave}.\text{getOutput}()$
+\State $\text{result} \gets T.\text{decryptFromEnclave}(\text{encryptedResult}, R.\text{privateKey})$
+
+\State \textbf{Result Verification:}
+\State $\text{resultHash} \gets \text{Hash}(\text{result})$
+\State $\text{signature} \gets \text{enclave}.\text{signResult}(\text{resultHash})$
+\State $\text{verified} \gets T.\text{verifyEnclaveSignature}(\text{enclaveID}, \text{resultHash}, \text{signature})$
+\If{$\neg \text{verified}$}
+    \State \Return $\{\text{error}: \text{"Result verification failed"}\}$
+\EndIf
+
+\State \textbf{Enclave Cleanup:}
+\State $\text{enclave}.\text{destroy}()$
+\State $T.\text{releaseTEEInstance}(\text{teeInstance})$
+
+\State \Return $\{\text{success}: \text{true}, \text{result}: \text{result}, \text{attestation}: \text{attestationReport}, \text{signature}: \text{signature}\}$
+\end{algorithmic}
+\end{protocol}
+
+\begin{protocol}[FHE Computation]
+\label{prot:fhe-computation}
+\begin{algorithmic}[1]
+\Require Function $F$, Encrypted inputs $E$, FHE Service $S$, FHE scheme $\text{scheme}$
+\Ensure Computation is performed on encrypted data without revealing the plaintext
+
+\State \textbf{Scheme Verification:}
+\State $\text{supported} \gets S.\text{supportsScheme}(\text{scheme})$
+\If{$\neg \text{supported}$}
+    \State \Return $\{\text{error}: \text{"Unsupported FHE scheme"}\}$
+\EndIf
+
+\State \textbf{Function Compilation:}
+\State $\text{compiledFunction} \gets S.\text{compileFunction}(F, \text{scheme})$
+
+\State \textbf{Input Validation:}
+\For{each $\text{input} \in E$}
+    \State $\text{valid} \gets S.\text{validateEncryptedInput}(\text{input}, \text{scheme})$
+    \If{$\neg \text{valid}$}
+        \State \Return $\{\text{error}: \text{"Invalid encrypted input"}\}$
+    \EndIf
+\EndFor
+
+\State \textbf{Execution Planning:}
+\State $\text{executionPlan} \gets S.\text{createExecutionPlan}(\text{compiledFunction}, E)$
+
+\State \textbf{Homomorphic Execution:}
+\State $\text{encryptedResult} \gets S.\text{executeHomomorphically}(\text{executionPlan})$
+
+\State \textbf{Result Verification:}
+\State $\text{valid} \gets S.\text{validateEncryptedResult}(\text{encryptedResult}, \text{scheme})$
+\If{$\neg \text{valid}$}
+    \State \Return $\{\text{error}: \text{"Invalid encrypted result"}\}$
+\EndIf
+
+\State \Return $\{\text{success}: \text{true}, \text{encryptedResult}: \text{encryptedResult}\}$
+\end{algorithmic}
+\end{protocol}
+
+\begin{protocol}[Zero-Knowledge Proof Generation]
+\label{prot:zk-proof-generation}
+\begin{algorithmic}[1]
+\Require Circuit $C$, Witness $W$, Public inputs $P$, ZK Service $Z$, Proof system $\text{system}$
+\Ensure A valid zero-knowledge proof is generated that can be verified without revealing the witness
+
+\State \textbf{System Verification:}
+\State $\text{supported} \gets Z.\text{supportsProofSystem}(\text{system})$
+\If{$\neg \text{supported}$}
+    \State \Return $\{\text{error}: \text{"Unsupported proof system"}\}$
+\EndIf
+
+\State \textbf{Circuit Compilation:}
+\State $\text{compiledCircuit} \gets Z.\text{compileCircuit}(C, \text{system})$
+
+\State \textbf{Setup Phase:}
+\If{$\text{system}.\text{requiresTrustedSetup}()$}
+    \State $\text{setupParams} \gets Z.\text{getSetupParameters}(\text{compiledCircuit})$
+    \If{$\text{setupParams} = \text{null}$}
+        \State $\text{setupParams} \gets Z.\text{performTrustedSetup}(\text{compiledCircuit})$
+        \State $Z.\text{storeSetupParameters}(\text{compiledCircuit}.\text{hash}, \text{setupParams})$
+    \EndIf
+\Else
+    \State $\text{setupParams} \gets Z.\text{generateVerificationKey}(\text{compiledCircuit})$
+\EndIf
+
+\State \textbf{Witness Validation:}
+\State $\text{valid} \gets Z.\text{validateWitness}(W, \text{compiledCircuit})$
+\If{$\neg \text{valid}$}
+    \State \Return $\{\text{error}: \text{"Invalid witness"}\}$
+\EndIf
+
+\State \textbf{Proof Generation:}
+\State $\text{proof} \gets Z.\text{generateProof}(\text{compiledCircuit}, W, P, \text{setupParams})$
+
+\State \textbf{Proof Verification:}
+\State $\text{verified} \gets Z.\text{verifyProof}(\text{proof}, P, \text{setupParams}.\text{verificationKey})$
+\If{$\neg \text{verified}$}
+    \State \Return $\{\text{error}: \text{"Generated proof verification failed"}\}$
+\EndIf
+
+\State \Return $\{\text{success}: \text{true}, \text{proof}: \text{proof}, \text{verificationKey}: \text{setupParams}.\text{verificationKey}\}$
+\end{algorithmic}
+\end{protocol}

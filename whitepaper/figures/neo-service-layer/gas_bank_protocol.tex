@@ -1,0 +1,183 @@
+\subsection{Gas Bank Operations Protocol}
+\label{subsec:gas-bank-protocol}
+
+The Gas Bank Operations Protocol defines how users deposit and withdraw GAS tokens and how the Gas Bank manages transaction fees.
+
+\begin{protocol}[Gas Bank Deposit]
+\label{prot:gas-bank-deposit}
+\begin{algorithmic}[1]
+\Require User $U$, Gas Bank Account $A$, Amount $\text{amt}$, Blockchain $B$, Gas Bank Service $G$
+\Ensure Funds are securely deposited and credited to the account
+
+\State \textbf{Account Verification:}
+\State $\text{exists} \gets G.\text{accountExists}(A.\text{address})$
+\If{$\neg \text{exists}$}
+    \State \Return $\{\text{error}: \text{"Account does not exist"}\}$
+\EndIf
+
+\State \textbf{Transaction Creation:}
+\State $\text{tx} \gets B.\text{createTransaction}(\{\text{from}: U.\text{address}, \text{to}: G.\text{depositAddress}, \text{amount}: \text{amt}, \text{data}: A.\text{address}\})$
+\State $\text{signedTx} \gets U.\text{signTransaction}(\text{tx})$
+
+\State \textbf{Transaction Submission:}
+\State $\text{txHash} \gets B.\text{submitTransaction}(\text{signedTx})$
+
+\State \textbf{Transaction Monitoring:}
+\State $\text{confirmed} \gets \text{false}$
+\While{$\neg \text{confirmed}$}
+    \State $\text{receipt} \gets B.\text{getTransactionReceipt}(\text{txHash})$
+    \If{$\text{receipt} \neq \text{null}$}
+        \If{$\text{receipt}.\text{status} = \text{"success"}$}
+            \State $\text{confirmed} \gets \text{true}$
+        \ElsIf{$\text{receipt}.\text{status} = \text{"failed"}$}
+            \State \Return $\{\text{error}: \text{"Transaction failed"}, \text{receipt}: \text{receipt}\}$
+        \EndIf
+    \EndIf
+    \If{$\neg \text{confirmed}$}
+        \State $\text{Sleep}(1\text{ second})$
+    \EndIf
+\EndWhile
+
+\State \textbf{Account Update:}
+\State $A.\text{balance} \gets A.\text{balance} + \text{amt}$
+\State $G.\text{updateAccount}(A)$
+
+\State \textbf{Event Emission:}
+\State $G.\text{emitEvent}(\text{"Deposit"}, \{\text{account}: A.\text{address}, \text{amount}: \text{amt}, \text{txHash}: \text{txHash}\})$
+
+\State \Return $\{\text{success}: \text{true}, \text{account}: A.\text{address}, \text{amount}: \text{amt}, \text{txHash}: \text{txHash}\}$
+\end{algorithmic}
+\end{protocol}
+
+\begin{protocol}[Gas Bank Withdrawal]
+\label{prot:gas-bank-withdrawal}
+\begin{algorithmic}[1]
+\Require User $U$, Gas Bank Account $A$, Amount $\text{amt}$, Blockchain $B$, Gas Bank Service $G$
+\Ensure Funds are securely withdrawn and transferred to the user
+
+\State \textbf{Account Verification:}
+\State $\text{exists} \gets G.\text{accountExists}(A.\text{address})$
+\If{$\neg \text{exists}$}
+    \State \Return $\{\text{error}: \text{"Account does not exist"}\}$
+\EndIf
+
+\State \textbf{Authorization Check:}
+\State $\text{isOwner} \gets G.\text{isAccountOwner}(U.\text{address}, A.\text{address})$
+\If{$\neg \text{isOwner}$}
+    \State \Return $\{\text{error}: \text{"Unauthorized withdrawal attempt"}\}$
+\EndIf
+
+\State \textbf{Balance Check:}
+\If{$A.\text{balance} < \text{amt}$}
+    \State \Return $\{\text{error}: \text{"Insufficient balance"}\}$
+\EndIf
+
+\State \textbf{Withdrawal Processing:}
+\State $A.\text{balance} \gets A.\text{balance} - \text{amt}$
+\State $G.\text{updateAccount}(A)$
+
+\State \textbf{Transaction Creation:}
+\State $\text{tx} \gets B.\text{createTransaction}(\{\text{from}: G.\text{withdrawalAddress}, \text{to}: U.\text{address}, \text{amount}: \text{amt}\})$
+\State $\text{signedTx} \gets G.\text{signTransaction}(\text{tx})$
+
+\State \textbf{Transaction Submission:}
+\State $\text{txHash} \gets B.\text{submitTransaction}(\text{signedTx})$
+
+\State \textbf{Transaction Monitoring:}
+\State $\text{confirmed} \gets \text{false}$
+\While{$\neg \text{confirmed}$}
+    \State $\text{receipt} \gets B.\text{getTransactionReceipt}(\text{txHash})$
+    \If{$\text{receipt} \neq \text{null}$}
+        \If{$\text{receipt}.\text{status} = \text{"success"}$}
+            \State $\text{confirmed} \gets \text{true}$
+        \ElsIf{$\text{receipt}.\text{status} = \text{"failed"}$}
+            \State $A.\text{balance} \gets A.\text{balance} + \text{amt}$ \Comment{Revert balance change}
+            \State $G.\text{updateAccount}(A)$
+            \State \Return $\{\text{error}: \text{"Transaction failed"}, \text{receipt}: \text{receipt}\}$
+        \EndIf
+    \EndIf
+    \If{$\neg \text{confirmed}$}
+        \State $\text{Sleep}(1\text{ second})$
+    \EndIf
+\EndWhile
+
+\State \textbf{Event Emission:}
+\State $G.\text{emitEvent}(\text{"Withdrawal"}, \{\text{account}: A.\text{address}, \text{amount}: \text{amt}, \text{txHash}: \text{txHash}\})$
+
+\State \Return $\{\text{success}: \text{true}, \text{account}: A.\text{address}, \text{amount}: \text{amt}, \text{txHash}: \text{txHash}\}$
+\end{algorithmic}
+\end{protocol}
+
+\begin{protocol}[Fee Payment]
+\label{prot:fee-payment}
+\begin{algorithmic}[1]
+\Require Application $P$, Gas Bank Account $A$, Transaction $T$, Blockchain $B$, Gas Bank Service $G$
+\Ensure Transaction fees are properly calculated and paid
+
+\State \textbf{Account Verification:}
+\State $\text{exists} \gets G.\text{accountExists}(A.\text{address})$
+\If{$\neg \text{exists}$}
+    \State \Return $\{\text{error}: \text{"Account does not exist"}\}$
+\EndIf
+
+\State \textbf{Authorization Check:}
+\State $\text{isAuthorized} \gets G.\text{isApplicationAuthorized}(P.\text{id}, A.\text{address})$
+\If{$\neg \text{isAuthorized}$}
+    \State \Return $\{\text{error}: \text{"Application not authorized for this account"}\}$
+\EndIf
+
+\State \textbf{Fee Calculation:}
+\State $\text{feeModel} \gets A.\text{feeModel}$
+\State $\text{estimatedFee} \gets B.\text{estimateTransactionFee}(T)$
+\State $\text{fee} \gets \text{CalculateFee}(\text{feeModel}, \text{estimatedFee}, T)$
+
+\State \textbf{Balance Check:}
+\If{$A.\text{balance} + A.\text{creditLimit} - A.\text{usedCredit} < \text{fee}$}
+    \State \Return $\{\text{error}: \text{"Insufficient balance and credit"}\}$
+\EndIf
+
+\State \textbf{Fee Reservation:}
+\If{$A.\text{balance} \geq \text{fee}$}
+    \State $A.\text{balance} \gets A.\text{balance} - \text{fee}$
+\Else
+    \State $\text{fromBalance} \gets A.\text{balance}$
+    \State $\text{fromCredit} \gets \text{fee} - \text{fromBalance}$
+    \State $A.\text{balance} \gets 0$
+    \State $A.\text{usedCredit} \gets A.\text{usedCredit} + \text{fromCredit}$
+\EndIf
+\State $G.\text{updateAccount}(A)$
+
+\State \textbf{Transaction Submission:}
+\State $\text{txHash} \gets B.\text{submitTransaction}(T)$
+
+\State \textbf{Transaction Monitoring:}
+\State $\text{confirmed} \gets \text{false}$
+\While{$\neg \text{confirmed}$}
+    \State $\text{receipt} \gets B.\text{getTransactionReceipt}(\text{txHash})$
+    \If{$\text{receipt} \neq \text{null}$}
+        \State $\text{confirmed} \gets \text{true}$
+        \State $\text{actualFee} \gets \text{receipt}.\text{gasUsed} \times \text{receipt}.\text{gasPrice}$
+        \If{$\text{actualFee} < \text{fee}$}
+            \State $\text{refund} \gets \text{fee} - \text{actualFee}$
+            \If{$A.\text{usedCredit} > 0$}
+                \State $\text{creditRefund} \gets \min(\text{refund}, A.\text{usedCredit})$
+                \State $A.\text{usedCredit} \gets A.\text{usedCredit} - \text{creditRefund}$
+                \State $\text{refund} \gets \text{refund} - \text{creditRefund}$
+            \EndIf
+            \If{$\text{refund} > 0$}
+                \State $A.\text{balance} \gets A.\text{balance} + \text{refund}$
+            \EndIf
+            \State $G.\text{updateAccount}(A)$
+        \EndIf
+    \EndIf
+    \If{$\neg \text{confirmed}$}
+        \State $\text{Sleep}(1\text{ second})$
+    \EndIf
+\EndWhile
+
+\State \textbf{Event Emission:}
+\State $G.\text{emitEvent}(\text{"FeePaid"}, \{\text{account}: A.\text{address}, \text{amount}: \text{actualFee}, \text{txHash}: \text{txHash}\})$
+
+\State \Return $\{\text{success}: \text{true}, \text{account}: A.\text{address}, \text{fee}: \text{actualFee}, \text{txHash}: \text{txHash}\}$
+\end{algorithmic}
+\end{protocol}
