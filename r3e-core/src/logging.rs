@@ -4,7 +4,7 @@
 //! Logging utilities for the FaaS service.
 
 use std::sync::Once;
-use tracing::{Level, Subscriber};
+use tracing::Subscriber;
 use tracing_subscriber::{
     fmt::{self, format::FmtSpan},
     EnvFilter,
@@ -27,7 +27,6 @@ pub fn init_logging(service_name: &str, log_level: Option<&str>) {
             .with_thread_ids(true)
             .with_thread_names(true)
             .with_ansi(true)
-            .json()
             .finish();
 
         init_subscriber(subscriber);
