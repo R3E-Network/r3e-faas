@@ -21,8 +21,8 @@ use std::time::Duration;
 use duration_str::deserialize_duration;
 use serde::{Deserialize, Serialize};
 
+pub use container::{ContainerConfig, ContainerError, ContainerManager, NetworkMode};
 pub use {assign::*, builder::*, runner::*, sandbox::*, worker::*};
-pub use container::{ContainerManager, ContainerConfig, NetworkMode, ContainerError};
 
 pub const MAX_RUNNERS: u32 = 1024;
 

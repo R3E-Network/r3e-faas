@@ -16,11 +16,9 @@ pub struct SandboxExecutor {
 impl SandboxExecutor {
     /// Create a new sandbox executor
     pub fn new(config: SandboxConfig) -> Self {
-        Self {
-            config,
-        }
+        Self { config }
     }
-    
+
     /// Create execution context
     pub fn create_context(&self, function_id: &str, context: &FunctionContext) -> ExecutionContext {
         ExecutionContext {
@@ -28,11 +26,14 @@ impl SandboxExecutor {
             context: context.clone(),
         }
     }
-    
+
     /// Execute code in sandbox
     pub fn execute(&self, code: &str, context: ExecutionContext) -> Result<String, String> {
         // TODO: Implement actual sandbox execution
-        Ok(format!("Executed function {} with context {:?}", context.function_id, context.context))
+        Ok(format!(
+            "Executed function {} with context {:?}",
+            context.function_id, context.context
+        ))
     }
 }
 
@@ -41,7 +42,7 @@ impl SandboxExecutor {
 pub struct ExecutionContext {
     /// Function ID
     pub function_id: String,
-    
+
     /// Function context
     pub context: FunctionContext,
 }

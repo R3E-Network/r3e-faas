@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use validator::{Validate, ValidationError};
 
 /// Blockchain type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,7 +28,7 @@ pub enum SignatureCurve {
 }
 
 /// Wallet connection request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct WalletConnectionRequest {
     /// Blockchain type
     pub blockchain_type: BlockchainType,
@@ -42,12 +43,15 @@ pub struct WalletConnectionRequest {
     pub signature_curve: SignatureCurve,
 
     /// Signature of the connection message
+    #[validate(custom = "validate_signature")]
     pub signature: String,
 
     /// Message that was signed
+    #[validate(length(min = 1, message = "Message cannot be empty"))]
     pub message: String,
 
     /// Timestamp
+    #[validate(custom = "validate_timestamp")]
     pub timestamp: u64,
 }
 
@@ -71,12 +75,14 @@ pub struct WalletConnectionResponse {
 }
 
 /// Message signing request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct MessageSigningRequest {
     /// Connection ID
+    #[validate(length(min = 1, message = "Connection ID cannot be empty"))]
     pub connection_id: String,
 
     /// Message to sign
+    #[validate(length(min = 1, message = "Message cannot be empty"))]
     pub message: String,
 
     /// Domain (for EIP-712 signatures)
@@ -86,6 +92,7 @@ pub struct MessageSigningRequest {
     pub types: Option<serde_json::Value>,
 
     /// Timestamp
+    #[validate(custom = "validate_timestamp")]
     pub timestamp: u64,
 }
 
@@ -105,22 +112,29 @@ pub struct MessageSigningResponse {
     pub timestamp: u64,
 }
 
+mod validation;
+pub use validation::*;
+
 /// Service invocation request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct ServiceInvocationRequest {
     /// Service ID
+    #[validate(custom = "validate_uuid")]
     pub service_id: Uuid,
 
     /// Function name
+    #[validate(custom = "validate_function_name")]
     pub function: String,
 
     /// Parameters
+    #[validate(custom = "validate_json_params")]
     pub params: serde_json::Value,
 
     /// Signature
     pub signature: Option<String>,
 
     /// Timestamp
+    #[validate(custom = "validate_timestamp")]
     pub timestamp: u64,
 }
 
@@ -147,15 +161,17 @@ pub struct ServiceInvocationResponse {
 }
 
 /// Meta transaction request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct MetaTransactionRequest {
     /// Transaction data
+    #[validate(length(min = 1, message = "Transaction data cannot be empty"))]
     pub tx_data: String,
 
     /// Sender address
     pub sender: String,
 
     /// Signature
+    #[validate(custom = "validate_signature")]
     pub signature: String,
 
     /// Nonce
@@ -174,6 +190,7 @@ pub struct MetaTransactionRequest {
     pub signature_curve: SignatureCurve,
 
     /// Timestamp
+    #[validate(custom = "validate_timestamp")]
     pub timestamp: u64,
 }
 
