@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use ::rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
+    AsColumnFamilyRef, BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
     DBCompressionType, Direction, Error as RocksError, IteratorMode, Options, ReadOptions, 
     SliceTransform, WriteBatch, DB,
 };
@@ -543,16 +543,14 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &rocksdb::ColumnFamily) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, &dyn AsColumnFamilyRef) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf_name = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        // We need to dereference the Arc to get the ColumnFamily
-        let cf_ref: &rocksdb::ColumnFamily = &*cf;
-        f(&mut batch, cf_ref)?;
+        f(&mut batch, &cf)?;
 
         db.write(batch)?;
         Ok(())
