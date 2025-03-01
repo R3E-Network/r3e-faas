@@ -24,9 +24,12 @@ pub fn op_fhe_generate_keys(
     #[serde] parameters: serde_json::Value,
 ) -> Result<FheKeyPairId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_generate_keys", &serde_json::json!({
-        "scheme_type": scheme_type,
-    }))?;
+    super::op_allowed(
+        "op_fhe_generate_keys",
+        &serde_json::json!({
+            "scheme_type": scheme_type,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -72,9 +75,12 @@ pub fn op_fhe_encrypt(
     #[serde] plaintext: Vec<u8>,
 ) -> Result<FheCiphertextId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_encrypt", &serde_json::json!({
-        "public_key_id": public_key_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_encrypt",
+        &serde_json::json!({
+            "public_key_id": public_key_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -105,10 +111,13 @@ pub fn op_fhe_decrypt(
     #[serde] ciphertext_id: FheCiphertextId,
 ) -> Result<Vec<u8>, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_decrypt", &serde_json::json!({
-        "private_key_id": private_key_id,
-        "ciphertext_id": ciphertext_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_decrypt",
+        &serde_json::json!({
+            "private_key_id": private_key_id,
+            "ciphertext_id": ciphertext_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -139,10 +148,13 @@ pub fn op_fhe_add(
     #[serde] ciphertext2_id: FheCiphertextId,
 ) -> Result<FheCiphertextId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_add", &serde_json::json!({
-        "ciphertext1_id": ciphertext1_id,
-        "ciphertext2_id": ciphertext2_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_add",
+        &serde_json::json!({
+            "ciphertext1_id": ciphertext1_id,
+            "ciphertext2_id": ciphertext2_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -173,10 +185,13 @@ pub fn op_fhe_subtract(
     #[serde] ciphertext2_id: FheCiphertextId,
 ) -> Result<FheCiphertextId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_subtract", &serde_json::json!({
-        "ciphertext1_id": ciphertext1_id,
-        "ciphertext2_id": ciphertext2_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_subtract",
+        &serde_json::json!({
+            "ciphertext1_id": ciphertext1_id,
+            "ciphertext2_id": ciphertext2_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -207,10 +222,13 @@ pub fn op_fhe_multiply(
     #[serde] ciphertext2_id: FheCiphertextId,
 ) -> Result<FheCiphertextId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_multiply", &serde_json::json!({
-        "ciphertext1_id": ciphertext1_id,
-        "ciphertext2_id": ciphertext2_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_multiply",
+        &serde_json::json!({
+            "ciphertext1_id": ciphertext1_id,
+            "ciphertext2_id": ciphertext2_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -240,9 +258,12 @@ pub fn op_fhe_negate(
     #[serde] ciphertext_id: FheCiphertextId,
 ) -> Result<FheCiphertextId, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_negate", &serde_json::json!({
-        "ciphertext_id": ciphertext_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_negate",
+        &serde_json::json!({
+            "ciphertext_id": ciphertext_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -272,9 +293,12 @@ pub fn op_fhe_get_ciphertext(
     #[serde] ciphertext_id: FheCiphertextId,
 ) -> Result<serde_json::Value, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_get_ciphertext", &serde_json::json!({
-        "ciphertext_id": ciphertext_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_get_ciphertext",
+        &serde_json::json!({
+            "ciphertext_id": ciphertext_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state
@@ -316,9 +340,12 @@ pub fn op_fhe_estimate_noise_budget(
     #[serde] ciphertext_id: FheCiphertextId,
 ) -> Result<Option<u32>, AnyError> {
     // Check if the operation is allowed
-    super::op_allowed("op_fhe_estimate_noise_budget", &serde_json::json!({
-        "ciphertext_id": ciphertext_id,
-    }))?;
+    super::op_allowed(
+        "op_fhe_estimate_noise_budget",
+        &serde_json::json!({
+            "ciphertext_id": ciphertext_id,
+        }),
+    )?;
 
     // Get the sandbox configuration
     let sandbox_config = state

@@ -6,12 +6,11 @@ use deno_core::op2;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use r3e_oracle::{
-    OracleError, OracleRequest, OracleRequestStatus, OracleRequestType, OracleResponse, OracleService,
-};
 use r3e_oracle::service::create_oracle_request;
-use r3e_oracle::types::{
-    PriceRequest, PriceResponse, RandomMethod, RandomRequest, RandomResponse,
+use r3e_oracle::types::{PriceRequest, PriceResponse, RandomMethod, RandomRequest, RandomResponse};
+use r3e_oracle::{
+    OracleError, OracleRequest, OracleRequestStatus, OracleRequestType, OracleResponse,
+    OracleService,
 };
 
 // Oracle request operations
@@ -49,22 +48,18 @@ pub fn op_oracle_submit_request(
             )))
         }
     };
-    
+
     // Convert data to string
     let data = serde_json::to_string(&config.data)
         .map_err(|e| AnyError::msg(format!("Failed to serialize request data: {}", e)))?;
-    
+
     // Create oracle request
-    let request = create_oracle_request(
-        request_type,
-        data,
-        config.callback_url,
-        config.requester_id,
-    );
-    
+    let request =
+        create_oracle_request(request_type, data, config.callback_url, config.requester_id);
+
     // Store request ID for response
     let request_id = request.id.clone();
-    
+
     // Submit request
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
@@ -73,7 +68,7 @@ pub fn op_oracle_submit_request(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to submit request: {}", e)))
     })?;
-    
+
     Ok(OracleRequestResult { request_id })
 }
 
@@ -96,7 +91,7 @@ pub fn op_oracle_get_request_status(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to get request status: {}", e)))
     })?;
-    
+
     // Convert status to string
     let status_str = match status {
         OracleRequestStatus::Pending => "pending",
@@ -104,7 +99,7 @@ pub fn op_oracle_get_request_status(
         OracleRequestStatus::Completed => "completed",
         OracleRequestStatus::Failed => "failed",
     };
-    
+
     Ok(OracleStatusResult {
         status: status_str.to_string(),
     })
@@ -132,11 +127,11 @@ pub fn op_oracle_get_response(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to get response: {}", e)))
     })?;
-    
+
     // Parse response data
     let data = serde_json::from_str(&response.data)
         .unwrap_or_else(|_| serde_json::Value::String(response.data.clone()));
-    
+
     Ok(OracleResponseResult {
         data,
         status_code: response.status_code,
@@ -164,7 +159,7 @@ pub fn op_oracle_cancel_request(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to cancel request: {}", e)))
     })?;
-    
+
     Ok(OracleCancelResult { success })
 }
 
@@ -190,11 +185,11 @@ pub fn op_oracle_get_price(
         currency: config.currency.unwrap_or_else(|| "USD".to_string()),
         sources: config.sources.unwrap_or_default(),
     };
-    
+
     // Convert to JSON
     let data = serde_json::to_value(price_request)
         .map_err(|e| AnyError::msg(format!("Failed to serialize price request: {}", e)))?;
-    
+
     // Create oracle request config
     let oracle_config = OracleRequestConfig {
         request_type: "price".to_string(),
@@ -202,7 +197,7 @@ pub fn op_oracle_get_price(
         callback_url: None,
         requester_id: config.requester_id,
     };
-    
+
     // Submit request
     op_oracle_submit_request(oracle_config, oracle_service)
 }
@@ -236,7 +231,7 @@ pub fn op_oracle_get_random(
             )))
         }
     };
-    
+
     // Create random request
     let random_request = RandomRequest {
         min: config.min.unwrap_or(0),
@@ -245,11 +240,11 @@ pub fn op_oracle_get_random(
         method,
         seed: config.seed,
     };
-    
+
     // Convert to JSON
     let data = serde_json::to_value(random_request)
         .map_err(|e| AnyError::msg(format!("Failed to serialize random request: {}", e)))?;
-    
+
     // Create oracle request config
     let oracle_config = OracleRequestConfig {
         request_type: "random".to_string(),
@@ -257,7 +252,7 @@ pub fn op_oracle_get_random(
         callback_url: None,
         requester_id: config.requester_id,
     };
-    
+
     // Submit request
     op_oracle_submit_request(oracle_config, oracle_service)
 }

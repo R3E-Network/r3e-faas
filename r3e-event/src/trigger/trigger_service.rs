@@ -146,8 +146,7 @@ impl TriggerServiceWithFunction {
                 let params_value = serde_json::to_value(&condition.params).map_err(|e| {
                     TriggerError::InvalidParameters(format!("Failed to convert params: {}", e))
                 })?;
-                self.evaluate_time_trigger(&params_value, event_data)
-                    .await
+                self.evaluate_time_trigger(&params_value, event_data).await
             }
             TriggerSource::Market => {
                 // Convert HashMap to Value
@@ -430,8 +429,10 @@ impl TriggerServiceWithFunction {
         // This is a simplified approach since we can't directly use the cron_parser's prev_from method
         let now = chrono::Utc::now();
         let one_minute_ago = now - chrono::Duration::minutes(1);
-        let prev_time = if event_time.with_timezone(&timezone) > one_minute_ago.with_timezone(&timezone) && 
-                           event_time.with_timezone(&timezone) <= now.with_timezone(&timezone) {
+        let prev_time = if event_time.with_timezone(&timezone)
+            > one_minute_ago.with_timezone(&timezone)
+            && event_time.with_timezone(&timezone) <= now.with_timezone(&timezone)
+        {
             event_time.with_timezone(&timezone)
         } else {
             return Ok(false);

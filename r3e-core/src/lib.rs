@@ -30,10 +30,8 @@ pub const VERSION: &str = "R3E Platform";
 /// Create a new V8 platform
 #[inline]
 pub fn make_v8_platform(config: &config::V8Config) -> v8::SharedRef<v8::Platform> {
-    v8::new_default_platform(
-        config.worker_threads as u32, 
-        config.background_compilation
-    ).make_shared()
+    v8::new_default_platform(config.worker_threads as u32, config.background_compilation)
+        .make_shared()
 }
 
 /// Initialize V8 engine

@@ -7,35 +7,35 @@ use std::time::Duration;
 mod threat_monitor;
 pub use threat_monitor::ThreatMonitor;
 
-use crate::security::threat_detection::{ThreatDetectionService, ThreatDetectionConfig};
+use crate::security::threat_detection::{ThreatDetectionConfig, ThreatDetectionService};
 
 /// Sandbox configuration for JavaScript runtime
 #[derive(Debug, Clone)]
 pub struct SandboxConfig {
     /// Initial heap size in bytes
     pub initial_heap_size: usize,
-    
+
     /// Maximum heap size in bytes
     pub max_heap_size: usize,
-    
+
     /// Maximum execution time
     pub max_execution_time: Duration,
-    
+
     /// Enable JIT compilation (false for more security)
     pub enable_jit: bool,
-    
+
     /// Allow network access
     pub allow_net: bool,
-    
+
     /// Allow file system access
     pub allow_fs: bool,
-    
+
     /// Allow environment variables access
     pub allow_env: bool,
-    
+
     /// Allow process spawning
     pub allow_run: bool,
-    
+
     /// Allow high resolution time
     pub allow_hrtime: bool,
 }
@@ -59,27 +59,27 @@ impl Default for SandboxConfig {
 /// Create V8 flags based on sandbox configuration
 pub fn create_v8_flags(config: &SandboxConfig) -> String {
     let mut flags = Vec::new();
-    
+
     // Disable JIT for security
     if !config.enable_jit {
         flags.push("--jitless");
     }
-    
+
     // Set heap limits
     flags.push("--expose-gc");
-    
+
     // Disable WebAssembly for security
     flags.push("--no-wasm");
-    
+
     // Disable shared array buffer for security
     flags.push("--no-harmony-sharedarraybuffer");
-    
+
     // Disable web snapshots for security
     flags.push("--no-web-snapshot");
-    
+
     // Disable eval for security
     flags.push("--disallow-code-generation-from-strings");
-    
+
     flags.join(" ")
 }
 
@@ -92,7 +92,7 @@ pub fn create_v8_params(config: &SandboxConfig) -> v8::CreateParams {
 pub struct SandboxContext {
     /// Execution timeout handle
     timeout_handle: Option<std::thread::JoinHandle<()>>,
-    
+
     /// Sandbox configuration
     config: SandboxConfig,
 }
@@ -104,7 +104,7 @@ impl SandboxContext {
         let timeout_handle = if config.max_execution_time.as_millis() > 0 {
             let duration = config.max_execution_time;
             let isolate_ptr = isolate as *mut v8::Isolate;
-            
+
             let handle = std::thread::spawn(move || {
                 std::thread::sleep(duration);
                 unsafe {
@@ -112,12 +112,12 @@ impl SandboxContext {
                     (*isolate_ptr).terminate_execution();
                 }
             });
-            
+
             Some(handle)
         } else {
             None
         };
-        
+
         Self {
             timeout_handle,
             config,
@@ -136,16 +136,23 @@ impl Drop for SandboxContext {
 }
 
 /// Permission checker for sandbox operations
-pub fn check_permission(
-    operation: &str,
-    config: &SandboxConfig,
-) -> Result<(), String> {
+pub fn check_permission(operation: &str, config: &SandboxConfig) -> Result<(), String> {
     match operation {
-        "net" if !config.allow_net => Err("Network access is not allowed in this sandbox".to_string()),
-        "fs" if !config.allow_fs => Err("File system access is not allowed in this sandbox".to_string()),
-        "env" if !config.allow_env => Err("Environment access is not allowed in this sandbox".to_string()),
-        "run" if !config.allow_run => Err("Process spawning is not allowed in this sandbox".to_string()),
-        "hrtime" if !config.allow_hrtime => Err("High resolution time is not allowed in this sandbox".to_string()),
+        "net" if !config.allow_net => {
+            Err("Network access is not allowed in this sandbox".to_string())
+        }
+        "fs" if !config.allow_fs => {
+            Err("File system access is not allowed in this sandbox".to_string())
+        }
+        "env" if !config.allow_env => {
+            Err("Environment access is not allowed in this sandbox".to_string())
+        }
+        "run" if !config.allow_run => {
+            Err("Process spawning is not allowed in this sandbox".to_string())
+        }
+        "hrtime" if !config.allow_hrtime => {
+            Err("High resolution time is not allowed in this sandbox".to_string())
+        }
         _ => Ok(()),
     }
 }
