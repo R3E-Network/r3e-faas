@@ -543,7 +543,7 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &rocksdb::BoundColumnFamily) -> DbResult<()>,
+        F: for<'a> FnOnce(&mut WriteBatch, &'a dyn AsColumnFamilyRef) -> DbResult<()>,
     {
         let db = self.get_db()?;
         let cf_name = self.get_cf_handle(cf_name)?;
