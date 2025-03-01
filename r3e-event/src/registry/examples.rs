@@ -3,10 +3,8 @@
 
 //! Examples of function registration for different use cases
 
-use crate::registry::{
-    BlockchainPermissions, BlockchainTrigger, FunctionMetadata, NetworkPermissions,
-    PermissionConfig, RegisterFunctionRequest, ResourceLimits, StoragePermissions,
-    TriggerConfig, TriggerType,
+use crate::registry::proto::{
+    FunctionMetadata, Permissions, RegisterFunctionRequest, Resources, TriggerConfig,
 };
 
 /// Create a Neo block event handler function registration request
@@ -15,36 +13,22 @@ pub fn create_neo_block_handler() -> RegisterFunctionRequest {
         name: "Neo Block Handler".to_string(),
         description: "Handles new Neo N3 blockchain blocks".to_string(),
         trigger: Some(TriggerConfig {
-            r#type: TriggerType::TriggerTypeBlockchain as i32,
-            config: Some(
-                crate::registry::trigger_config::Config::Blockchain(BlockchainTrigger {
-                    source: "Neo".to_string(),
-                    event_type: "NeoNewBlock".to_string(),
-                    filter: "".to_string(),
-                }),
-            ),
-        }),
-        permissions: Some(PermissionConfig {
-            network: Some(NetworkPermissions {
-                allow_outbound: true,
-                allowed_domains: vec!["api.neoscan.io".to_string()],
-            }),
-            storage: Some(StoragePermissions {
-                allow_read: true,
-                allow_write: true,
-                namespace: "neo_blocks".to_string(),
-            }),
-            blockchain: Some(BlockchainPermissions {
-                allow_read: true,
-                allow_write: false,
-                allowed_contracts: vec![],
+            trigger_type: "blockchain".to_string(),
+            config: serde_json::json!({
+                "source": "Neo",
+                "event_type": "NeoNewBlock",
+                "filter": ""
             }),
         }),
-        resources: Some(ResourceLimits {
+        permissions: Some(Permissions {
+            network: true,
+            filesystem: true,
+            environment: false,
+        }),
+        resources: Some(Resources {
             memory_mb: 128,
-            cpu_ms: 1000,
-            execution_time_ms: 5000,
-            storage_kb: 1024,
+            cpu_units: 1000,
+            timeout_ms: 5000,
         }),
         code: r#"
 // Neo Block Handler Function
@@ -86,36 +70,22 @@ pub fn create_neo_tx_handler() -> RegisterFunctionRequest {
         name: "Neo Transaction Handler".to_string(),
         description: "Handles new Neo N3 blockchain transactions".to_string(),
         trigger: Some(TriggerConfig {
-            r#type: TriggerType::TriggerTypeBlockchain as i32,
-            config: Some(
-                crate::registry::trigger_config::Config::Blockchain(BlockchainTrigger {
-                    source: "Neo".to_string(),
-                    event_type: "NeoNewTx".to_string(),
-                    filter: "".to_string(),
-                }),
-            ),
-        }),
-        permissions: Some(PermissionConfig {
-            network: Some(NetworkPermissions {
-                allow_outbound: true,
-                allowed_domains: vec!["api.neoscan.io".to_string()],
-            }),
-            storage: Some(StoragePermissions {
-                allow_read: true,
-                allow_write: true,
-                namespace: "neo_txs".to_string(),
-            }),
-            blockchain: Some(BlockchainPermissions {
-                allow_read: true,
-                allow_write: false,
-                allowed_contracts: vec![],
+            trigger_type: "blockchain".to_string(),
+            config: serde_json::json!({
+                "source": "Neo",
+                "event_type": "NeoNewTx",
+                "filter": ""
             }),
         }),
-        resources: Some(ResourceLimits {
+        permissions: Some(Permissions {
+            network: true,
+            filesystem: true,
+            environment: false,
+        }),
+        resources: Some(Resources {
             memory_mb: 128,
-            cpu_ms: 1000,
-            execution_time_ms: 5000,
-            storage_kb: 1024,
+            cpu_units: 1000,
+            timeout_ms: 5000,
         }),
         code: r#"
 // Neo Transaction Handler Function
@@ -160,36 +130,22 @@ pub fn create_neo_contract_notification_handler() -> RegisterFunctionRequest {
         name: "Neo Contract Notification Handler".to_string(),
         description: "Handles Neo N3 smart contract notifications".to_string(),
         trigger: Some(TriggerConfig {
-            r#type: TriggerType::TriggerTypeBlockchain as i32,
-            config: Some(
-                crate::registry::trigger_config::Config::Blockchain(BlockchainTrigger {
-                    source: "Neo".to_string(),
-                    event_type: "NeoContractNotification".to_string(),
-                    filter: "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5".to_string(), // Example NEP-17 token contract
-                }),
-            ),
-        }),
-        permissions: Some(PermissionConfig {
-            network: Some(NetworkPermissions {
-                allow_outbound: true,
-                allowed_domains: vec!["api.neoscan.io".to_string()],
-            }),
-            storage: Some(StoragePermissions {
-                allow_read: true,
-                allow_write: true,
-                namespace: "neo_notifications".to_string(),
-            }),
-            blockchain: Some(BlockchainPermissions {
-                allow_read: true,
-                allow_write: false,
-                allowed_contracts: vec!["0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5".to_string()],
+            trigger_type: "blockchain".to_string(),
+            config: serde_json::json!({
+                "source": "Neo",
+                "event_type": "NeoContractNotification",
+                "filter": "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5" // Example NEP-17 token contract
             }),
         }),
-        resources: Some(ResourceLimits {
+        permissions: Some(Permissions {
+            network: true,
+            filesystem: true,
+            environment: false,
+        }),
+        resources: Some(Resources {
             memory_mb: 128,
-            cpu_ms: 1000,
-            execution_time_ms: 5000,
-            storage_kb: 1024,
+            cpu_units: 1000,
+            timeout_ms: 5000,
         }),
         code: r#"
 // Neo Contract Notification Handler Function
@@ -245,40 +201,22 @@ pub fn create_neo_oracle_service() -> RegisterFunctionRequest {
         name: "Neo Price Oracle".to_string(),
         description: "Provides price data for Neo N3 blockchain".to_string(),
         trigger: Some(TriggerConfig {
-            r#type: TriggerType::TriggerTypeOracle as i32,
-            config: Some(
-                crate::registry::trigger_config::Config::Oracle(
-                    crate::registry::OracleTrigger {
-                        r#type: "price".to_string(),
-                        config: r#"{"assets": ["NEO", "GAS"], "providers": ["coinmarketcap", "coingecko"]}"#.to_string(),
-                    },
-                ),
-            ),
-        }),
-        permissions: Some(PermissionConfig {
-            network: Some(NetworkPermissions {
-                allow_outbound: true,
-                allowed_domains: vec![
-                    "api.coinmarketcap.com".to_string(),
-                    "api.coingecko.com".to_string(),
-                ],
-            }),
-            storage: Some(StoragePermissions {
-                allow_read: true,
-                allow_write: true,
-                namespace: "neo_oracle".to_string(),
-            }),
-            blockchain: Some(BlockchainPermissions {
-                allow_read: true,
-                allow_write: true,
-                allowed_contracts: vec![],
+            trigger_type: "oracle".to_string(),
+            config: serde_json::json!({
+                "type": "price",
+                "assets": ["NEO", "GAS"],
+                "providers": ["coinmarketcap", "coingecko"]
             }),
         }),
-        resources: Some(ResourceLimits {
+        permissions: Some(Permissions {
+            network: true,
+            filesystem: true,
+            environment: true,
+        }),
+        resources: Some(Resources {
             memory_mb: 128,
-            cpu_ms: 1000,
-            execution_time_ms: 10000,
-            storage_kb: 1024,
+            cpu_units: 1000,
+            timeout_ms: 10000,
         }),
         code: r#"
 // Neo Price Oracle Function
@@ -372,38 +310,22 @@ pub fn create_neo_tee_service() -> RegisterFunctionRequest {
         name: "Neo TEE Computation Service".to_string(),
         description: "Provides secure computation services using Trusted Execution Environment".to_string(),
         trigger: Some(TriggerConfig {
-            r#type: TriggerType::TriggerTypeHttp as i32,
-            config: Some(
-                crate::registry::trigger_config::Config::Http(
-                    crate::registry::HttpTrigger {
-                        path: "/api/tee/compute".to_string(),
-                        methods: vec!["POST".to_string()],
-                        auth_required: true,
-                    },
-                ),
-            ),
-        }),
-        permissions: Some(PermissionConfig {
-            network: Some(NetworkPermissions {
-                allow_outbound: false,
-                allowed_domains: vec![],
-            }),
-            storage: Some(StoragePermissions {
-                allow_read: true,
-                allow_write: true,
-                namespace: "neo_tee".to_string(),
-            }),
-            blockchain: Some(BlockchainPermissions {
-                allow_read: true,
-                allow_write: true,
-                allowed_contracts: vec![],
+            trigger_type: "http".to_string(),
+            config: serde_json::json!({
+                "path": "/api/tee/compute",
+                "methods": ["POST"],
+                "auth_required": true
             }),
         }),
-        resources: Some(ResourceLimits {
+        permissions: Some(Permissions {
+            network: false,
+            filesystem: true,
+            environment: true,
+        }),
+        resources: Some(Resources {
             memory_mb: 256,
-            cpu_ms: 2000,
-            execution_time_ms: 15000,
-            storage_kb: 2048,
+            cpu_units: 2000,
+            timeout_ms: 15000,
         }),
         code: r#"
 // Neo TEE Computation Service

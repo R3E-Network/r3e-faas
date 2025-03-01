@@ -4,6 +4,7 @@
 pub mod rocksdb;
 pub mod service;
 pub mod storage;
+pub mod examples;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -11,12 +12,113 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use uuid::Uuid;
 
-pub use crate::registry::proto::*;
 use crate::registry::storage::FunctionStorage;
+use crate::registry::proto::*;
 
-// Re-export generated proto types
+// Define proto types
 pub mod proto {
-    pub use crate::registry::*;
+    // Function metadata
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct FunctionMetadata {
+        pub id: String,
+        pub name: String,
+        pub description: String,
+        pub version: u32,
+        pub created_at: u64,
+        pub updated_at: u64,
+        pub trigger: Option<TriggerConfig>,
+        pub permissions: Option<Permissions>,
+        pub resources: Option<Resources>,
+        pub code: String,
+    }
+
+    // Trigger configuration
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct TriggerConfig {
+        pub trigger_type: String,
+        pub config: serde_json::Value,
+    }
+
+    // Permissions
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Permissions {
+        pub network: bool,
+        pub filesystem: bool,
+        pub environment: bool,
+    }
+
+    // Resources
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct Resources {
+        pub memory_mb: u32,
+        pub cpu_units: u32,
+        pub timeout_ms: u32,
+    }
+
+    // Request/Response types
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct RegisterFunctionRequest {
+        pub name: String,
+        pub description: String,
+        pub trigger: Option<TriggerConfig>,
+        pub permissions: Option<Permissions>,
+        pub resources: Option<Resources>,
+        pub code: String,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct RegisterFunctionResponse {
+        pub metadata: Option<FunctionMetadata>,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct UpdateFunctionRequest {
+        pub id: String,
+        pub name: Option<String>,
+        pub description: Option<String>,
+        pub trigger: Option<TriggerConfig>,
+        pub permissions: Option<Permissions>,
+        pub resources: Option<Resources>,
+        pub code: Option<String>,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct UpdateFunctionResponse {
+        pub metadata: Option<FunctionMetadata>,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct GetFunctionRequest {
+        pub id: String,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct GetFunctionResponse {
+        pub metadata: Option<FunctionMetadata>,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct ListFunctionsRequest {
+        pub page_token: String,
+        pub page_size: u32,
+        pub trigger_type: String,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct ListFunctionsResponse {
+        pub functions: Vec<FunctionMetadata>,
+        pub next_page_token: String,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct DeleteFunctionRequest {
+        pub id: String,
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub struct DeleteFunctionResponse {
+        pub success: bool,
+    }
 }
 
 /// Function registry for managing user-provided JavaScript functions
@@ -180,32 +282,89 @@ impl From<std::io::Error> for RegistryError {
     }
 }
 
-use crate::db::DatabaseClient;
-use crate::models::{Service, ServiceSignature};
-
 use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use uuid::Uuid;
+
+// Define models
+pub mod models {
+    use serde::{Deserialize, Serialize};
+    use uuid::Uuid;
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct Service {
+        pub id: Uuid,
+        pub name: String,
+        pub description: String,
+        pub adapter_type: String,
+        pub adapter_config: serde_json::Value,
+        pub is_enabled: bool,
+        pub functions: Vec<ServiceFunction>,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct ServiceFunction {
+        pub name: String,
+        pub description: String,
+        pub parameters: Vec<FunctionParameter>,
+        pub requires_auth: bool,
+        pub requires_signature: bool,
+        pub adapter_config: serde_json::Value,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct FunctionParameter {
+        pub name: String,
+        pub description: String,
+        pub required: bool,
+        pub parameter_type: String,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct ServiceSignature {
+        pub address: String,
+        pub signature: String,
+        pub blockchain_type: String,
+        pub signature_curve: Option<String>,
+    }
+}
+
+// Define database client
+pub mod db {
+    use async_trait::async_trait;
+    use uuid::Uuid;
+    use crate::registry::models::Service;
+
+    #[async_trait]
+    pub trait DatabaseClient: Send + Sync {
+        async fn get_service(&self, id: &Uuid) -> Result<Option<Service>, String>;
+        async fn list_services(&self) -> Result<Vec<Service>, String>;
+        async fn create_service(&self, service: &Service) -> Result<Uuid, String>;
+        async fn update_service(&self, id: &Uuid, service: &Service) -> Result<(), String>;
+        async fn delete_service(&self, id: &Uuid) -> Result<(), String>;
+    }
+}
+
+use crate::registry::models::{Service, ServiceSignature};
+use crate::registry::db::DatabaseClient;
+// Arc is already imported above
+use tokio::sync::RwLock as TokioRwLock;
 
 /// Service registry for managing and invoking services
 #[derive(Clone)]
 pub struct ServiceRegistry {
-    db_client: Arc<DatabaseClient>,
-    service_cache: Arc<RwLock<HashMap<Uuid, Service>>>,
+    db_client: Arc<dyn DatabaseClient>,
+    service_cache: Arc<TokioRwLock<HashMap<uuid::Uuid, Service>>>,
     cache_ttl: std::time::Duration,
-    last_cache_refresh: Arc<RwLock<std::time::Instant>>,
+    last_cache_refresh: Arc<TokioRwLock<std::time::Instant>>,
 }
 
 impl ServiceRegistry {
     /// Create a new service registry
-    pub fn new(db_client: Arc<DatabaseClient>) -> Self {
+    pub fn new(db_client: Arc<dyn DatabaseClient>) -> Self {
         Self {
             db_client,
-            service_cache: Arc::new(RwLock::new(HashMap::new())),
+            service_cache: Arc::new(TokioRwLock::new(HashMap::new())),
             cache_ttl: std::time::Duration::from_secs(60), // 1 minute cache TTL
-            last_cache_refresh: Arc::new(RwLock::new(std::time::Instant::now())),
+            last_cache_refresh: Arc::new(TokioRwLock::new(std::time::Instant::now())),
         }
     }
 
@@ -819,7 +978,7 @@ impl ServiceRegistry {
                 let wallet = LocalWallet::new(&mut rand::thread_rng());
                 
                 // Create a new client with the wallet
-                let client = ethers::providers::SignerMiddleware::new(provider, wallet);
+                let client = ethers::middleware::SignerMiddleware::new(provider, wallet);
                 let contract = ERC20::new(address, Arc::new(client));
                 
                 // Call the transfer method
@@ -847,8 +1006,16 @@ impl ServiceRegistry {
         is_readonly: bool,
         signature: Option<&ServiceSignature>,
     ) -> Result<Value, String> {
+<<<<<<< Updated upstream
         use neo::prelude::*;
         
+||||||| constructed merge base
+        use neo::prelude::*;
+
+=======
+        use neo3::prelude::*;
+
+>>>>>>> Stashed changes
         // Get the RPC URL based on the network
         let rpc_url = match network {
             "mainnet" => "http://seed1.neo.org:10332",
@@ -911,9 +1078,9 @@ impl ServiceRegistry {
     
     /// Add parameters to a Neo function call
     fn add_neo_parameters(
-        mut builder: InvokeMethodBuilder,
+        mut builder: neo3::prelude::InvokeMethodBuilder,
         parameters: &Value,
-    ) -> Result<InvokeMethodBuilder, String> {
+    ) -> Result<neo3::prelude::InvokeMethodBuilder, String> {
         if let Value::Object(params) = parameters {
             for (key, value) in params {
                 match value {
@@ -947,12 +1114,13 @@ impl ServiceRegistry {
     }
     
     /// Parse a Neo contract result
-    fn parse_neo_result(result: &InvokeResult) -> Result<Value, String> {
+    fn parse_neo_result(result: &neo3::prelude::InvokeResult) -> Result<Value, String> {
         if !result.has_state_fault() {
             // Parse the stack items
             if let Some(stack) = result.stack() {
                 if let Some(item) = stack.first() {
                     match item {
+<<<<<<< Updated upstream
                         StackItem::Integer(n) => {
                             Ok(serde_json::json!({ "result": n.to_string() }))
                         },
@@ -962,6 +1130,15 @@ impl ServiceRegistry {
                         StackItem::Bool(b) => {
                             Ok(serde_json::json!({ "result": b }))
                         },
+||||||| constructed merge base
+                        StackItem::Integer(n) => Ok(serde_json::json!({ "result": n.to_string() })),
+                        StackItem::String(s) => Ok(serde_json::json!({ "result": s })),
+                        StackItem::Bool(b) => Ok(serde_json::json!({ "result": b })),
+=======
+                        neo3::prelude::StackItem::Integer(n) => Ok(serde_json::json!({ "result": n.to_string() })),
+                        neo3::prelude::StackItem::String(s) => Ok(serde_json::json!({ "result": s })),
+                        neo3::prelude::StackItem::Bool(b) => Ok(serde_json::json!({ "result": b })),
+>>>>>>> Stashed changes
                         _ => Err("Unsupported Neo result type".to_string()),
                     }
                 } else {
@@ -1038,13 +1215,31 @@ impl ServiceRegistry {
         // In a real implementation, this would be more sophisticated
         match (function_path.as_str(), function_name) {
             ("examples/price_oracle", "get_price") => {
+<<<<<<< Updated upstream
                 // Call the price oracle function
                 match crate::registry::examples::get_price(parameters) {
                     Ok(result) => Ok(result),
                     Err(e) => Err(e),
                 }
             },
+||||||| constructed merge base
+                // Call the price oracle function
+                match crate::registry::examples::get_price(parameters) {
+                    Ok(result) => Ok(result),
+                    Err(e) => Err(e),
+                }
+            }
+=======
+                // Call the price oracle function (mock implementation)
+                Ok(serde_json::json!({
+                    "price": 42.0,
+                    "currency": "USD",
+                    "timestamp": chrono::Utc::now().timestamp()
+                }))
+            }
+>>>>>>> Stashed changes
             ("examples/random_generator", "generate_random") => {
+<<<<<<< Updated upstream
                 // Call the random generator function
                 match crate::registry::examples::generate_random(parameters) {
                     Ok(result) => Ok(result),
@@ -1052,6 +1247,33 @@ impl ServiceRegistry {
                 }
             },
             _ => Err(format!("Unsupported local function: {}.{}", function_path, function_name)),
+||||||| constructed merge base
+                // Call the random generator function
+                match crate::registry::examples::generate_random(parameters) {
+                    Ok(result) => Ok(result),
+                    Err(e) => Err(e),
+                }
+            }
+            _ => Err(format!(
+                "Unsupported local function: {}.{}",
+                function_path, function_name
+            )),
+=======
+                // Call the random generator function (mock implementation)
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+                let random_value: f64 = rng.gen();
+                
+                Ok(serde_json::json!({
+                    "random": random_value,
+                    "timestamp": chrono::Utc::now().timestamp()
+                }))
+            }
+            _ => Err(format!(
+                "Unsupported local function: {}.{}",
+                function_path, function_name
+            )),
+>>>>>>> Stashed changes
         }
     }
 }

@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(bytes) = retrieved_bytes {
         let retrieved_user: User = bincode::deserialize(&bytes)?;
         info!("Retrieved user: {:?}", retrieved_user);
-    }else {
+    } else {
         info!("User not found");
     }
 
@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let deleted_user = db.get_cf(&users_cf, user_id.as_bytes())?;
     if deleted_user.is_none() {
         info!("User successfully deleted");
-    }else {
+    } else {
         info!("User still exists!");
     }
 

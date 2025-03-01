@@ -230,7 +230,7 @@ impl TriggerServiceIntegration {
             }
             Ok(Err(error)) => {
                 // Function execution failed
-                callback_result.set_error(error, Some(execution_time));
+                callback_result.set_error(error.clone(), Some(execution_time));
                 warn!(
                     "Callback execution failed for trigger {}: {} (execution time: {:?})",
                     trigger_id, error, execution_time

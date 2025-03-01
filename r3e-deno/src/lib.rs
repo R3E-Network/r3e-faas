@@ -4,6 +4,7 @@
 pub mod consts;
 pub mod ext;
 pub mod sandbox;
+pub mod security;
 
 #[cfg(test)]
 pub mod lib_test;
