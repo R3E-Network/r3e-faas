@@ -1,0 +1,40 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Gas Bank Architecture,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (user) {User};
+    \node [block, right=of user] (app) {Application};
+    \node [block, right=of app] (gasbank) {Gas Bank};
+    \node [block, below=of gasbank] (blockchain) {Neo Blockchain};
+    
+    % Draw edges
+    \path [line] (user) -- node {1. Request} (app);
+    \path [line] (app) -- node {2. Fee Request} (gasbank);
+    \path [line] (gasbank) -- node {3. Pay Fee} (blockchain);
+    \path [line] (app) -- node [below] {4. Submit Tx} (blockchain);
+    \path [line] (blockchain) -- node [left] {5. Confirm} (app);
+    \path [line] (app) -- node [above] {6. Response} (user);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Gas Bank Architecture and Transaction Flow}
+\label{fig:gas-bank-architecture}
+\end{figure}

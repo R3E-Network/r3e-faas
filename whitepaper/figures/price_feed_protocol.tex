@@ -3,101 +3,134 @@
 
 The Price Data Feed Protocol defines how price data is collected, aggregated, and provided to smart contracts and applications.
 
-\begin{protocol}[Price Data Collection]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Price Data Collection Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{Price Data Collection}
 \label{prot:price-data-collection}
 \begin{algorithmic}[1]
 \Require Asset symbol $S$, Price Provider $P$, Price Registry $R$, Cache $C$
-\Ensure Accurate and up-to-date price data is collected and stored
+\Ensure Up-to-date price data is collected and stored
 
-\State \textbf{Symbol Resolution:}
-\State $\text{mappings} \gets R.\text{getSymbolMappings}(S)$
-\If{$\text{mappings} = \emptyset$}
-    \State \Return $\{\text{error}: \text{"Unknown symbol"}\}$
+\State \textbf{Provider Selection:}
+\State $\text{providers} \gets P.\text{getProviders}(S)$
+\If{$\text{providers} = \emptyset$}
+    \State \textbf{reject} with "No providers available for asset"
 \EndIf
 
-\State \textbf{Cache Check:}
-\State $\text{cachedData} \gets C.\text{get}(S)$
-\If{$\text{cachedData} \neq \text{null} \land \text{now}() - \text{cachedData}.\text{timestamp} < \text{cachedData}.\text{ttl}$}
-    \State \Return $\text{cachedData}.\text{price}$
-\EndIf
-
-\State \textbf{Source Selection:}
-\State $\text{sources} \gets P.\text{getSourcesForAsset}(S)$
+\State \textbf{Data Collection:}
 \State $\text{prices} \gets \emptyset$
-
-\State \textbf{Parallel Data Retrieval:}
-\For{each $\text{source} \in \text{sources}$ \textbf{in parallel}}
-    \State $\text{sourceSymbol} \gets \text{mappings}[\text{source}.\text{name}]$
-    \State $\text{rawPrice} \gets \text{source}.\text{fetchPrice}(\text{sourceSymbol})$
-    \If{$\text{rawPrice}.\text{success}$}
-        \State $\text{prices} \gets \text{prices} \cup \{(\text{source}.\text{name}, \text{rawPrice}.\text{price}, \text{rawPrice}.\text{timestamp}, \text{source}.\text{weight})\}$
+\For{each $p \in \text{providers}$}
+    \State $\text{price}_p \gets p.\text{fetchPrice}(S)$
+    \If{$\text{price}_p \neq \text{null}$}
+        \State $\text{prices} \gets \text{prices} \cup \{\text{price}_p\}$
     \EndIf
 \EndFor
 
-\If{$|\text{prices}| < P.\text{minimumSources}$}
-    \State \Return $\{\text{error}: \text{"Insufficient price sources"}, \text{available}: |\text{prices}|\}$
+\If{$|\text{prices}| < \text{MIN\_PROVIDERS}$}
+    \State \textbf{reject} with "Insufficient price data sources"
 \EndIf
 
-\State \textbf{Outlier Detection:}
-\State $\text{validPrices} \gets \text{FilterOutliers}(\text{prices})$
+\State \textbf{Data Validation:}
+\State $\text{valid} \gets \text{ValidatePrices}(\text{prices})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Price data validation failed"
+\EndIf
 
 \State \textbf{Price Aggregation:}
-\State $\text{aggregatedPrice} \gets \text{AggregateWeightedPrice}(\text{validPrices})$
-\State $\text{confidence} \gets \text{CalculateConfidence}(\text{validPrices}, \text{aggregatedPrice})$
+\State $\text{aggregated} \gets \text{AggregatePrices}(\text{prices})$
+
+\State \textbf{Outlier Detection:}
+\State $\text{filtered} \gets \text{FilterOutliers}(\text{prices})$
+\State $\text{final} \gets \text{AggregatePrices}(\text{filtered})$
+
+\State \textbf{Data Storage:}
+\State $\text{timestamp} \gets \text{now}()$
+\State $\text{entry} \gets \{\text{symbol}: S, \text{price}: \text{final}, \text{timestamp}: \text{timestamp}, \text{sources}: |\text{providers}|, \text{valid}: |\text{filtered}|\}$
+\State $R.\text{storePrice}(\text{entry})$
 
 \State \textbf{Cache Update:}
-\State $\text{ttl} \gets P.\text{getTTLForAsset}(S)$
-\State $C.\text{set}(S, \{\text{price}: \text{aggregatedPrice}, \text{timestamp}: \text{now}(), \text{ttl}: \text{ttl}, \text{confidence}: \text{confidence}, \text{sources}: \text{validPrices}\})$
+\State $C.\text{set}(S, \text{entry}, \text{CACHE\_TTL})$
 
-\State \Return $\{\text{price}: \text{aggregatedPrice}, \text{timestamp}: \text{now}(), \text{confidence}: \text{confidence}\}$
+\State \textbf{Event Emission:}
+\State $R.\text{emitEvent}(\text{"PriceUpdated"}, \{\text{symbol}: S, \text{price}: \text{final}, \text{timestamp}: \text{timestamp}\})$
+
+\State \Return $\text{entry}$
 \end{algorithmic}
 \end{protocol}
+\end{tcolorbox}
 
-\begin{protocol}[Oracle Price Request]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Oracle Price Request Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{Oracle Price Request}
 \label{prot:oracle-price-request}
 \begin{algorithmic}[1]
 \Require Requester $R$, Asset symbol $S$, Callback information $C$, Oracle Service $O$, Price Provider $P$
-\Ensure Price data is delivered to the requester through the specified callback mechanism
+\Ensure Price data is delivered to the requester
 
 \State \textbf{Request Validation:}
 \State $\text{valid} \gets \text{ValidateRequest}(R, S, C)$
 \If{$\neg \text{valid}$}
-    \State \Return $\{\text{error}: \text{"Invalid request"}\}$
+    \State \textbf{reject} with "Invalid request"
+\EndIf
+
+\State \textbf{Cache Check:}
+\State $\text{cached} \gets O.\text{cache}.\text{get}(S)$
+\If{$\text{cached} \neq \text{null} \land \text{now}() - \text{cached}.\text{timestamp} < \text{MAX\_AGE}$}
+    \State \textbf{Process Cached Result:}
+    \State $\text{ProcessResult}(R, S, \text{cached}, C)$
+    \State \Return $\{\text{status}: \text{"success"}, \text{source}: \text{"cache"}, \text{data}: \text{cached}\}$
 \EndIf
 
 \State \textbf{Request Registration:}
-\State $\text{requestId} \gets \text{GenerateUniqueID}()$
-\State $O.\text{registerRequest}(\text{requestId}, R, S, C)$
+\State $\text{id} \gets \text{GenerateUniqueID}()$
+\State $\text{request} \gets \{\text{id}: \text{id}, \text{requester}: R, \text{symbol}: S, \text{callback}: C, \text{timestamp}: \text{now}()\}$
+\State $O.\text{registerRequest}(\text{request})$
 
 \State \textbf{Price Collection:}
-\State $\text{priceResult} \gets P.\text{collectPrice}(S)$
-\If{$\text{priceResult}.\text{error} \neq \text{null}$}
-    \State $O.\text{updateRequestStatus}(\text{requestId}, \text{"failed"}, \text{priceResult}.\text{error})$
-    \If{$C.\text{type} = \text{"blockchain"}$}
-        \State $O.\text{sendErrorCallback}(C.\text{contract}, C.\text{method}, \text{requestId}, \text{priceResult}.\text{error})$
-    \ElsIf{$C.\text{type} = \text{"http"}$}
-        \State $O.\text{sendHttpErrorResponse}(C.\text{url}, \text{requestId}, \text{priceResult}.\text{error})$
-    \EndIf
-    \State \Return $\{\text{error}: \text{priceResult}.\text{error}, \text{requestId}: \text{requestId}\}$
+\State $\text{price} \gets P.\text{collectPrice}(S)$
+\If{$\text{price} = \text{null}$}
+    \State $O.\text{updateRequest}(\text{id}, \{\text{status}: \text{"failed"}, \text{error}: \text{"Price collection failed"}\})$
+    \State \textbf{reject} with "Price collection failed"
 \EndIf
 
-\State \textbf{Response Signing:}
-\State $\text{response} \gets \{\text{requestId}: \text{requestId}, \text{symbol}: S, \text{price}: \text{priceResult}.\text{price}, \text{timestamp}: \text{priceResult}.\text{timestamp}, \text{confidence}: \text{priceResult}.\text{confidence}\}$
-\State $\text{signature} \gets O.\text{signResponse}(\text{response})$
-\State $\text{signedResponse} \gets \{\text{response}: \text{response}, \text{signature}: \text{signature}\}$
-
-\State \textbf{Callback Execution:}
-\If{$C.\text{type} = \text{"blockchain"}$}
-    \State $\text{tx} \gets O.\text{createCallbackTransaction}(C.\text{contract}, C.\text{method}, \text{signedResponse})$
-    \State $\text{txHash} \gets O.\text{submitTransaction}(\text{tx})$
-    \State $O.\text{monitorTransaction}(\text{txHash})$
-\ElsIf{$C.\text{type} = \text{"http"}$}
-    \State $O.\text{sendHttpResponse}(C.\text{url}, \text{signedResponse})$
+\State \textbf{Result Processing:}
+\State $\text{result} \gets \text{ProcessResult}(R, S, \text{price}, C)$
+\If{$\text{result}.\text{status} \neq \text{"success"}$}
+    \State $O.\text{updateRequest}(\text{id}, \{\text{status}: \text{"failed"}, \text{error}: \text{result}.\text{error}\})$
+    \State \textbf{reject} with $\text{result}.\text{error}$
 \EndIf
 
 \State \textbf{Request Completion:}
-\State $O.\text{updateRequestStatus}(\text{requestId}, \text{"completed"}, \text{signedResponse})$
+\State $O.\text{updateRequest}(\text{id}, \{\text{status}: \text{"completed"}, \text{result}: \text{price}\})$
 
-\State \Return $\{\text{success}: \text{true}, \text{requestId}: \text{requestId}, \text{response}: \text{signedResponse}\}$
+\State \textbf{Event Emission:}
+\State $O.\text{emitEvent}(\text{"OracleRequestCompleted"}, \{\text{id}: \text{id}, \text{symbol}: S, \text{price}: \text{price}.\text{price}\})$
+
+\State \Return $\{\text{status}: \text{"success"}, \text{source}: \text{"live"}, \text{data}: \text{price}\}$
 \end{algorithmic}
 \end{protocol}
+\end{tcolorbox}

@@ -1,9 +1,15 @@
-\documentclass{standalone}
-\usepackage{tikz}
-\usepackage{xcolor}
-\usetikzlibrary{positioning, fit, backgrounds, shadows, arrows.meta, patterns}
-
-\begin{document}
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow,
+    title=Neo Service Layer Architecture
+]
 \begin{tikzpicture}[
     scale=0.9,
     box/.style={rectangle, draw=black!70, rounded corners=3pt, 
@@ -74,4 +80,7 @@
 \node[font=\Large\bfseries] at (0,10) {Neo Service Layer Architecture};
 
 \end{tikzpicture}
-\end{document}
+\end{tcolorbox}
+\caption{Neo Service Layer Architecture}
+\label{fig:architecture}
+\end{figure}

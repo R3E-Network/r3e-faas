@@ -1,0 +1,40 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Sandbox Security Architecture,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (function) {Function Code};
+    \node [block, right=of function] (runtime) {Deno Runtime};
+    \node [block, right=of runtime] (sandbox) {Sandbox};
+    \node [block, below=of sandbox] (resources) {Resource Limits};
+    \node [block, below=of runtime] (permissions) {Permission System};
+    
+    % Draw edges
+    \path [line] (function) -- node {1. Load} (runtime);
+    \path [line] (runtime) -- node {2. Execute} (sandbox);
+    \path [line] (sandbox) -- node {3. Enforce} (resources);
+    \path [line] (runtime) -- node [left] {4. Check} (permissions);
+    \path [line] (sandbox) -- node [above] {5. Result} (runtime);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Sandbox Security Architecture and Execution Flow}
+\label{fig:sandbox-security}
+\end{figure}

@@ -1,20 +1,10 @@
 \begin{figure}[h]
 \centering
-\begin{tcolorbox}[
-    enhanced,
-    colback=white,
-    colframe=blue!75!black,
-    arc=5mm,
-    boxrule=1.5pt,
-    shadow={2mm}{-2mm}{0mm}{black!50},
-    drop fuzzy shadow,
-    title=Neo Service Layer Architecture
-]
 \begin{tikzpicture}[node distance=1.5cm, auto, thick]
     % Define styles
-    \tikzstyle{layer} = [rectangle, draw, fill=blue!20, text width=16em, text centered, rounded corners, minimum height=3em, drop shadow={opacity=0.3}]
-    \tikzstyle{component} = [rectangle, draw, fill=green!20, text width=7em, text centered, rounded corners, minimum height=2.5em, drop shadow={opacity=0.2}]
-    \tikzstyle{line} = [draw, ->, >=stealth, thick]
+    \tikzstyle{layer} = [rectangle, draw, fill=blue!20, text width=16em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{component} = [rectangle, draw, fill=green!20, text width=7em, text centered, rounded corners, minimum height=2.5em]
+    \tikzstyle{line} = [draw, ->]
     
     % Place nodes - layers
     \node [layer] (blockchain) {Neo N3 Blockchain};
@@ -62,7 +52,6 @@
     \path [line] (websocket) -- (service);
     
 \end{tikzpicture}
-\end{tcolorbox}
 \caption{Neo Service Layer Architecture}
 \label{fig:architecture}
 \end{figure}

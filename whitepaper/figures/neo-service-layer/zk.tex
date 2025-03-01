@@ -1,0 +1,42 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Zero-Knowledge Computing,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (app) {Application};
+    \node [block, right=of app] (zk) {ZK Service};
+    \node [block, right=of zk] (prover) {ZK Prover};
+    \node [block, below=of prover] (verifier) {ZK Verifier};
+    \node [block, below=of zk] (circuit) {Circuit Compiler};
+    
+    % Draw edges
+    \path [line] (app) -- node {1. Request} (zk);
+    \path [line] (zk) -- node {2. Compile Circuit} (circuit);
+    \path [line] (circuit) -- node [left] {3. Circuit} (zk);
+    \path [line] (zk) -- node {4. Generate Proof} (prover);
+    \path [line] (prover) -- node [right] {5. Proof} (verifier);
+    \path [line] (verifier) -- node [left] {6. Verification} (zk);
+    \path [line] (zk) -- node [above] {7. Response} (app);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Zero-Knowledge Computing Architecture and Flow}
+\label{fig:zk-architecture}
+\end{figure}

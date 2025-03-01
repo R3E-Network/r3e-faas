@@ -1,0 +1,171 @@
+\subsection{Meta Transaction Protocol}
+\label{subsec:meta-tx-protocol}
+
+The Meta Transaction Protocol defines how users can interact with smart contracts without directly paying for transaction fees.
+
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Meta Tx Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{Meta Transaction Processing}
+\label{prot:meta-tx-processing}
+\begin{algorithmic}[1]
+\Require User $U$, Transaction request $R$, Meta Transaction Service $M$, Gas Bank Service $G$, Blockchain $B$
+\Ensure Transaction is executed on behalf of the user without requiring user to pay fees
+
+\State \textbf{Transaction Creation:}
+\State $\text{txData} \gets \{\text{to}: R.\text{to}, \text{data}: R.\text{data}, \text{value}: R.\text{value}, \text{nonce}: U.\text{nonce}, \text{chainId}: B.\text{chainId}\}$
+
+\State \textbf{Signature Generation:}
+\State $\text{message} \gets \text{FormatMessage}(\text{txData})$
+\State $\text{signature} \gets U.\text{sign}(\text{message})$
+
+\State \textbf{Meta Transaction Request:}
+\State $\text{metaTx} \gets \{\text{txData}: \text{txData}, \text{signature}: \text{signature}, \text{from}: U.\text{address}\}$
+\State $M.\text{submitTransaction}(\text{metaTx})$
+
+\State \textbf{Signature Verification:}
+\State $\text{recoveredAddress} \gets \text{RecoverSigner}(\text{message}, \text{signature})$
+\If{$\text{recoveredAddress} \neq U.\text{address}$}
+    \State \Return $\{\text{error}: \text{"Invalid signature"}\}$
+\EndIf
+
+\State \textbf{Nonce Verification:}
+\State $\text{expectedNonce} \gets M.\text{getNonce}(U.\text{address})$
+\If{$\text{txData}.\text{nonce} \neq \text{expectedNonce}$}
+    \State \Return $\{\text{error}: \text{"Invalid nonce"}\}$
+\EndIf
+
+\State \textbf{Fee Estimation:}
+\State $\text{gasLimit} \gets B.\text{estimateGas}(\text{txData})$
+\State $\text{gasPrice} \gets B.\text{getGasPrice}()$
+\State $\text{fee} \gets \text{gasLimit} \times \text{gasPrice}$
+
+\State \textbf{Gas Bank Integration:}
+\State $\text{app} \gets M.\text{getApplicationForContract}(\text{txData}.\text{to})$
+\State $\text{account} \gets G.\text{getAccountForApplication}(\text{app}.\text{id})$
+\State $\text{feeApproval} \gets G.\text{requestFeePayment}(\text{app}, \text{account}, \text{fee})$
+\If{$\neg \text{feeApproval}.\text{approved}$}
+    \State \Return $\{\text{error}: \text{"Fee payment not approved"}, \text{reason}: \text{feeApproval}.\text{reason}\}$
+\EndIf
+
+\State \textbf{Transaction Construction:}
+\State $\text{rawTx} \gets B.\text{createTransaction}(\{\text{from}: M.\text{relayerAddress}, \text{to}: \text{txData}.\text{to}, \text{data}: \text{EncodeWithSender}(\text{txData}.\text{data}, U.\text{address}), \text{value}: \text{txData}.\text{value}, \text{gasLimit}: \text{gasLimit}, \text{gasPrice}: \text{gasPrice}\})$
+\State $\text{signedTx} \gets M.\text{signTransaction}(\text{rawTx})$
+
+\State \textbf{Transaction Submission:}
+\State $\text{txHash} \gets B.\text{submitTransaction}(\text{signedTx})$
+
+\State \textbf{Transaction Monitoring:}
+\State $\text{confirmed} \gets \text{false}$
+\While{$\neg \text{confirmed}$}
+    \State $\text{receipt} \gets B.\text{getTransactionReceipt}(\text{txHash})$
+    \If{$\text{receipt} \neq \text{null}$}
+        \State $\text{confirmed} \gets \text{true}$
+        \If{$\text{receipt}.\text{status} = \text{"success"}$}
+            \State $M.\text{incrementNonce}(U.\text{address})$
+            \State $G.\text{confirmFeePayment}(\text{app}, \text{account}, \text{receipt}.\text{gasUsed} \times \text{receipt}.\text{gasPrice})$
+        \Else
+            \State $G.\text{cancelFeePayment}(\text{app}, \text{account}, \text{feeApproval}.\text{id})$
+        \EndIf
+    \EndIf
+    \If{$\neg \text{confirmed}$}
+        \State $\text{Sleep}(1\text{ second})$
+    \EndIf
+\EndWhile
+
+\State \textbf{Result Notification:}
+\State $M.\text{notifyResult}(U.\text{address}, \text{txHash}, \text{receipt})$
+
+\State \Return $\{\text{success}: \text{receipt}.\text{status} = \text{"success"}, \text{txHash}: \text{txHash}, \text{receipt}: \text{receipt}\}$
+\end{algorithmic}
+\end{protocol}
+\end{tcolorbox}
+
+
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Meta Tx Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{EIP-712 Signature Verification}
+\label{prot:eip712-verification}
+\begin{algorithmic}[1]
+\Require Transaction data $D$, Signature $S$, Claimed signer $A$, Domain separator $\text{DS}$, Type hash $\text{TH}$
+\Ensure Signature is valid and matches the claimed signer
+
+\State \textbf{Type Hash Calculation:}
+\State $\text{typeHash} \gets \text{TH}$
+
+\State \textbf{Value Hash Calculation:}
+\State $\text{encodedData} \gets \text{EncodeData}(D)$
+\State $\text{valueHash} \gets \text{keccak256}(\text{encodedData})$
+
+\State \textbf{Message Hash Calculation:}
+\State $\text{message} \gets \text{"\textbackslash x19\textbackslash x01"} \parallel \text{DS} \parallel \text{keccak256}(\text{typeHash} \parallel \text{valueHash})$
+\State $\text{messageHash} \gets \text{keccak256}(\text{message})$
+
+\State \textbf{Signature Components:}
+\State $r \gets S[0:32]$
+\State $s \gets S[32:64]$
+\State $v \gets S[64]$
+
+\State \textbf{Address Recovery:}
+\State $\text{recoveredAddress} \gets \text{ecrecover}(\text{messageHash}, v, r, s)$
+
+\If{$\text{recoveredAddress} = A$}
+    \State \Return $\text{true}$
+\Else
+    \State \Return $\text{false}$
+\EndIf
+\end{algorithmic}
+\end{protocol}
+\end{tcolorbox}
+
