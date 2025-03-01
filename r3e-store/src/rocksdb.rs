@@ -257,8 +257,9 @@ impl RocksDbClient {
 
             // Create missing column families if configured
             if self.config.create_missing_column_families {
+                let existing_cfs_set: HashSet<String> = existing_cfs.iter().cloned().collect();
                 for cf_config in &self.config.column_families {
-                    if !existing_cfs.contains(&cf_config.name) {
+                    if !existing_cfs_set.contains(&cf_config.name) {
                         info!("Creating column family: {}", cf_config.name);
                         let mut cf_opts = Options::default();
                         self.configure_cf_options(&mut cf_opts, cf_config);
@@ -287,8 +288,8 @@ impl RocksDbClient {
 
         // Store column family names
         let mut cf_set = self.column_families.lock().unwrap();
-        for cf_name in cf_names {
-            match db.cf_handle(&cf_name) {
+        for cf_name in &cf_names {
+            match db.cf_handle(cf_name) {
                 Some(_) => {
                     cf_set.insert(cf_name.clone());
                 }
@@ -350,7 +351,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf(&self, cf_name: &str) -> DbResult<&ColumnFamily> {
+    fn get_cf_handle(&self, cf_name: &str) -> DbResult<ColumnFamily> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
@@ -372,7 +373,7 @@ impl RocksDbClient {
         
         // Get the column family handle directly from the DB
         match db.cf_handle(cf_name) {
-            Some(cf) => Ok(cf),
+            Some(cf) => Ok(cf.clone()),
             None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
         }
     }
@@ -384,7 +385,7 @@ impl RocksDbClient {
         V: Serialize,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         let serialized_value =
             bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
@@ -400,7 +401,7 @@ impl RocksDbClient {
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         match db.get_cf(&cf, key)? {
             Some(data) => {
@@ -418,7 +419,7 @@ impl RocksDbClient {
         K: AsRef<[u8]>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         db.delete_cf(&cf, key)?;
         Ok(())
@@ -430,27 +431,27 @@ impl RocksDbClient {
         K: AsRef<[u8]>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         let value = db.get_cf(&cf, key)?;
         Ok(value.is_some())
     }
 
-    /// Iterate over a column family
+    /// Iterate over a column family and collect results
     pub fn iter_cf<V>(
         &self,
         cf_name: &str,
         mode: IteratorMode,
-    ) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
+    ) -> DbResult<Vec<(Box<[u8]>, V)>>
     where
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         let iter = db.iterator_cf(&cf, mode);
 
-        let mapped_iter = iter
+        let results: Vec<(Box<[u8]>, V)> = iter
             .map(|result| {
                 result.map_err(DbError::RocksDb).and_then(|(key, value)| {
                     let deserialized = bincode::deserialize(&value)
@@ -464,23 +465,24 @@ impl RocksDbClient {
                     error!("Error iterating over column family {}: {}", cf_name, e);
                     None
                 }
-            });
+            })
+            .collect();
 
-        Ok(mapped_iter)
+        Ok(results)
     }
 
-    /// Iterate over keys with a common prefix
+    /// Iterate over keys with a common prefix and collect results
     pub fn prefix_iter_cf<P, V>(
         &self,
         cf_name: &str,
         prefix: P,
-    ) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
+    ) -> DbResult<Vec<(Box<[u8]>, V)>>
     where
         P: AsRef<[u8]>,
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         let mut read_opts = ReadOptions::default();
         read_opts.set_prefix_same_as_start(true);
@@ -492,7 +494,7 @@ impl RocksDbClient {
         );
 
         let prefix_bytes = prefix.as_ref().to_vec();
-        let mapped_iter = iter
+        let results: Vec<(Box<[u8]>, V)> = iter
             .take_while(move |result| match result {
                 Ok((key, _)) => key.starts_with(&prefix_bytes),
                 Err(_) => false,
@@ -513,9 +515,10 @@ impl RocksDbClient {
                     );
                     None
                 }
-            });
+            })
+            .collect();
 
-        Ok(mapped_iter)
+        Ok(results)
     }
 
     /// Execute a batch of operations
@@ -535,13 +538,13 @@ impl RocksDbClient {
     /// Execute a batch of operations in a column family
     pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &ColumnFamily) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, ColumnFamily) -> DbResult<()>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
-        f(&mut batch, &cf)?;
+        f(&mut batch, cf)?;
 
         db.write(batch)?;
         Ok(())
@@ -562,7 +565,7 @@ impl RocksDbClient {
     /// Flush a column family
     pub fn flush_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         db.flush_cf(&cf)?;
         Ok(())
@@ -578,7 +581,7 @@ impl RocksDbClient {
     /// Compact a column family
     pub fn compact_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
+        let cf = self.get_cf_handle(cf_name)?;
 
         db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
         Ok(())
@@ -638,7 +641,7 @@ impl AsyncRocksDbClient {
             inner.get_cf(&cf_name, key_bytes)
         })
         .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??
+        .map_err(|e| DbError::TransactionFailed(e.to_string()))?
     }
 
     /// Delete a key from a column family
@@ -672,7 +675,7 @@ impl AsyncRocksDbClient {
             inner.exists_cf(&cf_name, key_bytes)
         })
         .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??
+        .map_err(|e| DbError::TransactionFailed(e.to_string()))?
     }
 
     /// Execute a batch of operations
