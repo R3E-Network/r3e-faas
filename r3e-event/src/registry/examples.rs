@@ -120,7 +120,8 @@ export default async function(event) {
     script_size: script.length
   };
 }
-"#.to_string(),
+"#
+        .to_string(),
     }
 }
 
@@ -191,7 +192,8 @@ export default async function(event) {
     state: state
   };
 }
-"#.to_string(),
+"#
+        .to_string(),
     }
 }
 
@@ -308,7 +310,8 @@ export default async function(request) {
 pub fn create_neo_tee_service() -> RegisterFunctionRequest {
     RegisterFunctionRequest {
         name: "Neo TEE Computation Service".to_string(),
-        description: "Provides secure computation services using Trusted Execution Environment".to_string(),
+        description: "Provides secure computation services using Trusted Execution Environment"
+            .to_string(),
         trigger: Some(TriggerConfig {
             trigger_type: "http".to_string(),
             config: serde_json::json!({
@@ -426,7 +429,8 @@ export default async function(request) {
     };
   }
 }
-"#.to_string(),
+"#
+        .to_string(),
     }
 }
 
@@ -435,115 +439,123 @@ pub fn get_price(parameters: &serde_json::Value) -> Result<serde_json::Value, St
     use reqwest::blocking::Client;
     use serde_json::json;
     use std::env;
-    
+
     // Get the symbol from parameters
     let symbol = match parameters.get("symbol") {
         Some(serde_json::Value::String(s)) => s.to_uppercase(),
         _ => return Err("Missing or invalid 'symbol' parameter".to_string()),
     };
-    
+
     // Get the convert currency from parameters (default to USD)
     let convert = match parameters.get("convert") {
         Some(serde_json::Value::String(s)) => s.to_uppercase(),
         _ => "USD".to_string(),
     };
-    
+
     // Get API key from environment or use a fallback mechanism
     let api_key = env::var("COINMARKETCAP_API_KEY").unwrap_or_else(|_| {
         // Fallback to a config file if environment variable is not set
         match std::fs::read_to_string("config/api_keys.json") {
-            Ok(content) => {
-                match serde_json::from_str::<serde_json::Value>(&content) {
-                    Ok(config) => {
-                        config.get("coinmarketcap")
-                              .and_then(|v| v.as_str())
-                              .unwrap_or("").to_string()
-                    },
-                    Err(_) => "".to_string(),
-                }
+            Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+                Ok(config) => config
+                    .get("coinmarketcap")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                Err(_) => "".to_string(),
             },
             Err(_) => "".to_string(),
         }
     });
-    
+
     if api_key.is_empty() {
         // Fallback to mock data if no API key is available
         log::warn!("No CoinMarketCap API key found, using mock data");
         return mock_price_data(&symbol, &convert);
     }
-    
+
     // Create the client
     let client = Client::new();
-    
+
     // Build the URL
     let url = format!(
         "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol={}&convert={}",
         symbol, convert
     );
-    
+
     // Make the request
-    let response = match client.get(&url)
+    let response = match client
+        .get(&url)
         .header("X-CMC_PRO_API_KEY", api_key)
         .header("Accept", "application/json")
-        .send() {
-            Ok(res) => res,
-            Err(e) => return Err(format!("API request failed: {}", e)),
-        };
-    
+        .send()
+    {
+        Ok(res) => res,
+        Err(e) => return Err(format!("API request failed: {}", e)),
+    };
+
     // Check for successful status code
     if !response.status().is_success() {
-        return Err(format!("API request failed with status: {}", response.status()));
+        return Err(format!(
+            "API request failed with status: {}",
+            response.status()
+        ));
     }
-    
+
     // Parse the response
     let response_data: serde_json::Value = match response.json() {
         Ok(data) => data,
         Err(e) => return Err(format!("Failed to parse API response: {}", e)),
     };
-    
+
     // Extract the price data
-    let price = response_data.get("data")
+    let price = response_data
+        .get("data")
         .and_then(|data| data.get(&symbol))
         .and_then(|symbol_data| symbol_data.get("quote"))
         .and_then(|quote| quote.get(&convert))
         .and_then(|convert_data| convert_data.get("price"))
         .and_then(|price| price.as_f64());
-    
+
     let price = match price {
         Some(p) => p,
         None => return Err(format!("Failed to extract price from API response")),
     };
-    
+
     // Extract additional data
-    let percent_change_24h = response_data.get("data")
+    let percent_change_24h = response_data
+        .get("data")
         .and_then(|data| data.get(&symbol))
         .and_then(|symbol_data| symbol_data.get("quote"))
         .and_then(|quote| quote.get(&convert))
         .and_then(|convert_data| convert_data.get("percent_change_24h"))
         .and_then(|change| change.as_f64())
         .unwrap_or(0.0);
-    
-    let market_cap = response_data.get("data")
+
+    let market_cap = response_data
+        .get("data")
         .and_then(|data| data.get(&symbol))
         .and_then(|symbol_data| symbol_data.get("quote"))
         .and_then(|quote| quote.get(&convert))
         .and_then(|convert_data| convert_data.get("market_cap"))
         .and_then(|cap| cap.as_f64())
         .unwrap_or(0.0);
-    
-    let volume_24h = response_data.get("data")
+
+    let volume_24h = response_data
+        .get("data")
         .and_then(|data| data.get(&symbol))
         .and_then(|symbol_data| symbol_data.get("quote"))
         .and_then(|quote| quote.get(&convert))
         .and_then(|convert_data| convert_data.get("volume_24h"))
         .and_then(|volume| volume.as_f64())
         .unwrap_or(0.0);
-    
-    let timestamp = response_data.get("status")
+
+    let timestamp = response_data
+        .get("status")
         .and_then(|status| status.get("timestamp"))
         .and_then(|ts| ts.as_str())
         .unwrap_or("");
-    
+
     // Construct the response
     Ok(json!({
         "symbol": symbol,
@@ -559,9 +571,9 @@ pub fn get_price(parameters: &serde_json::Value) -> Result<serde_json::Value, St
 
 /// Generate mock price data if API key is not available
 fn mock_price_data(symbol: &str, convert: &str) -> Result<serde_json::Value, String> {
-    use serde_json::json;
     use chrono::Utc;
-    
+    use serde_json::json;
+
     // Mock prices for common cryptocurrencies in USD
     let price = match symbol {
         "BTC" => 45000.0,
@@ -576,24 +588,24 @@ fn mock_price_data(symbol: &str, convert: &str) -> Result<serde_json::Value, Str
         "SHIB" => 0.00003,
         _ => 1.0, // Default value for unknown symbols
     };
-    
+
     // Apply a simple conversion for non-USD prices
     let price = match convert {
         "USD" => price,
-        "EUR" => price * 0.85, // Rough EUR conversion
+        "EUR" => price * 0.85,  // Rough EUR conversion
         "JPY" => price * 110.0, // Rough JPY conversion
-        "GBP" => price * 0.75, // Rough GBP conversion
-        _ => price, // Default to USD for unknown conversions
+        "GBP" => price * 0.75,  // Rough GBP conversion
+        _ => price,             // Default to USD for unknown conversions
     };
-    
+
     // Generate mock additional data
     let percent_change_24h = -0.5 + (rand::random::<f64>() * 5.0); // Random between -0.5% and +4.5%
     let market_cap = price * 1_000_000.0 * (1.0 + rand::random::<f64>() * 10.0);
     let volume_24h = price * 100_000.0 * (1.0 + rand::random::<f64>() * 5.0);
-    
+
     // Current timestamp
     let timestamp = Utc::now().to_rfc3339();
-    
+
     // Construct the mock response
     Ok(json!({
         "symbol": symbol,

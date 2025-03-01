@@ -308,7 +308,9 @@ impl TriggerServiceImpl {
         // This is a simplified approach since we can't directly use the cron_parser's prev_from method
         let now = chrono::Utc::now();
         let one_minute_ago = now - chrono::Duration::minutes(1);
-        let prev_time = if event_time_tz > one_minute_ago.with_timezone(&timezone) && event_time_tz <= now.with_timezone(&timezone) {
+        let prev_time = if event_time_tz > one_minute_ago.with_timezone(&timezone)
+            && event_time_tz <= now.with_timezone(&timezone)
+        {
             event_time_tz
         } else {
             return Ok(false);

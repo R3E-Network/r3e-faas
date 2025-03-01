@@ -3,14 +3,16 @@
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tracing::{debug, error, info, warn};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
+use crate::function::{FunctionContext, FunctionResult};
+use crate::sandbox::{SandboxConfig, SandboxExecutor};
 use crate::sandbox_executor::SandboxExecutor;
-use crate::sandbox::SandboxConfig;
 use crate::container::{ContainerManager, ContainerConfig, NetworkMode, ContainerError};
 
 /// Function execution result
@@ -136,6 +138,12 @@ pub struct ExecutorConfig {
     
     /// Container configuration
     pub container_config: Option<ContainerConfig>,
+    
+    /// Maximum execution time in milliseconds
+    pub max_execution_time_ms: u64,
+    
+    /// Maximum memory usage in bytes
+    pub max_memory_bytes: u64,
 }
 
 impl Default for ExecutorConfig {
@@ -144,6 +152,8 @@ impl Default for ExecutorConfig {
             sandbox_config: SandboxConfig::default(),
             use_container_isolation: false,
             container_config: None,
+            max_execution_time_ms: 5000, // 5 seconds
+            max_memory_bytes: 128 * 1024 * 1024, // 128 MB
         }
     }
 }
@@ -153,6 +163,9 @@ pub struct FunctionExecutor {
     /// Executor configuration
     config: ExecutorConfig,
     
+    /// Sandbox executor
+    sandbox: Option<SandboxExecutor>,
+    
     /// Container manager for isolation
     container_manager: Option<ContainerManager>,
 }
@@ -160,6 +173,9 @@ pub struct FunctionExecutor {
 impl FunctionExecutor {
     /// Create a new function executor
     pub fn new(config: ExecutorConfig) -> Self {
+        // Initialize sandbox executor
+        let sandbox = Some(SandboxExecutor::new(config.sandbox_config.clone()));
+        
         // Initialize container manager if enabled
         let container_manager = if config.use_container_isolation {
             let container_config = config.container_config.unwrap_or_default();
@@ -170,11 +186,37 @@ impl FunctionExecutor {
         
         Self { 
             config,
+            sandbox,
             container_manager,
         }
     }
     
-    /// Execute a function
+    /// Execute a function with simple interface
+    pub fn execute_simple(&self, function_id: &str, code: &str, context: &FunctionContext) -> FunctionResult {
+        debug!("Executing function {}", function_id);
+        
+        // Set up execution context
+        if let Some(sandbox) = &self.sandbox {
+            let execution_context = sandbox.create_context(function_id, context);
+            
+            // Execute the function
+            match sandbox.execute(code, execution_context) {
+                Ok(result) => {
+                    debug!("Function {} executed successfully", function_id);
+                    FunctionResult::Success(result)
+                }
+                Err(err) => {
+                    error!("Function {} execution failed: {}", function_id, err);
+                    FunctionResult::Error(format!("Execution failed: {}", err))
+                }
+            }
+        } else {
+            error!("No sandbox executor available");
+            FunctionResult::Error("No sandbox executor available".to_string())
+        }
+    }
+    
+    /// Execute a function with full context
     pub async fn execute(
         &self,
         function_id: Uuid,
@@ -353,6 +395,8 @@ mod tests {
             sandbox_config: SandboxConfig::default(),
             use_container_isolation: false,
             container_config: None,
+            max_execution_time_ms: 5000,
+            max_memory_bytes: 128 * 1024 * 1024,
         };
         let executor = FunctionExecutor::new(config);
         
@@ -389,6 +433,8 @@ mod tests {
             sandbox_config: SandboxConfig::default(),
             use_container_isolation: false,
             container_config: None,
+            max_execution_time_ms: 5000,
+            max_memory_bytes: 128 * 1024 * 1024,
         };
         let executor = FunctionExecutor::new(config);
         
@@ -430,6 +476,8 @@ mod tests {
             sandbox_config: SandboxConfig::default(),
             use_container_isolation: true,
             container_config: Some(container_config),
+            max_execution_time_ms: 5000,
+            max_memory_bytes: 128 * 1024 * 1024,
         };
         
         let executor = FunctionExecutor::new(config);

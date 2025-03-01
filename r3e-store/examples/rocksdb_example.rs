@@ -6,7 +6,7 @@
 use log::{info, LevelFilter};
 use r3e_store::{
     rocksdb::{ColumnFamilyConfig, RocksDbConfig},
-    User, UserRepository, Service, ServiceRepository, ServiceType, BlockchainType,
+    BlockchainType, Service, ServiceRepository, ServiceType, User, UserRepository,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -17,9 +17,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::Builder::new()
         .filter_level(LevelFilter::Info)
         .init();
-    
+
     info!("Starting RocksDB example");
-    
+
     // Create RocksDB configuration
     let config = RocksDbConfig {
         path: "./data/rockdb_example".to_string(),
@@ -50,16 +50,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         ],
     };
-    
+
     // Initialize repositories
     let user_repo = UserRepository::from_config(config.clone());
     let service_repo = ServiceRepository::from_config(config);
-    
+
     // Current timestamp
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)?
-        .as_millis() as u64;
-    
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
+
     // Create a test user
     let user = User {
         id: Uuid::new_v4().to_string(),
@@ -71,11 +69,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         created_at: now,
         updated_at: now,
     };
-    
+
     // Save the user
     info!("Saving user: {}", user.username);
     user_repo.save(&user).await?;
-    
+
     // Create a test service
     let service = Service {
         id: Uuid::new_v4().to_string(),
@@ -94,11 +92,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         created_at: now,
         updated_at: now,
     };
-    
+
     // Save the service
     info!("Saving service: {}", service.name);
     service_repo.save(&service).await?;
-    
+
     // Create another service (blockchain)
     let blockchain_service = Service {
         id: Uuid::new_v4().to_string(),
@@ -117,54 +115,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         created_at: now,
         updated_at: now,
     };
-    
+
     // Save the blockchain service
     info!("Saving blockchain service: {}", blockchain_service.name);
     service_repo.save(&blockchain_service).await?;
-    
+
     // Retrieve the user
     let retrieved_user = user_repo.get_by_id(&user.id).await?;
     match retrieved_user {
         Some(u) => info!("Retrieved user: {} ({})", u.username, u.email),
         None => info!("User not found"),
     }
-    
+
     // Find user by username
     let user_by_username = user_repo.find_by_username(&user.username).await?;
     match user_by_username {
         Some(u) => info!("Found user by username: {}", u.id),
         None => info!("User not found by username"),
     }
-    
+
     // Find services by owner
     let services = service_repo.find_by_owner(&user.id).await?;
     info!("Found {} services owned by user", services.len());
     for service in &services {
         info!("  - {}: {}", service.id, service.name);
     }
-    
+
     // Find services by type
     let fhe_services = service_repo
         .find_by_type(&ServiceType::FullyHomomorphicEncryption)
         .await?;
     info!("Found {} FHE services", fhe_services.len());
-    
+
     // Find blockchain services
     let neo_services = service_repo
         .find_by_blockchain(&BlockchainType::Neo)
         .await?;
     info!("Found {} Neo blockchain services", neo_services.len());
-    
+
     // Delete the services
     for service in services {
         info!("Deleting service: {}", service.id);
         service_repo.delete(&service.id).await?;
     }
-    
+
     // Delete the user
     info!("Deleting user: {}", user.id);
     user_repo.delete(&user.id).await?;
-    
+
     info!("RocksDB example completed successfully");
     Ok(())
 }

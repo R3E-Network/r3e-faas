@@ -10,7 +10,9 @@ use std::sync::Arc;
 use neo3::neo_clients::{HttpProvider, RpcClient};
 use neo3::neo_crypto::keys::{KeyPair, PrivateKey};
 use neo3::neo_protocol::{transaction::Transaction, wallet::Wallet};
-use neo3::neo_types::{address::Address, contract_parameter::ContractParameter, script_hash::ScriptHash};
+use neo3::neo_types::{
+    address::Address, contract_parameter::ContractParameter, script_hash::ScriptHash,
+};
 use url::Url;
 
 // Neo RPC operations
@@ -25,13 +27,14 @@ pub struct NeoRpcConfig {
 pub fn op_neo_create_rpc_client(#[serde] config: NeoRpcConfig) -> Result<String, AnyError> {
     // Create a URL from the config
     let url = Url::parse(&config.url).map_err(|e| AnyError::msg(format!("Invalid URL: {}", e)))?;
-    
+
     // Create an HTTP provider
-    let provider = HttpProvider::new(url).map_err(|e| AnyError::msg(format!("Failed to create HTTP provider: {}", e)))?;
-    
+    let provider = HttpProvider::new(url)
+        .map_err(|e| AnyError::msg(format!("Failed to create HTTP provider: {}", e)))?;
+
     // Create an RPC client
     let _client = RpcClient::new(provider);
-    
+
     // For now, just return a success message
     // In a real implementation, we would store the client in a map and return a handle
     Ok("Neo RPC client created successfully".to_string())
@@ -53,7 +56,9 @@ pub struct NeoKeyPairResult {
 
 #[op2]
 #[serde]
-pub fn op_neo_create_key_pair(#[serde] config: NeoKeyPairConfig) -> Result<NeoKeyPairResult, AnyError> {
+pub fn op_neo_create_key_pair(
+    #[serde] config: NeoKeyPairConfig,
+) -> Result<NeoKeyPairResult, AnyError> {
     let key_pair = if let Some(private_key_str) = config.private_key {
         // Create a key pair from the provided private key
         let private_key = PrivateKey::from_str(&private_key_str)
@@ -63,11 +68,11 @@ pub fn op_neo_create_key_pair(#[serde] config: NeoKeyPairConfig) -> Result<NeoKe
         // Generate a new random key pair
         KeyPair::new_random()
     };
-    
+
     // Get the address from the key pair
     let address = Address::from_public_key(&key_pair.public_key())
         .map_err(|e| AnyError::msg(format!("Failed to create address: {}", e)))?;
-    
+
     // Return the key pair information
     Ok(NeoKeyPairResult {
         address: address.to_string(),
@@ -105,7 +110,9 @@ pub struct NeoTransactionResult {
 
 #[op2]
 #[serde]
-pub fn op_neo_create_transaction(#[serde] config: NeoTransactionConfig) -> Result<NeoTransactionResult, AnyError> {
+pub fn op_neo_create_transaction(
+    #[serde] config: NeoTransactionConfig,
+) -> Result<NeoTransactionResult, AnyError> {
     // In a real implementation, we would create a transaction using the NeoRust SDK
     // For now, return a mock transaction
     Ok(NeoTransactionResult {

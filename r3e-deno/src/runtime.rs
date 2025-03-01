@@ -5,9 +5,9 @@ use deno_core::error::JsError;
 use deno_core::{v8, Extension, JsRuntime as Runtime, RuntimeOptions};
 use serde::Serialize;
 
-use r3e_core::make_v8_platform;
-use crate::sandbox::{SandboxConfig, SandboxContext, create_v8_flags, create_v8_params};
 use crate::ext::op_allowed;
+use crate::sandbox::{create_v8_flags, create_v8_params, SandboxConfig, SandboxContext};
+use r3e_core::make_v8_platform;
 
 #[derive(Debug)]
 pub struct RuntimeConfig {
@@ -39,10 +39,10 @@ pub enum ExecError {
 
     #[error("exec: on execute: {0}")]
     OnExecute(String),
-    
+
     #[error("exec: sandbox violation: {0}")]
     SandboxViolation(String),
-    
+
     #[error("exec: timeout: execution exceeded time limit")]
     Timeout,
 }
@@ -56,12 +56,15 @@ impl JsRuntime {
         };
 
         // Set up sandbox if configured
-        let sandbox_config = config.sandbox_config.clone().unwrap_or_else(|| SandboxConfig::default());
-        
+        let sandbox_config = config
+            .sandbox_config
+            .clone()
+            .unwrap_or_else(|| SandboxConfig::default());
+
         // Set V8 flags based on sandbox configuration
         let v8_flags = create_v8_flags(&sandbox_config);
         v8::V8::set_flags_from_string(&v8_flags);
-        
+
         // Create V8 parameters
         let create_params = create_v8_params(&sandbox_config);
 
@@ -72,7 +75,7 @@ impl JsRuntime {
             create_params: Some(create_params),
             ..Default::default()
         });
-        
+
         // Create sandbox context if needed
         let sandbox_context = if config.sandbox_config.is_some() {
             Some(SandboxContext::new(sandbox_config, runtime.v8_isolate()))
@@ -80,7 +83,10 @@ impl JsRuntime {
             None
         };
 
-        Self { runtime, sandbox_context }
+        Self {
+            runtime,
+            sandbox_context,
+        }
     }
 
     // must execute in the tokio context
@@ -96,12 +102,12 @@ impl JsRuntime {
         let _rv = script.run(&mut catch).ok_or_else(|| {
             if let Some(ex) = catch.exception() {
                 let js_err = JsError::from_v8_exception(&mut catch, ex);
-                
+
                 // Check if this is a termination exception (timeout)
                 if catch.is_execution_terminating() {
                     return ExecError::Timeout;
                 }
-                
+
                 return ExecError::OnExecute(js_err.to_string());
             }
             return ExecError::OnExecute("script run failed".into());
@@ -122,17 +128,13 @@ impl JsRuntime {
     }
 
     pub async fn eval_module(&mut self, module: usize) -> Result<(), ExecError> {
-        let result = self
-            .runtime
-            .mod_evaluate(module)
-            .await
-            .map_err(|err| {
-                // Check if this is a termination exception (timeout)
-                if err.to_string().contains("execution terminated") {
-                    return ExecError::Timeout;
-                }
-                ExecError::OnExecute(err.to_string())
-            })?;
+        let result = self.runtime.mod_evaluate(module).await.map_err(|err| {
+            // Check if this is a termination exception (timeout)
+            if err.to_string().contains("execution terminated") {
+                return ExecError::Timeout;
+            }
+            ExecError::OnExecute(err.to_string())
+        })?;
 
         Ok(result)
     }

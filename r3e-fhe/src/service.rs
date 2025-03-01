@@ -32,11 +32,9 @@ impl FheService {
         let storage: Arc<dyn FheStorage> = match config.storage.storage_type {
             FheStorageType::Memory => Arc::new(MemoryFheStorage::new()),
             FheStorageType::RocksDb => {
-                let path = config
-                    .storage
-                    .rocksdb_path
-                    .as_ref()
-                    .ok_or_else(|| FheError::ConfigurationError("RocksDB path not specified".into()))?;
+                let path = config.storage.rocksdb_path.as_ref().ok_or_else(|| {
+                    FheError::ConfigurationError("RocksDB path not specified".into())
+                })?;
                 Arc::new(RocksDbFheStorage::new(path)?)
             }
         };
@@ -85,10 +83,9 @@ impl FheService {
 
     /// Get a scheme for an FHE type.
     fn get_scheme(&self, scheme_type: FheSchemeType) -> FheResult<Arc<dyn FheScheme>> {
-        self.schemes
-            .get(&scheme_type)
-            .cloned()
-            .ok_or_else(|| FheError::UnsupportedSchemeError(format!("Unsupported scheme: {}", scheme_type)))
+        self.schemes.get(&scheme_type).cloned().ok_or_else(|| {
+            FheError::UnsupportedSchemeError(format!("Unsupported scheme: {}", scheme_type))
+        })
     }
 
     /// Generate a key pair for FHE operations.
@@ -109,7 +106,9 @@ impl FheService {
         // Store the key pair and its components
         self.storage.store_key_pair(&key_pair).await?;
         self.storage.store_public_key(&key_pair.public_key).await?;
-        self.storage.store_private_key(&key_pair.private_key).await?;
+        self.storage
+            .store_private_key(&key_pair.private_key)
+            .await?;
 
         Ok(key_pair.id)
     }
@@ -184,7 +183,10 @@ impl FheService {
         ciphertext1_id: &FheCiphertextId,
         ciphertext2_id: &FheCiphertextId,
     ) -> FheResult<FheCiphertextId> {
-        info!("Adding ciphertexts: {} and {}", ciphertext1_id, ciphertext2_id);
+        info!(
+            "Adding ciphertexts: {} and {}",
+            ciphertext1_id, ciphertext2_id
+        );
 
         // Get the ciphertexts
         let ciphertext1 = self.storage.get_ciphertext(ciphertext1_id).await?;
@@ -401,7 +403,10 @@ impl FheService {
     }
 
     /// Estimate the noise budget of a ciphertext.
-    pub async fn estimate_noise_budget(&self, ciphertext_id: &FheCiphertextId) -> FheResult<Option<u32>> {
+    pub async fn estimate_noise_budget(
+        &self,
+        ciphertext_id: &FheCiphertextId,
+    ) -> FheResult<Option<u32>> {
         info!("Estimating noise budget for ciphertext: {}", ciphertext_id);
 
         // Get the ciphertext
@@ -432,8 +437,12 @@ impl FheService {
         let key_pair = self.storage.get_key_pair(id).await?;
 
         // Delete the public and private keys
-        self.storage.delete_public_key(&key_pair.public_key.id).await?;
-        self.storage.delete_private_key(&key_pair.private_key.id).await?;
+        self.storage
+            .delete_public_key(&key_pair.public_key.id)
+            .await?;
+        self.storage
+            .delete_private_key(&key_pair.private_key.id)
+            .await?;
 
         // Delete the key pair
         self.storage.delete_key_pair(id).await
@@ -486,7 +495,9 @@ impl FheService {
         &self,
         public_key_id: &FhePublicKeyId,
     ) -> FheResult<Vec<FheCiphertext>> {
-        self.storage.list_ciphertexts_by_public_key(public_key_id).await
+        self.storage
+            .list_ciphertexts_by_public_key(public_key_id)
+            .await
     }
 
     /// Delete a ciphertext by ID.
@@ -499,10 +510,7 @@ impl FheService {
     pub fn get_schemes_info(&self) -> Value {
         let mut schemes_info = serde_json::Map::new();
         for (scheme_type, scheme) in &self.schemes {
-            schemes_info.insert(
-                scheme_type.to_string(),
-                scheme.get_info(),
-            );
+            schemes_info.insert(scheme_type.to_string(), scheme.get_info());
         }
         serde_json::Value::Object(schemes_info)
     }

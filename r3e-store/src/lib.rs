@@ -7,9 +7,9 @@
 
 pub mod config;
 pub mod error;
+pub mod repository;
 pub mod storage;
 pub mod types;
-pub mod repository;
 
 // Legacy modules (to be migrated)
 pub mod mem;
@@ -28,7 +28,7 @@ pub use types::{
 };
 
 // Re-export repository types
-pub use repository::user::{User, UserRepository, CF_USERS};
 pub use repository::service::{
-    Service, ServiceRepository, CF_SERVICES, ServiceType, BlockchainType,
+    BlockchainType, Service, ServiceRepository, ServiceType, CF_SERVICES,
 };
+pub use repository::user::{User, UserRepository, CF_USERS};
