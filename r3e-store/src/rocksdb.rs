@@ -4,8 +4,9 @@
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use rocksdb::{
-    ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType, Error as RocksError,
-    IteratorMode, Options, ReadOptions, SliceTransform, DB,
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
+    DBCompressionType, Error as RocksError, IteratorMode, Options, ReadOptions, 
+    SliceTransform, DB,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -177,13 +178,19 @@ impl RocksDbClient {
         let path = Path::new(&self.config.path);
         let mut opts = Options::default();
         self.configure_db_options(&mut opts);
-        
+
         // Create column family descriptors
-        let cf_names: Vec<String> = self.config.column_families.iter()
+        let cf_names: Vec<String> = self
+            .config
+            .column_families
+            .iter()
             .map(|cf| cf.name.clone())
             .collect();
 
-        let cf_descriptors: Vec<ColumnFamilyDescriptor> = self.config.column_families.iter()
+        let cf_descriptors: Vec<ColumnFamilyDescriptor> = self
+            .config
+            .column_families
+            .iter()
             .map(|cf_config| {
                 let mut cf_opts = Options::default();
                 self.configure_cf_options(&mut cf_opts, cf_config);
@@ -193,7 +200,7 @@ impl RocksDbClient {
 
         let db = if path.exists() {
             info!("Opening existing RocksDB at {}", self.config.path);
-            
+
             // Check which column families exist
             let existing_cfs = match DB::list_cf(&opts, &self.config.path) {
                 Ok(cfs) => cfs,
@@ -206,23 +213,29 @@ impl RocksDbClient {
                     }
                 }
             };
-            
+
             debug!("Existing column families: {:?}", existing_cfs);
-            
+
             // Open the database with existing column families
             let db = if existing_cfs.is_empty() {
                 DB::open(&opts, &self.config.path)?
             } else {
                 let mut open_cfs = Vec::new();
-                
+
                 // Create descriptors for existing column families
                 for cf_name in existing_cfs {
                     // Find configuration for this CF
-                    let cf_config = self.config.column_families.iter()
+                    let cf_config = self
+                        .config
+                        .column_families
+                        .iter()
                         .find(|cf| cf.name == cf_name)
                         .cloned()
                         .unwrap_or_else(|| {
-                            warn!("No configuration found for column family {}. Using defaults.", cf_name);
+                            warn!(
+                                "No configuration found for column family {}. Using defaults.",
+                                cf_name
+                            );
                             ColumnFamilyConfig {
                                 name: cf_name.clone(),
                                 prefix_extractor: None,
@@ -232,15 +245,15 @@ impl RocksDbClient {
                                 cache_index_and_filter_blocks: default_true(),
                             }
                         });
-                    
+
                     let mut cf_opts = Options::default();
                     self.configure_cf_options(&mut cf_opts, &cf_config);
                     open_cfs.push(ColumnFamilyDescriptor::new(cf_name, cf_opts));
                 }
-                
+
                 DB::open_cf_descriptors(&opts, &self.config.path, open_cfs)?
             };
-            
+
             // Create missing column families if configured
             if self.config.create_missing_column_families {
                 for cf_config in &self.config.column_families {
@@ -252,7 +265,7 @@ impl RocksDbClient {
                     }
                 }
             }
-            
+
             db
         } else {
             if !self.config.create_if_missing {
@@ -261,29 +274,29 @@ impl RocksDbClient {
                     self.config.path
                 )));
             }
-            
+
             info!("Creating new RocksDB at {}", self.config.path);
-            
+
             if cf_descriptors.is_empty() {
                 DB::open(&opts, &self.config.path)?
             } else {
                 DB::open_cf_descriptors(&opts, &self.config.path, cf_descriptors)?
             }
         };
-        
+
         // Store column family handles
         let mut cf_map = self.column_families.lock().unwrap();
         for cf_name in cf_names {
             match db.cf_handle(&cf_name) {
                 Some(cf_handle) => {
                     cf_map.insert(cf_name.clone(), Arc::new(cf_handle));
-                },
+                }
                 None => {
                     warn!("Failed to get column family handle for {}", cf_name);
                 }
             }
         }
-        
+
         self.db = Some(Arc::new(db));
         info!("RocksDB opened successfully at {}", self.config.path);
         Ok(())
@@ -294,15 +307,15 @@ impl RocksDbClient {
         opts.create_if_missing(self.config.create_if_missing);
         opts.create_missing_column_families(self.config.create_missing_column_families);
         opts.increase_parallelism(self.config.increase_parallelism);
-        
+
         if self.config.optimize_point_lookup {
             opts.optimize_for_point_lookup(128 * 1024 * 1024); // 128MB
         }
-        
+
         if self.config.optimize_level_style_compaction {
             opts.optimize_level_style_compaction(512 * 1024 * 1024); // 512MB
         }
-        
+
         opts.set_write_buffer_size(self.config.write_buffer_size);
         opts.set_max_write_buffer_number(self.config.max_write_buffer_number);
         opts.set_min_write_buffer_number_to_merge(self.config.min_write_buffer_number_to_merge);
@@ -317,13 +330,16 @@ impl RocksDbClient {
         if let Some(prefix_len) = cf_config.prefix_extractor {
             opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(prefix_len));
         }
-        
+
         // Configure block cache and bloom filter
-        opts.set_block_based_table_factory(&rocksdb::BlockBasedOptions::default()
-            .set_block_size(cf_config.block_size)
-            .set_cache_index_and_filter_blocks(cf_config.cache_index_and_filter_blocks)
-            .set_bloom_filter(cf_config.bloom_filter_bits, false)
-            .set_block_cache(&rocksdb::Cache::new_lru_cache(cf_config.block_cache_size).unwrap())
+        opts.set_block_based_table_factory(
+            &BlockBasedOptions::default()
+                .set_block_size(cf_config.block_size)
+                .set_cache_index_and_filter_blocks(cf_config.cache_index_and_filter_blocks)
+                .set_bloom_filter(cf_config.bloom_filter_bits, false)
+                .set_block_cache(
+                    &Cache::new_lru_cache(cf_config.block_cache_size).unwrap(),
+                ),
         );
     }
 
@@ -365,10 +381,10 @@ impl RocksDbClient {
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
-        let serialized_value = bincode::serialize(value)
-            .map_err(|e| DbError::Serialization(e.to_string()))?;
-        
+
+        let serialized_value =
+            bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
+
         db.put_cf(&cf, key, serialized_value)?;
         Ok(())
     }
@@ -381,7 +397,7 @@ impl RocksDbClient {
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         match db.get_cf(&cf, key)? {
             Some(data) => {
                 let value = bincode::deserialize(&data)
@@ -399,7 +415,7 @@ impl RocksDbClient {
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         db.delete_cf(&cf, key)?;
         Ok(())
     }
@@ -411,78 +427,90 @@ impl RocksDbClient {
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         let value = db.get_cf(&cf, key)?;
         Ok(value.is_some())
     }
 
     /// Iterate over a column family
-    pub fn iter_cf<V>(&self, cf_name: &str, mode: IteratorMode) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
+    pub fn iter_cf<V>(
+        &self,
+        cf_name: &str,
+        mode: IteratorMode,
+    ) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
     where
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         let iter = db.iterator_cf(&cf, mode);
-        
-        let mapped_iter = iter.map(|result| {
-            result.map_err(DbError::RocksDb)
-                .and_then(|(key, value)| {
+
+        let mapped_iter = iter
+            .map(|result| {
+                result.map_err(DbError::RocksDb).and_then(|(key, value)| {
                     let deserialized = bincode::deserialize(&value)
                         .map_err(|e| DbError::Deserialization(e.to_string()))?;
                     Ok((key, deserialized))
                 })
-        })
-        .filter_map(|result| match result {
-            Ok(item) => Some(item),
-            Err(e) => {
-                error!("Error iterating over column family {}: {}", cf_name, e);
-                None
-            }
-        });
-        
+            })
+            .filter_map(|result| match result {
+                Ok(item) => Some(item),
+                Err(e) => {
+                    error!("Error iterating over column family {}: {}", cf_name, e);
+                    None
+                }
+            });
+
         Ok(mapped_iter)
     }
 
     /// Iterate over keys with a common prefix
-    pub fn prefix_iter_cf<P, V>(&self, cf_name: &str, prefix: P) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
+    pub fn prefix_iter_cf<P, V>(
+        &self,
+        cf_name: &str,
+        prefix: P,
+    ) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
     where
         P: AsRef<[u8]>,
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         let mut read_opts = ReadOptions::default();
         read_opts.set_prefix_same_as_start(true);
-        
-        let iter = db.iterator_cf_opt(&cf, read_opts, IteratorMode::From(prefix.as_ref(), rocksdb::Direction::Forward));
-        
+
+        let iter = db.iterator_cf_opt(
+            &cf,
+            read_opts,
+            IteratorMode::From(prefix.as_ref(), rocksdb::Direction::Forward),
+        );
+
         let prefix_bytes = prefix.as_ref().to_vec();
         let mapped_iter = iter
-            .take_while(move |result| {
-                match result {
-                    Ok((key, _)) => key.starts_with(&prefix_bytes),
-                    Err(_) => false,
-                }
+            .take_while(move |result| match result {
+                Ok((key, _)) => key.starts_with(&prefix_bytes),
+                Err(_) => false,
             })
             .map(|result| {
-                result.map_err(DbError::RocksDb)
-                    .and_then(|(key, value)| {
-                        let deserialized = bincode::deserialize(&value)
-                            .map_err(|e| DbError::Deserialization(e.to_string()))?;
-                        Ok((key, deserialized))
-                    })
+                result.map_err(DbError::RocksDb).and_then(|(key, value)| {
+                    let deserialized = bincode::deserialize(&value)
+                        .map_err(|e| DbError::Deserialization(e.to_string()))?;
+                    Ok((key, deserialized))
+                })
             })
             .filter_map(|result| match result {
                 Ok(item) => Some(item),
                 Err(e) => {
-                    error!("Error iterating over prefix in column family {}: {}", cf_name, e);
+                    error!(
+                        "Error iterating over prefix in column family {}: {}",
+                        cf_name, e
+                    );
                     None
                 }
             });
-        
+
         Ok(mapped_iter)
     }
 
@@ -493,9 +521,9 @@ impl RocksDbClient {
     {
         let db = self.get_db()?;
         let mut batch = rocksdb::WriteBatch::default();
-        
+
         f(&mut batch)?;
-        
+
         db.write(batch)?;
         Ok(())
     }
@@ -508,9 +536,9 @@ impl RocksDbClient {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
         let mut batch = rocksdb::WriteBatch::default();
-        
+
         f(&mut batch, &cf)?;
-        
+
         db.write(batch)?;
         Ok(())
     }
@@ -531,7 +559,7 @@ impl RocksDbClient {
     pub fn flush_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         db.flush_cf(&cf)?;
         Ok(())
     }
@@ -547,7 +575,7 @@ impl RocksDbClient {
     pub fn compact_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
         let cf = self.get_cf(cf_name)?;
-        
+
         db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
         Ok(())
     }
@@ -579,16 +607,16 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
-        let serialized_value = bincode::serialize(value)
-            .map_err(|e| DbError::Serialization(e.to_string()))?;
-        
+        let serialized_value =
+            bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
+
         tokio::task::spawn_blocking(move || {
             let key_bytes = key.as_ref().to_vec();
             inner.put_cf(&cf_name, key_bytes, &serialized_value)
         })
         .await
         .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-        
+
         Ok(())
     }
 
@@ -600,7 +628,7 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
-        
+
         tokio::task::spawn_blocking(move || {
             let key_bytes = key.as_ref().to_vec();
             inner.get_cf(&cf_name, key_bytes)
@@ -616,14 +644,14 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
-        
+
         tokio::task::spawn_blocking(move || {
             let key_bytes = key.as_ref().to_vec();
             inner.delete_cf(&cf_name, key_bytes)
         })
         .await
         .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-        
+
         Ok(())
     }
 
@@ -634,7 +662,7 @@ impl AsyncRocksDbClient {
     {
         let inner = self.inner.clone();
         let cf_name = cf_name.to_string();
-        
+
         tokio::task::spawn_blocking(move || {
             let key_bytes = key.as_ref().to_vec();
             inner.exists_cf(&cf_name, key_bytes)
@@ -650,39 +678,33 @@ impl AsyncRocksDbClient {
         Fut: std::future::Future<Output = DbResult<()>> + Send + 'static,
     {
         let inner = self.inner.clone();
-        
-        tokio::task::spawn(async move {
-            f(inner).await
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-        
+
+        tokio::task::spawn(async move { f(inner).await })
+            .await
+            .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
+
         Ok(())
     }
 
     /// Flush the database
     pub async fn flush(&self) -> DbResult<()> {
         let inner = self.inner.clone();
-        
-        tokio::task::spawn_blocking(move || {
-            inner.flush()
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-        
+
+        tokio::task::spawn_blocking(move || inner.flush())
+            .await
+            .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
+
         Ok(())
     }
 
     /// Compact the database
     pub async fn compact(&self) -> DbResult<()> {
         let inner = self.inner.clone();
-        
-        tokio::task::spawn_blocking(move || {
-            inner.compact()
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-        
+
+        tokio::task::spawn_blocking(move || inner.compact())
+            .await
+            .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
+
         Ok(())
     }
 }
@@ -692,16 +714,16 @@ impl AsyncRocksDbClient {
 pub trait DbRepository<T, ID> {
     /// Get entity by ID
     async fn get_by_id(&self, id: &ID) -> DbResult<Option<T>>;
-    
+
     /// Save entity
     async fn save(&self, entity: &T) -> DbResult<()>;
-    
+
     /// Delete entity
     async fn delete(&self, id: &ID) -> DbResult<()>;
-    
+
     /// Check if entity exists
     async fn exists(&self, id: &ID) -> DbResult<bool>;
-    
+
     /// List all entities
     async fn list_all(&self) -> DbResult<Vec<T>>;
 }
@@ -738,7 +760,7 @@ macro_rules! impl_db_repository {
                 // For a real implementation with large datasets, consider using pagination
                 let inner = self.db.inner.clone();
                 let cf_name = $cf_name.to_string();
-                
+
                 tokio::task::spawn_blocking(move || {
                     let iter = inner.iter_cf::<$entity>(&cf_name, rocksdb::IteratorMode::Start)?;
                     let entities: Vec<$entity> = iter.map(|(_, v)| v).collect();

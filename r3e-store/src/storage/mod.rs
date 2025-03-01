@@ -43,5 +43,5 @@ pub trait BatchKvStore: KvStore {
 
 pub mod memory;
 
-// Re-export module that doesn't exist as a separate file
-pub use crate::rocksdb::RocksDBStore;
+// Re-export memory store
+pub use self::memory::MemoryStore;
