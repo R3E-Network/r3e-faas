@@ -1,8 +1,7 @@
-cargo-features = ["edition2024"]
 [package]
 name = "r3e-api"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 r3e-event   = { path = "../r3e-event" }

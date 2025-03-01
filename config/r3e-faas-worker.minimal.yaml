@@ -1,0 +1,10 @@
+# Copyright @ 2023 - 2024, R3E Network
+# All Rights Reserved
+
+max_runners: 1
+max_pending: 10
+max_runtimes_per_runner: 4
+graceful: 2s
+tasks:
+    source:
+      type: mock
