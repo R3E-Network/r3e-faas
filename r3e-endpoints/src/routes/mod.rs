@@ -10,7 +10,7 @@ mod wallet;
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, post, delete},
+    routing::{delete, get, post},
     Router,
 };
 
@@ -21,7 +21,7 @@ use crate::service::EndpointService;
 pub fn create_router(service: Arc<EndpointService>) -> Router {
     // Create the key rotation layer
     let key_rotation_layer = KeyRotationLayer::new(service.key_rotation_service());
-    
+
     // Create the router
     Router::new()
         // Health routes
@@ -32,9 +32,18 @@ pub fn create_router(service: Arc<EndpointService>) -> Router {
         .route("/auth/refresh", post(auth::refresh))
         // API key routes
         .route("/auth/api-keys", post(auth::api_keys::create_api_key))
-        .route("/auth/api-keys/:key_id", post(auth::api_keys::rotate_api_key))
-        .route("/auth/api-keys/:key_id", delete(auth::api_keys::revoke_api_key))
-        .route("/auth/api-keys/user/:user_id", get(auth::api_keys::list_api_keys))
+        .route(
+            "/auth/api-keys/:key_id",
+            post(auth::api_keys::rotate_api_key),
+        )
+        .route(
+            "/auth/api-keys/:key_id",
+            delete(auth::api_keys::revoke_api_key),
+        )
+        .route(
+            "/auth/api-keys/user/:user_id",
+            get(auth::api_keys::list_api_keys),
+        )
         // Wallet routes
         .route("/wallet/connect", post(wallet::connect))
         .route("/wallet/sign", post(wallet::sign_message))
@@ -56,7 +65,7 @@ pub fn create_router(service: Arc<EndpointService>) -> Router {
 
 pub fn auth_routes() -> Router<Arc<EndpointService>> {
     Router::new()
-        // Wallet authentication routes 
+        // Wallet authentication routes
         .route("/wallet/connect", post(auth::connect_wallet))
         .route("/wallet/authenticate", post(auth::authenticate_wallet))
         // Token refresh route
@@ -65,5 +74,8 @@ pub fn auth_routes() -> Router<Arc<EndpointService>> {
         .route("/api-keys", post(auth::api_keys::create_api_key))
         .route("/api-keys/:key_id", post(auth::api_keys::rotate_api_key))
         .route("/api-keys/:key_id", delete(auth::api_keys::revoke_api_key))
-        .route("/api-keys/user/:user_id", get(auth::api_keys::list_api_keys))
+        .route(
+            "/api-keys/user/:user_id",
+            get(auth::api_keys::list_api_keys),
+        )
 }

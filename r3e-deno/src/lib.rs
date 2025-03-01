@@ -22,7 +22,6 @@ use r3e_core::make_v8_platform;
 
 pub use {consts::*, ext::*};
 
-
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {

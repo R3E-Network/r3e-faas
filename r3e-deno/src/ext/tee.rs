@@ -6,12 +6,12 @@ use deno_core::op2;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use r3e_tee::service::create_default_neo_tee_service;
+use r3e_tee::types::{ExecutionOptions, NeoTeeRequest, NeoTeeResponse};
 use r3e_tee::{
     AttestationReport, TeeError, TeeExecutionRequest, TeeExecutionResponse, TeePlatform,
     TeeSecurityLevel, TeeService,
 };
-use r3e_tee::service::create_default_neo_tee_service;
-use r3e_tee::types::{ExecutionOptions, NeoTeeRequest, NeoTeeResponse};
 
 // TEE execution operations
 
@@ -57,7 +57,7 @@ pub fn op_tee_execute(
             )))
         }
     };
-    
+
     // Convert security level string to enum
     let security_level = match config.security_level.as_deref() {
         Some("debug") => Some(TeeSecurityLevel::Debug),
@@ -71,7 +71,7 @@ pub fn op_tee_execute(
             )))
         }
     };
-    
+
     // Create execution request
     let request = TeeExecutionRequest {
         id: config.id,
@@ -83,7 +83,7 @@ pub fn op_tee_execute(
         timeout_ms: config.timeout_ms,
         memory_limit_mb: config.memory_limit_mb,
     };
-    
+
     // Execute the request
     let rt = tokio::runtime::Runtime::new().unwrap();
     let response = rt.block_on(async {
@@ -92,7 +92,7 @@ pub fn op_tee_execute(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to execute TEE request: {}", e)))
     })?;
-    
+
     // Convert response to result
     let result = TeeExecutionResult {
         request_id: response.request_id,
@@ -102,7 +102,7 @@ pub fn op_tee_execute(
         memory_usage_mb: response.memory_usage_mb,
         error: response.error,
     };
-    
+
     Ok(result)
 }
 
@@ -135,7 +135,7 @@ pub fn op_tee_generate_attestation(
             )))
         }
     };
-    
+
     // Generate attestation
     let rt = tokio::runtime::Runtime::new().unwrap();
     let attestation = rt.block_on(async {
@@ -144,7 +144,7 @@ pub fn op_tee_generate_attestation(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to generate attestation: {}", e)))
     })?;
-    
+
     Ok(TeeAttestationResult { attestation })
 }
 
@@ -172,7 +172,7 @@ pub fn op_tee_verify_attestation(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to verify attestation: {}", e)))
     })?;
-    
+
     Ok(TeeVerifyAttestationResult { is_valid })
 }
 
@@ -214,7 +214,7 @@ pub fn op_neo_tee_execute(
             ))
         }
     };
-    
+
     // Create Neo TEE request
     let request = NeoTeeRequest {
         script_hash: config.script_hash,
@@ -225,7 +225,7 @@ pub fn op_neo_tee_execute(
         system_fee: config.system_fee,
         network_fee: config.network_fee,
     };
-    
+
     // Execute the request
     let rt = tokio::runtime::Runtime::new().unwrap();
     let response = rt.block_on(async {
@@ -234,7 +234,7 @@ pub fn op_neo_tee_execute(
             .await
             .map_err(|e| AnyError::msg(format!("Failed to execute Neo TEE request: {}", e)))
     })?;
-    
+
     // Convert response to result
     let result = NeoTeeExecutionResult {
         tx_hash: response.tx_hash,
@@ -244,6 +244,6 @@ pub fn op_neo_tee_execute(
         exception: response.exception,
         stack: response.stack,
     };
-    
+
     Ok(result)
 }

@@ -26,10 +26,10 @@ pub struct CreateApiKeyRequest {
 pub struct CreateApiKeyResponse {
     /// API key ID
     pub key_id: String,
-    
+
     /// API key value
     pub key_value: String,
-    
+
     /// API key metadata
     pub key_metadata: ApiKey,
 }
@@ -46,10 +46,10 @@ pub struct RotateApiKeyRequest {
 pub struct RotateApiKeyResponse {
     /// New API key ID
     pub key_id: String,
-    
+
     /// New API key value
     pub key_value: String,
-    
+
     /// New API key metadata
     pub key_metadata: ApiKey,
 }
@@ -75,12 +75,10 @@ pub async fn create_api_key(
 ) -> Result<Json<CreateApiKeyResponse>, Error> {
     // Get the key rotation service
     let key_rotation_service = service.key_rotation_service();
-    
+
     // Create a new API key
-    let (key_value, key_metadata) = key_rotation_service
-        .create_key(&request.user_id)
-        .await?;
-    
+    let (key_value, key_metadata) = key_rotation_service.create_key(&request.user_id).await?;
+
     // Return the API key
     Ok(Json(CreateApiKeyResponse {
         key_id: key_metadata.id.clone(),
@@ -97,12 +95,12 @@ pub async fn rotate_api_key(
 ) -> Result<Json<RotateApiKeyResponse>, Error> {
     // Get the key rotation service
     let key_rotation_service = service.key_rotation_service();
-    
+
     // Rotate the API key
     let (key_value, key_metadata) = key_rotation_service
         .rotate_key(&key_id, &request.user_id)
         .await?;
-    
+
     // Return the new API key
     Ok(Json(RotateApiKeyResponse {
         key_id: key_metadata.id.clone(),
@@ -119,12 +117,12 @@ pub async fn revoke_api_key(
 ) -> Result<StatusCode, Error> {
     // Get the key rotation service
     let key_rotation_service = service.key_rotation_service();
-    
+
     // Revoke the API key
     key_rotation_service
         .revoke_key(&key_id, &request.user_id)
         .await?;
-    
+
     // Return success
     Ok(StatusCode::NO_CONTENT)
 }
@@ -136,10 +134,10 @@ pub async fn list_api_keys(
 ) -> Result<Json<ListApiKeysResponse>, Error> {
     // Get the key rotation service
     let key_rotation_service = service.key_rotation_service();
-    
+
     // Get the user's API keys
     let keys = key_rotation_service.get_user_keys(&user_id);
-    
+
     // Return the API keys
     Ok(Json(ListApiKeysResponse { keys }))
 }

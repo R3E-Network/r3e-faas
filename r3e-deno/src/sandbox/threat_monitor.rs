@@ -12,16 +12,16 @@ use crate::security::threat_detection::{ThreatDetectionService, ThreatSeverity};
 pub struct ThreatMonitor {
     /// Threat detection service
     threat_detection: Arc<ThreatDetectionService>,
-    
+
     /// Sandbox configuration
     config: SandboxConfig,
-    
+
     /// Function ID
     function_id: String,
-    
+
     /// User ID
     user_id: String,
-    
+
     /// Start time
     start_time: Instant,
 }
@@ -42,12 +42,14 @@ impl ThreatMonitor {
             start_time: Instant::now(),
         }
     }
-    
+
     /// Monitor code for suspicious patterns
     pub fn scan_code(&self, code: &str) {
         // Scan code for suspicious patterns
-        let events = self.threat_detection.scan_code(&self.user_id, &self.function_id, code);
-        
+        let events = self
+            .threat_detection
+            .scan_code(&self.user_id, &self.function_id, code);
+
         // Log events
         for event in &events {
             match event.severity {
@@ -78,22 +80,24 @@ impl ThreatMonitor {
             }
         }
     }
-    
+
     /// Monitor resource usage
     pub fn monitor_resources(&self, resource_usage: &ResourceUsage) {
         // Check CPU usage
-        let cpu_usage = resource_usage.cpu_usage_percentage.load(std::sync::atomic::Ordering::Relaxed) as u8;
+        let cpu_usage = resource_usage
+            .cpu_usage_percentage
+            .load(std::sync::atomic::Ordering::Relaxed) as u8;
         if cpu_usage > self.config.max_cpu_percentage {
-            self.threat_detection.check_cpu_usage(
-                &self.user_id,
-                &self.function_id,
-                cpu_usage,
-            );
+            self.threat_detection
+                .check_cpu_usage(&self.user_id, &self.function_id, cpu_usage);
         }
-        
+
         // Check memory usage
-        let memory_usage = resource_usage.current_memory_usage.load(std::sync::atomic::Ordering::Relaxed);
-        let memory_percentage = (memory_usage as f64 / self.config.max_memory_usage as f64 * 100.0) as u8;
+        let memory_usage = resource_usage
+            .current_memory_usage
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let memory_percentage =
+            (memory_usage as f64 / self.config.max_memory_usage as f64 * 100.0) as u8;
         if memory_percentage > 90 {
             self.threat_detection.check_memory_usage(
                 &self.user_id,
@@ -101,7 +105,7 @@ impl ThreatMonitor {
                 memory_percentage,
             );
         }
-        
+
         // Check execution time
         let execution_time = self.start_time.elapsed().as_secs();
         if execution_time > self.config.max_execution_time.as_secs() / 2 {
@@ -112,12 +116,13 @@ impl ThreatMonitor {
             );
         }
     }
-    
+
     /// Record execution failure
     pub fn record_failure(&self, error: &str) {
         // Record failed execution
-        self.threat_detection.record_failed_execution(&self.user_id, &self.function_id);
-        
+        self.threat_detection
+            .record_failed_execution(&self.user_id, &self.function_id);
+
         // Check for specific error patterns
         if error.contains("shell") || error.contains("exec") || error.contains("spawn") {
             self.threat_detection.record_shell_execution_attempt(

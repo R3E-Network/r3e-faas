@@ -38,10 +38,10 @@ pub struct EndpointService {
 
     /// Meta transaction service
     pub meta_tx_service: Arc<MetaTxService<dyn MetaTxStorage>>,
-    
+
     /// Secret service
     pub secret_service: Arc<dyn SecretService>,
-    
+
     /// Key rotation service
     pub key_rotation_service: Arc<KeyRotationService>,
 }
@@ -99,14 +99,16 @@ impl EndpointService {
             "mainnet".to_string(),
             FeeModel::Percentage(1.0),
         ));
-        
+
         // Create Secret service
-        let secret_storage = Arc::new(r3e_secrets::rocksdb::RocksDBSecretStorage::new("./data/secrets")
-            .await
-            .map_err(|e| Error::Database(format!("Failed to create Secret storage: {}", e)))?);
-        
+        let secret_storage = Arc::new(
+            r3e_secrets::rocksdb::RocksDBSecretStorage::new("./data/secrets")
+                .await
+                .map_err(|e| Error::Database(format!("Failed to create Secret storage: {}", e)))?,
+        );
+
         let secret_service = Arc::new(SecretServiceImpl::new(secret_storage));
-        
+
         // Create Key Rotation service
         let key_rotation_service = Arc::new(KeyRotationService::new(secret_service.clone()));
 
@@ -121,7 +123,7 @@ impl EndpointService {
             key_rotation_service,
         })
     }
-    
+
     /// Get the key rotation service
     pub fn key_rotation_service(&self) -> Arc<KeyRotationService> {
         self.key_rotation_service.clone()
