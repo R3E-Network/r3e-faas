@@ -58,7 +58,7 @@ impl Default for ContainerConfig {
         Self {
             base_image: "node:18-alpine".to_string(),
             memory_limit: 256 * 1024 * 1024, // 256MB
-            cpu_limit: 0.5, // Half a core
+            cpu_limit: 0.5,                  // Half a core
             network_mode: NetworkMode::None,
             max_execution_time: Duration::from_secs(10),
             allow_fs: false,
@@ -120,12 +120,17 @@ impl ContainerManager {
         let mut cmd = Command::new("docker");
         cmd.arg("run")
             .arg("--rm") // Remove container after execution
-            .arg("--name").arg(&container_name)
-            .arg("--network").arg(self.config.network_mode.to_docker_mode())
-            .arg("--memory").arg(format!("{}b", self.config.memory_limit))
-            .arg("--cpus").arg(self.config.cpu_limit.to_string())
+            .arg("--name")
+            .arg(&container_name)
+            .arg("--network")
+            .arg(self.config.network_mode.to_docker_mode())
+            .arg("--memory")
+            .arg(format!("{}b", self.config.memory_limit))
+            .arg("--cpus")
+            .arg(self.config.cpu_limit.to_string())
             .arg("--read-only") // Read-only file system
-            .arg("-v").arg(format!("{}:/app", temp_dir.to_string_lossy()));
+            .arg("-v")
+            .arg(format!("{}:/app", temp_dir.to_string_lossy()));
 
         // Add environment variables
         for (key, value) in &self.config.env_vars {
@@ -133,11 +138,12 @@ impl ContainerManager {
         }
 
         // Set timeout
-        cmd.arg("--stop-timeout").arg(self.config.max_execution_time.as_secs().to_string());
+        cmd.arg("--stop-timeout")
+            .arg(self.config.max_execution_time.as_secs().to_string());
 
         // Add security options
         cmd.arg("--security-opt").arg("no-new-privileges:true");
-        
+
         if !self.config.allow_fs {
             // Mount empty volumes over sensitive directories
             cmd.arg("-v").arg("/dev/null:/proc/acpi");
@@ -156,10 +162,8 @@ impl ContainerManager {
 
         // Execute the command
         debug!("Running container command: {:?}", cmd);
-        
-        let output = cmd.stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()?;
+
+        let output = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).output()?;
 
         // Clean up the temporary directory
         std::fs::remove_dir_all(temp_dir)?;
@@ -167,24 +171,29 @@ impl ContainerManager {
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
-            Err(ContainerError::Execution(String::from_utf8_lossy(&output.stderr).to_string()))
+            Err(ContainerError::Execution(
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            ))
         }
     }
 
     /// Stop a running function container
     pub fn stop_function(&self, function_id: &str) -> Result<(), ContainerError> {
         let container_name = format!("r3e-function-{}", function_id);
-        
+
         let output = Command::new("docker")
             .arg("stop")
-            .arg("--time").arg("1") // Give it 1 second to stop gracefully
+            .arg("--time")
+            .arg("1") // Give it 1 second to stop gracefully
             .arg(&container_name)
             .output()?;
 
         if output.status.success() {
             Ok(())
         } else {
-            Err(ContainerError::Stop(String::from_utf8_lossy(&output.stderr).to_string()))
+            Err(ContainerError::Stop(
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            ))
         }
     }
 }

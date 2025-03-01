@@ -9,7 +9,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::function::{FunctionContext, FunctionResult};
-use crate::function_executor::{FunctionExecutor, ExecutorConfig};
+use crate::function_executor::{ExecutorConfig, FunctionExecutor};
 use crate::metrics::WorkerMetrics;
 
 /// Worker pool for executing functions
@@ -104,10 +104,15 @@ impl WorkerPool {
         // Send the request
         if let Err(e) = self.request_tx.send(request).await {
             error!("Failed to send function request: {}", e);
-            
+
             // Create a new channel to return the error
             let (error_tx, error_rx) = mpsc::channel(1);
-            let _ = error_tx.send(FunctionResult::Error(format!("Failed to queue function: {}", e))).await;
+            let _ = error_tx
+                .send(FunctionResult::Error(format!(
+                    "Failed to queue function: {}",
+                    e
+                )))
+                .await;
             return error_rx;
         }
 
