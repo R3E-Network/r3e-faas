@@ -6,7 +6,7 @@ use crate::error::{
 };
 use crate::storage::{BatchKvStore, KvStore, SortedKvStore};
 use crate::types::{PutInput, ScanInput, ScanOutput};
-use rocksdb::{ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType, Options, DB};
+use rocksdb::{AsColumnFamilyRef, ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType, Options, DB};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -118,7 +118,7 @@ impl KvStore for RocksDBStore {
         };
 
         // Put the key-value pair
-        match self.db.put_cf(cf_handle, &input.key, &input.value) {
+        match self.db.put_cf(&cf_handle, &input.key, &input.value) {
             Ok(_) => Ok(()),
             Err(e) => Err(PutError::Storage(e.to_string())),
         }
@@ -138,7 +138,7 @@ impl KvStore for RocksDBStore {
         };
 
         // Get the value
-        match self.db.get_cf(cf_handle, key) {
+        match self.db.get_cf(&cf_handle, key) {
             Ok(Some(value)) => Ok(value),
             Ok(None) => Err(GetError::NotFound),
             Err(e) => Err(GetError::Storage(e.to_string())),
@@ -164,13 +164,13 @@ impl KvStore for RocksDBStore {
         };
 
         // Get the value first
-        let value = match self.db.get_cf(cf_handle, key) {
+        let value = match self.db.get_cf(&cf_handle, key) {
             Ok(value) => value,
             Err(e) => return Err(DeleteError::Storage(e.to_string())),
         };
 
         // Delete the key-value pair
-        match self.db.delete_cf(cf_handle, key) {
+        match self.db.delete_cf(&cf_handle, key) {
             Ok(_) => Ok(value),
             Err(e) => Err(DeleteError::Storage(e.to_string())),
         }
@@ -198,7 +198,7 @@ impl SortedKvStore for RocksDBStore {
 
         // Create the iterator
         let prefix = input.prefix.unwrap_or_default();
-        let iter = self.db.prefix_iterator_cf(cf_handle, &prefix);
+        let iter = self.db.prefix_iterator_cf(&cf_handle, &prefix);
 
         // Collect the results
         let mut keys = Vec::new();
@@ -246,7 +246,7 @@ impl BatchKvStore for RocksDBStore {
             };
 
             // Add the operation to the batch
-            batch.put_cf(cf_handle, &input.key, &input.value);
+            batch.put_cf(&cf_handle, &input.key, &input.value);
         }
 
         // Write the batch
@@ -278,7 +278,7 @@ impl BatchKvStore for RocksDBStore {
             };
 
             // Get the value
-            match self.db.get_cf(cf_handle, key) {
+            match self.db.get_cf(&cf_handle, key) {
                 Ok(value) => results.push(value),
                 Err(e) => return Err(MultiGetError::Storage(e.to_string())),
             }
@@ -313,7 +313,7 @@ impl BatchKvStore for RocksDBStore {
             };
 
             // Get the value first
-            let value = match self.db.get_cf(cf_handle, key) {
+            let value = match self.db.get_cf(&cf_handle, key) {
                 Ok(value) => {
                     results.push(value);
                     Ok(())
@@ -327,7 +327,7 @@ impl BatchKvStore for RocksDBStore {
             }
 
             // Add the delete operation to the batch
-            batch.delete_cf(cf_handle, key);
+            batch.delete_cf(&cf_handle, key);
         }
 
         // Write the batch

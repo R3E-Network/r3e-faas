@@ -40,8 +40,6 @@ pub trait BatchKvStore: KvStore {
 }
 
 pub mod memory;
-pub mod rocksdb;
-
 // Re-export stores
 pub use self::memory::MemoryStore;
-pub use self::rocksdb::RocksDBStore;
+pub use crate::storage::rocksdb::RocksDBStore;
