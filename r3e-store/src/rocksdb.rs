@@ -541,16 +541,17 @@ impl RocksDbClient {
     }
 
     /// Execute a batch of operations in a column family
-    pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
+    pub fn batch_cf<F, T>(&self, cf_name: &str, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut WriteBatch, &dyn AsColumnFamilyRef) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch, T) -> DbResult<()>,
+        T: From<&rocksdb::ColumnFamilyHandle>,
     {
         let db = self.get_db()?;
         let cf_name = self.get_cf_handle(cf_name)?;
         let mut batch = WriteBatch::default();
 
         let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
-        f(&mut batch, &cf)?;
+        f(&mut batch, T::from(&cf))?;
 
         db.write(batch)?;
         Ok(())
