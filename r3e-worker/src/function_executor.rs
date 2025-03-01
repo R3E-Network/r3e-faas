@@ -4,9 +4,12 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use r3e_core::error::{Error, Result};
+use r3e_core::logging;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::RwLock;
+use tracing::{info, warn, error, instrument};
 use uuid::Uuid;
 
 use crate::sandbox_executor::SandboxExecutor;
@@ -137,13 +140,22 @@ impl FunctionExecutor {
     }
     
     /// Execute a function
+    #[instrument(
+        name = "function_execution",
+        skip(self, code, input),
+        fields(
+            function_id = %function_id,
+            user_id = %user_id,
+            execution_id = tracing::field::Empty
+        )
+    )]
     pub async fn execute(
         &self,
         function_id: Uuid,
         user_id: u64,
         code: String,
         input: Value,
-    ) -> FunctionExecutionResult {
+    ) -> Result<FunctionExecutionResult> {
         // Create execution context
         let context = FunctionExecutionContext::new(
             function_id,
@@ -153,7 +165,16 @@ impl FunctionExecutor {
             self.sandbox_config.clone(),
         );
         
+        // Record execution ID in the span
+        tracing::Span::current().record("execution_id", &context.execution_id.to_string());
+        
         // Log execution start
+        info!(
+            input_size = input.to_string().len(),
+            code_size = context.code.len(),
+            "Starting function execution"
+        );
+        
         context.add_log(&format!(
             "Executing function {} for user {} with input: {}",
             function_id, user_id, input
@@ -201,35 +222,63 @@ impl FunctionExecutor {
         match sandbox_executor.execute(&code_with_input).await {
             Ok(result) => {
                 // Log execution success
+                let execution_time = context.execution_time_ms();
+                info!(
+                    execution_time_ms = execution_time,
+                    result_size = result.len(),
+                    "Function executed successfully"
+                );
+                
                 context.add_log(&format!(
                     "Function executed successfully in {}ms with result: {}",
-                    context.execution_time_ms(), result
+                    execution_time, result
                 )).await;
                 
                 // Parse the result
                 match serde_json::from_str::<Value>(&result) {
                     Ok(parsed_result) => {
-                        context.success(parsed_result).await
+                        Ok(context.success(parsed_result).await)
                     },
                     Err(e) => {
                         // Log parsing error
+                        error!(
+                            error = %e,
+                            result_preview = %truncate_string(&result, 100),
+                            "Failed to parse function result"
+                        );
+                        
                         context.add_log(&format!(
                             "Failed to parse result: {}", e
                         )).await;
                         
-                        context.failure(format!("Failed to parse result: {}", e)).await
+                        Err(Error::Serialization(e))
                     }
                 }
             },
             Err(e) => {
                 // Log execution error
+                error!(
+                    error = %e,
+                    execution_time_ms = context.execution_time_ms(),
+                    "Function execution failed"
+                );
+                
                 context.add_log(&format!(
                     "Function execution failed: {}", e
                 )).await;
                 
-                context.failure(format!("Function execution failed: {}", e)).await
+                Err(Error::Execution(format!("Function execution failed: {}", e)))
             }
         }
+    }
+}
+
+/// Truncate a string to a maximum length
+fn truncate_string(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[0..max_len])
     }
 }
 
@@ -257,7 +306,7 @@ mod tests {
             1,
             code.to_string(),
             input,
-        ).await;
+        ).await.expect("Function execution should succeed");
         
         assert_eq!(result.status, "success");
         assert!(result.error.is_none());
@@ -291,7 +340,17 @@ mod tests {
             input,
         ).await;
         
-        assert_eq!(result.status, "error");
-        assert!(result.error.is_some());
+        assert!(result.is_err(), "Function execution should fail");
+        
+        if let Ok(result) = result {
+            panic!("Expected error, got success: {:?}", result);
+        }
+    }
+    
+    #[test]
+    fn test_truncate_string() {
+        assert_eq!(truncate_string("hello", 10), "hello");
+        assert_eq!(truncate_string("hello world", 5), "hello...");
+        assert_eq!(truncate_string("", 5), "");
     }
 }

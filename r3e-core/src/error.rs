@@ -23,6 +23,46 @@ pub enum Error {
     /// Signal hook error
     #[error("Signal hook error: {0}")]
     SignalHook(String),
+    
+    /// Authentication error
+    #[error("Authentication error: {0}")]
+    Authentication(String),
+    
+    /// Authorization error
+    #[error("Authorization error: {0}")]
+    Authorization(String),
+    
+    /// Resource error
+    #[error("Resource error: {0}")]
+    Resource(String),
+    
+    /// Execution error
+    #[error("Execution error: {0}")]
+    Execution(String),
+    
+    /// External service error
+    #[error("External service error: {0}")]
+    ExternalService(String),
+    
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+    
+    /// Database error
+    #[error("Database error: {0}")]
+    Database(String),
+    
+    /// Validation error
+    #[error("Validation error: {0}")]
+    Validation(String),
+    
+    /// Rate limit error
+    #[error("Rate limit error: {0}")]
+    RateLimit(String),
+    
+    /// Not found error
+    #[error("Not found error: {0}")]
+    NotFound(String),
 }
 
 /// Result type for the core crate
