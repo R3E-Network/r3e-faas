@@ -6,29 +6,29 @@ name = "r3e-deno"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 r3e-core    = { path = "../r3e-core" }
 r3e-event   = { path = "../r3e-event" }
 
-deno_core   =  { version = "0.272.0" }
-v8          =  { version = "0.106.0", default-features = false }
+deno_core   = "0.68.0"
+v8          = { version = "0.68.0", default-features = false }
 
-serde       = { version = "1" }
-serde_v8    = { version = "0.180.0" }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+serde_v8    = "0.68.0"
 
-tokio       =  { version = "1", features = ["full"]}
-futures     =  { version = "0.3" }
+tokio       = { version = "1", features = ["full"]}
+futures     = "0.3"
+bytes       = "1.2.1"
 
-anyhow      =  { version = "1" }
-thiserror   =  { version = "2.0.11" }
-
-lazy_static =  { version = "1" }
+anyhow      = "1.0"
+thiserror   = "1.0"
+log         = "0.4"
+async-trait = "0.1"
 
 # Neo N3 SDK
 neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
-url         = { version = "2" }
-hex         = { version = "0.4" }
 
 [dev-dependencies]
-
+tempfile = "3.8"
+tokio-test = "0.4"
