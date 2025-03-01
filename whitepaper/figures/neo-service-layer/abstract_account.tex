@@ -1,0 +1,43 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Abstract Account Architecture,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (user) {User};
+    \node [block, right=of user] (api) {Account API};
+    \node [block, right=of api] (service) {Account Service};
+    \node [block, below=of service] (contract) {Account Contract};
+    \node [block, below=of api] (policy) {Policy Engine};
+    
+    % Draw edges
+    \path [line] (user) -- node {1. Request} (api);
+    \path [line] (api) -- node {2. Authenticate} (service);
+    \path [line] (service) -- node {3. Verify Policy} (policy);
+    \path [line] (policy) -- node [left] {4. Approval} (service);
+    \path [line] (service) -- node [above] {5. Execute} (contract);
+    \path [line] (contract) -- node [above] {6. Result} (service);
+    \path [line] (service) -- node [above] {7. Response} (api);
+    \path [line] (api) -- node [above] {8. Return} (user);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Abstract Account Architecture and Flow}
+\label{fig:abstract-account}
+\end{figure}

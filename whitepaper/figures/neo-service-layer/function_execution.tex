@@ -1,0 +1,40 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Function Execution Process,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (trigger) {Event Trigger};
+    \node [block, right=of trigger] (router) {Function Router};
+    \node [block, right=of router] (executor) {Function Executor};
+    \node [block, below=of executor] (sandbox) {Sandbox};
+    \node [block, below=of router] (storage) {Function Storage};
+    
+    % Draw edges
+    \path [line] (trigger) -- node {1. Event} (router);
+    \path [line] (router) -- node {2. Route} (executor);
+    \path [line] (executor) -- node {3. Load} (storage);
+    \path [line] (executor) -- node [left] {4. Execute} (sandbox);
+    \path [line] (sandbox) -- node [above] {5. Result} (executor);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Function Execution Process Flow}
+\label{fig:function-execution}
+\end{figure}

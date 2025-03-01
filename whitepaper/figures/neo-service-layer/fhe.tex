@@ -1,0 +1,43 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Fully Homomorphic Encryption (FHE),
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (app) {Application};
+    \node [block, right=of app] (fhe) {FHE Service};
+    \node [block, right=of fhe] (compute) {FHE Compute Engine};
+    \node [block, below=of compute] (key) {Key Management};
+    \node [block, below=of fhe] (data) {Encrypted Data};
+    
+    % Draw edges
+    \path [line] (app) -- node {1. Request} (fhe);
+    \path [line] (fhe) -- node {2. Encrypt Data} (data);
+    \path [line] (fhe) -- node {3. Generate Keys} (key);
+    \path [line] (fhe) -- node [above] {4. Submit Job} (compute);
+    \path [line] (compute) -- node [left] {5. Process} (compute);
+    \path [line] (compute) -- node [above] {6. Result} (fhe);
+    \path [line] (fhe) -- node [above] {7. Decrypt} (fhe);
+    \path [line] (fhe) -- node [above] {8. Response} (app);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Fully Homomorphic Encryption Architecture and Flow}
+\label{fig:fhe-architecture}
+\end{figure}

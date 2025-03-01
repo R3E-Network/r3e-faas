@@ -1,0 +1,40 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Function Deployment Process,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (developer) {Developer};
+    \node [block, right=of developer] (cli) {CLI/API};
+    \node [block, right=of cli] (registry) {Function Registry};
+    \node [block, below=of registry] (storage) {Function Storage};
+    \node [block, below=of cli] (worker) {Worker Nodes};
+    
+    % Draw edges
+    \path [line] (developer) -- node {1. Submit Code} (cli);
+    \path [line] (cli) -- node {2. Validate} (registry);
+    \path [line] (registry) -- node {3. Store} (storage);
+    \path [line] (registry) -- node [left] {4. Notify} (worker);
+    \path [line] (worker) -- node [above] {5. Load Function} (storage);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Function Deployment Process Flow}
+\label{fig:function-deployment}
+\end{figure}

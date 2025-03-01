@@ -1,0 +1,40 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Event Messaging System,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (sources) {Event Sources};
+    \node [block, right=of sources] (detector) {Event Detector};
+    \node [block, right=of detector] (router) {Event Router};
+    \node [block, below=of router] (registry) {Function Registry};
+    \node [block, below=of detector] (functions) {Function Executor};
+    
+    % Draw edges
+    \path [line] (sources) -- node {Events} (detector);
+    \path [line] (detector) -- node {Detected Events} (router);
+    \path [line] (router) -- node {Query} (registry);
+    \path [line] (registry) -- node [left] {Function Mappings} (router);
+    \path [line] (router) -- node [above] {Routed Events} (functions);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Event Messaging System Architecture}
+\label{fig:event-messaging-system}
+\end{figure}

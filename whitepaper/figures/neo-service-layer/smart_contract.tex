@@ -1,0 +1,42 @@
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Smart Contract Integration,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    % Define styles
+    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{line} = [draw, -latex']
+    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    
+    % Place nodes
+    \node [block] (function) {Function};
+    \node [block, right=of function] (api) {Contract API};
+    \node [block, right=of api] (service) {Contract Service};
+    \node [block, below=of service] (blockchain) {Neo Blockchain};
+    \node [block, below=of api] (cache) {Contract Cache};
+    
+    % Draw edges
+    \path [line] (function) -- node {1. Request} (api);
+    \path [line] (api) -- node {2. Process} (service);
+    \path [line] (service) -- node {3. Deploy/Call} (blockchain);
+    \path [line] (blockchain) -- node [left] {4. Response} (service);
+    \path [line] (service) -- node [above] {5. Cache} (cache);
+    \path [line] (service) -- node [above] {6. Result} (api);
+    \path [line] (api) -- node [above] {7. Return} (function);
+\end{tikzpicture}
+\end{tcolorbox}
+\caption{Smart Contract Integration Architecture and Flow}
+\label{fig:smart-contract-integration}
+\end{figure}
