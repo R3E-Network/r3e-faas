@@ -15,7 +15,7 @@ thiserror   = { version = "2.0.11" }
 serde       = { version = "1", features = ["derive"] }
 
 tokio       =  { version = "1", features = ["full"]}
-async-trait = { version = "0" }
+async-trait = { version = "0.1" }
 
 prost       = { version = "0.13" }
 tonic       = { version = "0.12" }
@@ -26,6 +26,19 @@ url         = { version = "2" }
 primitive-types = { version = "0.13.1" }
 serde_json  = { version = "1.0" }
 
+# Missing dependencies
+log         = { version = "0.4" }
+uuid        = { version = "1.4", features = ["v4", "serde"] }
+chrono      = { version = "0.4", features = ["serde"] }
+chrono-tz   = { version = "0.8" }
+cron        = { version = "0.12" }
+cron-parser = { version = "0.8" }
+jsonpath_lib = { version = "0.3" }
+reqwest     = { version = "0.11", features = ["json", "blocking"] }
+regex       = { version = "1.9" }
+ethers      = { version = "2.0", features = ["legacy"] }
+rand        = { version = "0.8", features = ["std"] }
+std-semaphore = { version = "0.1" }
 
 [dev-dependencies]
 deno_core   = { version = "0.340.0" }

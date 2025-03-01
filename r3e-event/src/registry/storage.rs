@@ -2,9 +2,10 @@
 // All Rights Reserved
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::fmt::Debug;
 
-use crate::registry::{FunctionMetadata, RegistryError, TriggerType};
+use crate::registry::proto::FunctionMetadata;
+use crate::registry::RegistryError;
 
 /// Storage interface for function metadata
 pub trait FunctionStorage: Send + Sync {
@@ -19,7 +20,7 @@ pub trait FunctionStorage: Send + Sync {
         &self,
         page_token: String,
         page_size: u32,
-        trigger_type: Option<i32>,
+        trigger_type: String,
     ) -> Result<Vec<FunctionMetadata>, RegistryError>;
 
     /// Delete a function by ID
@@ -57,15 +58,15 @@ impl FunctionStorage for MemoryStorage {
         &self,
         _page_token: String,
         _page_size: u32,
-        trigger_type: Option<i32>,
+        trigger_type: String,
     ) -> Result<Vec<FunctionMetadata>, RegistryError> {
         let mut functions = Vec::new();
 
         for metadata in self.functions.values() {
             // Filter by trigger type if specified
-            if let Some(trigger_type) = trigger_type {
+            if !trigger_type.is_empty() {
                 if let Some(trigger) = &metadata.trigger {
-                    if trigger.r#type != trigger_type {
+                    if trigger.trigger_type != trigger_type {
                         continue;
                     }
                 } else {
@@ -151,15 +152,15 @@ impl FunctionStorage for FileStorage {
         &self,
         _page_token: String,
         _page_size: u32,
-        trigger_type: Option<i32>,
+        trigger_type: String,
     ) -> Result<Vec<FunctionMetadata>, RegistryError> {
         let mut functions = Vec::new();
 
         for metadata in self.functions.values() {
             // Filter by trigger type if specified
-            if let Some(trigger_type) = trigger_type {
+            if !trigger_type.is_empty() {
                 if let Some(trigger) = &metadata.trigger {
-                    if trigger.r#type != trigger_type {
+                    if trigger.trigger_type != trigger_type {
                         continue;
                     }
                 } else {

@@ -4,6 +4,11 @@
 use deno_core::v8;
 use std::time::Duration;
 
+mod threat_monitor;
+pub use threat_monitor::ThreatMonitor;
+
+use crate::security::threat_detection::{ThreatDetectionService, ThreatDetectionConfig};
+
 /// Sandbox configuration for JavaScript runtime
 #[derive(Debug, Clone)]
 pub struct SandboxConfig {

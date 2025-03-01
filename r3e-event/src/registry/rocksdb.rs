@@ -1,8 +1,9 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use crate::registry::{FunctionMetadata, RegistryError, TriggerType};
-use r3e_store::rocksdb::RocksDBStore;
+use crate::registry::proto::FunctionMetadata;
+use crate::registry::RegistryError;
+use r3e_store::RocksDBStore;
 use std::path::Path;
 
 /// RocksDB implementation of function storage
@@ -60,7 +61,7 @@ impl crate::registry::FunctionStorage for RocksDBFunctionStorage {
         &self,
         _page_token: String,
         page_size: u32,
-        trigger_type: Option<i32>,
+        trigger_type: String,
     ) -> Result<Vec<FunctionMetadata>, RegistryError> {
         let input = r3e_store::ScanInput {
             start_key: &[],
@@ -82,9 +83,9 @@ impl crate::registry::FunctionStorage for RocksDBFunctionStorage {
                 .map_err(|e| RegistryError::Storage(e.to_string()))?;
 
             // Filter by trigger type if specified
-            if let Some(trigger_type) = trigger_type {
+            if !trigger_type.is_empty() {
                 if let Some(trigger) = &metadata.trigger {
-                    if trigger.r#type != trigger_type {
+                    if trigger.trigger_type != trigger_type {
                         continue;
                     }
                 } else {
