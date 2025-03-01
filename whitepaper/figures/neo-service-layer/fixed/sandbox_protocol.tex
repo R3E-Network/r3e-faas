@@ -1,0 +1,51 @@
+% This file should only be \input{} in a document that loads the algorithm and algorithmic packages
+% Do not compile this file directly with pdflatex
+
+\begin{algorithm}
+\caption{Sandbox Protocol}
+\label{alg:sandbox}
+\begin{algorithmic}[1]
+\Require Smart contract code, Execution parameters, Security rules
+\Ensure Safe contract execution, Resource limitations enforced
+
+\State \textbf{Initialize} Sandbox environment
+\State Validate contract code and parameters
+\If{contract validation fails}
+    \State \Return Error: Invalid contract or parameters
+\EndIf
+
+\State Analyze contract for security vulnerabilities
+\If{critical vulnerabilities detected}
+    \State Log security warnings
+    \State \Return Error: Security validation failed
+\EndIf
+
+\State Set up isolated virtual machine
+\State Configure resource limitations (memory, CPU, network)
+\State Prepare monitoring system
+
+\State Load contract into virtual machine
+\State Apply security rules and access controls
+\State \textbf{Begin} execution monitoring
+
+\While{contract is executing}
+    \State Monitor resource usage and execution flow
+    \If{resource limit exceeded}
+        \State Terminate execution
+        \State \Return Error: Resource limit exceeded
+    \EndIf
+    \If{security rule violated}
+        \State Terminate execution
+        \State Log security violation
+        \State \Return Error: Security rule violated
+    \EndIf
+\EndWhile
+
+\State Verify execution result integrity
+\State Log execution statistics
+\State Clean up sandbox environment
+
+\State \Return Success with execution results
+
+\end{algorithmic}
+\end{algorithm} 

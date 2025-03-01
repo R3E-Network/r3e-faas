@@ -1,102 +1,67 @@
-use rocksdb::{ColumnFamilyDescriptor, Options, DB};
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
-use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct User {
-    id: String,
-    username: String,
-    email: String,
-    created_at: u64,
+#[derive(Debug, Serialize, Deserialize)]
+struct Person {
+    name: String,
+    age: u32,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logger
-    env_logger::init();
-
-    println!("RocksDB Simple Test");
-
-    // Create RocksDB options
-    let mut options = Options::default();
-    options.create_if_missing(true);
-    options.create_missing_column_families(true);
-
-    // Define column families
-    let cf_names = vec!["users", "metadata"];
-    let cf_descriptors: Vec<_> = cf_names
-        .iter()
-        .map(|name| {
-            let mut cf_opts = Options::default();
-            cf_opts.set_max_write_buffer_number(16);
-            ColumnFamilyDescriptor::new(*name, cf_opts)
-        })
-        .collect();
-
-    // Open database with column families
-    let db_path = "./data/rocksdb_simple_test";
-    let db = DB::open_cf_descriptors(&options, db_path, cf_descriptors)?;
-
-    // Get column family handles
-    let users_cf = db.cf_handle("users").expect("users CF not found");
-    let metadata_cf = db.cf_handle("metadata").expect("metadata CF not found");
-
-    // Create a user
-    let user_id = Uuid::new_v4().to_string();
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
-
-    let user = User {
-        id: user_id.clone(),
-        username: "testuser".to_string(),
-        email: "test@example.com".to_string(),
-        created_at: now,
-    };
-
-    // Serialize the user
-    let user_bytes = bincode::serialize(&user)?;
-
-    // Store the user
-    println!("Storing user with ID: {}", user_id);
-    db.put_cf(&users_cf, user_id.as_bytes(), &user_bytes)?;
-
-    // Store some metadata
-    db.put_cf(&metadata_cf, b"last_user_id", user_id.as_bytes())?;
-    db.put_cf(&metadata_cf, b"user_count", b"1")?;
-
-    // Retrieve the user
-    let retrieved_bytes = db.get_cf(&users_cf, user_id.as_bytes())?;
-
-    if let Some(bytes) = retrieved_bytes {
-        let retrieved_user: User = bincode::deserialize(&bytes)?;
-        println!("Retrieved user: {:?}", retrieved_user);
-    }else {
-        println!("User not found");
+fn main() {
+    println!("Testing serde_v8 with Rust 2021 edition");
+    
+    // Initialize V8
+    let platform = v8::new_default_platform(0, false).make_shared();
+    v8::V8::initialize_platform(platform);
+    v8::V8::initialize();
+    
+    {
+        // Create a new isolate and context
+        let isolate = &mut v8::Isolate::new(v8::CreateParams::default());
+        
+        // Create a handle scope
+        let handle_scope = &mut v8::HandleScope::new(isolate);
+        
+        // Create a context
+        let context = v8::Context::new(handle_scope);
+        
+        // Enter the context for compiling and running scripts
+        let scope = &mut v8::ContextScope::new(handle_scope, context);
+        
+        // Get the handle scope from the context scope
+        let handle_scope = &mut v8::HandleScope::new(scope);
+        
+        // Create a person object
+        let person = Person {
+            name: "John Doe".to_string(),
+            age: 30,
+        };
+        
+        // Serialize the person to a V8 value
+        let v8_value = match serde_v8::to_v8(handle_scope, &person) {
+            Ok(value) => value,
+            Err(err) => {
+                println!("Error serializing to V8: {:?}", err);
+                return;
+            }
+        };
+        
+        println!("Successfully serialized Person to V8 value");
+        
+        // Deserialize the V8 value back to a Person
+        let deserialized_person: Person = match serde_v8::from_v8(handle_scope, v8_value) {
+            Ok(person) => person,
+            Err(err) => {
+                println!("Error deserializing from V8: {:?}", err);
+                return;
+            }
+        };
+        
+        println!("Successfully deserialized V8 value to Person: {:?}", deserialized_person);
     }
-
-    // Retrieve metadata
-    if let Some(last_id) = db.get_cf(&metadata_cf, b"last_user_id")? {
-        println!("Last user ID: {}", String::from_utf8(last_id)?);
+    
+    // Clean up V8
+    unsafe {
+        v8::V8::dispose();
     }
-
-    if let Some(count) = db.get_cf(&metadata_cf, b"user_count")? {
-        println!("User count: {}", String::from_utf8(count)?);
-    }
-
-    // Delete the user
-    println!("Deleting user");
-    db.delete_cf(&users_cf, user_id.as_bytes())?;
-
-    // Verify deletion
-    let deleted_user = db.get_cf(&users_cf, user_id.as_bytes())?;
-    if deleted_user.is_none() {
-        println!("User successfully deleted");
-    }else {
-        println!("User still exists!");
-    }
-
-    // Cleanup
-    drop(db);
-
-    println!("RocksDB test completed successfully");
-    Ok(())
-}
+    v8::V8::dispose_platform();
+} 

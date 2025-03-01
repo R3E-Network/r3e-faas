@@ -1,0 +1,60 @@
+\begin{algorithm}
+\caption{Function Service Protocol}
+\label{alg:function-service}
+\begin{algorithmic}[1]
+\Require Function name/ID, Input parameters, Authentication credentials
+\Ensure Secure execution and result delivery
+
+\State \textbf{Initialize} Function Service
+\State Validate request structure and authentication
+\If{authentication fails}
+    \State \Return Error: Authentication failed
+\EndIf
+
+\State Retrieve function definition from registry
+\If{function not found}
+    \State \Return Error: Function not found
+\EndIf
+
+\State Validate input parameters against function schema
+\If{parameter validation fails}
+    \State \Return Error: Invalid parameters
+\EndIf
+
+\State Check user authorization for function access
+\If{unauthorized access}
+    \State Log access attempt
+    \State \Return Error: Access denied
+\EndIf
+
+\State Prepare execution environment
+\State Set up resource limitations and monitoring
+\State Load function code
+
+\If{function requires blockchain data}
+    \State Retrieve necessary blockchain data
+    \State Verify data integrity
+\EndIf
+
+\If{function requires secure data}
+    \State Request data from Secret Service
+    \If{secret retrieval fails}
+        \State \Return Error: Secret data unavailable
+    \EndIf
+\EndIf
+
+\State Execute function in isolated environment
+\State Monitor execution for resource usage and security violations
+
+\If{execution succeeds}
+    \State Validate execution result
+    \State Log successful execution
+    \State Format result according to output schema
+    \State \Return Success: Execution result
+\Else
+    \State Log execution failure with error details
+    \State \Return Error: Execution failed with error message
+\EndIf
+
+\end{algorithmic}
+\end{algorithm} 

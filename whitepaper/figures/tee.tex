@@ -25,14 +25,14 @@
 \node[box=grid] (computation) at (0,-4) {Secure Computation};
 
 % Arrows
-\draw[arrow] (contract) -- node[left, font=\footnotesize] {1. Request} (tee);
-\draw[dashed_arrow] (tee) -- node[right, font=\footnotesize] {4. Verified Result} (contract);
+\draw[arrow] (contract) -- node[above-arrow-text, left] {1. Request} (tee);
+\draw[dashed_arrow] (tee) -- node[above-arrow-text, right] {4. Verified Result} (contract);
 
-\draw[arrow] (tee) -- node[left, font=\footnotesize] {2. Execute} (sgx);
+\draw[arrow] (tee) -- node[above-arrow-text, left] {2. Execute} (sgx);
 \draw[arrow] (tee) -- (sev);
 \draw[arrow] (tee) -- (trustzone);
 \draw[arrow] (tee) -- (nitro);
-\draw[arrow] (tee) -- node[right, font=\footnotesize] {2. Execute} (cloud);
+\draw[arrow] (tee) -- node[above-arrow-text, right] {2. Execute} (cloud);
 
 \draw[arrow] (sgx) -- (computation);
 \draw[arrow] (sev) -- (computation);
@@ -40,7 +40,7 @@
 \draw[arrow] (nitro) -- (computation);
 \draw[arrow] (cloud) -- (computation);
 
-\draw[dashed_arrow] (computation) -- node[right, font=\footnotesize] {3. Attestation} (tee);
+\draw[dashed_arrow] (computation) -- node[above-arrow-text, right] {3. Attestation} (tee);
 
 % Labels
 \node[text width=5cm, align=center] at (0,4.5) {Trusted Execution Environment Service};

@@ -28,11 +28,11 @@
     \node [block, below=of cli] (worker) {Worker Nodes};
     
     % Draw edges
-    \path [line] (developer) -- node {1. Submit Code} (cli);
-    \path [line] (cli) -- node {2. Validate} (registry);
-    \path [line] (registry) -- node {3. Store} (storage);
-    \path [line] (registry) -- node [left] {4. Notify} (worker);
-    \path [line] (worker) -- node [above] {5. Load Function} (storage);
+    \path [line] (developer) -- node[above-arrow-text] {1. Submit Code} (cli);
+    \path [line] (cli) -- node[above-arrow-text] {2. Validate} (registry);
+    \path [line] (registry) -- node[above-arrow-text] {3. Store} (storage);
+    \path [line] (registry) -- node[above-arrow-text, left] {4. Notify} (worker);
+    \path [line] (worker) -- node[above-arrow-text] {5. Load Function} (storage);
 \end{tikzpicture}
 \end{tcolorbox}
 \caption{Function Deployment Process Flow}

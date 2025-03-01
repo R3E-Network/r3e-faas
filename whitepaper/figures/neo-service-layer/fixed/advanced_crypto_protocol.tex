@@ -1,0 +1,56 @@
+% This file should only be \input{} in a document that loads the algorithm and algorithmic packages
+% Do not compile this file directly with pdflatex
+
+\begin{algorithm}
+\caption{Advanced Cryptography Protocol}
+\label{alg:advanced-crypto}
+\begin{algorithmic}[1]
+\Require Cryptographic operation, input data, security parameters
+\Ensure Secure execution of complex cryptographic operations
+
+\State \textbf{Initialize:} Validate operation request
+\State $request \gets \{operation, inputData, securityParams\}$
+\If {$!isSupportedOperation(request.operation)$}
+    \State \Return Unsupported operation error
+\EndIf
+
+\State \textbf{Verify:} Check input data and parameters
+\If {$!isValidInput(request.inputData, request.operation)$}
+    \State \Return Invalid input data error
+\EndIf
+\If {$!securityParamsValid(request.securityParams, request.operation)$}
+    \State \Return Invalid security parameters error
+\EndIf
+
+\State \textbf{Prepare:} Set up cryptographic context
+\State $context \gets createCryptoContext(request.operation, request.securityParams)$
+\State $sanitizedInput \gets sanitizeInput(request.inputData)$
+
+\State \textbf{Execute:} Perform the cryptographic operation
+\If {$request.operation == "ZKP\_GENERATE"$}
+    \State $result \gets generateZeroKnowledgeProof(sanitizedInput, context)$
+\ElsIf {$request.operation == "ZKP\_VERIFY"$}
+    \State $result \gets verifyZeroKnowledgeProof(sanitizedInput, context)$
+\ElsIf {$request.operation == "MPC\_COMPUTE"$}
+    \State $result \gets secureMultiPartyComputation(sanitizedInput, context)$
+\ElsIf {$request.operation == "FHE\_ENCRYPT"$}
+    \State $result \gets fullyHomomorphicEncrypt(sanitizedInput, context)$
+\ElsIf {$request.operation == "FHE\_COMPUTE"$}
+    \State $result \gets fullyHomomorphicCompute(sanitizedInput, context)$
+\ElsIf {$request.operation == "FHE\_DECRYPT"$}
+    \State $result \gets fullyHomomorphicDecrypt(sanitizedInput, context)$
+\EndIf
+
+\State \textbf{Validate:} Verify result integrity
+\If {$!isValidResult(result, request.operation)$}
+    \State $logOperationFailure(request, "Invalid result")$
+    \State \Return Operation failed, invalid result
+\EndIf
+
+\State \textbf{Secure:} Apply additional security measures
+\State $securedResult \gets applySecurityWrappers(result, request.securityParams)$
+\State $logOperationSuccess(request.operation, request.securityParams)$
+
+\State \Return Success, securedResult
+\end{algorithmic}
+\end{algorithm} 

@@ -1,43 +1,37 @@
-\begin{figure}[h]
+% This file should only be \input{} in a document that loads the tikz package
+% Do not compile this file directly with pdflatex
+
+\begin{figure}[ht]
 \centering
-\begin{tcolorbox}[
-    enhanced,
-    colback=blue!5!white,
-    colframe=blue!75!black,
-    arc=5mm,
-    boxrule=1.5pt,
-    title=Trusted Execution Environment (TEE),
-    fonttitle=\bfseries,
-    coltitle=white,
-    attach boxed title to top left={yshift=-2mm, xshift=5mm},
-    boxed title style={colback=blue!75!black, rounded corners},
-    shadow={2mm}{-2mm}{0mm}{black!50},
-    drop fuzzy shadow
+\begin{tikzpicture}[
+    box/.style={rectangle, draw, rounded corners, fill=white, 
+               minimum width=2cm, minimum height=1cm, text centered},
+    line/.style={-latex, thick}
 ]
-\begin{tikzpicture}[node distance=1.5cm, auto]
-    % Define styles
-    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
-    \tikzstyle{line} = [draw, -latex']
-    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    % Nodes
+    \node[box, fill=blue!10] (app) at (0,4) {Application};
+    \node[box, fill=green!10] (enclave) at (0,2) {Trusted Enclave};
+    \node[box, fill=red!10] (blockchain) at (0,0) {Blockchain};
     
-    % Place nodes
-    \node [block] (app) {Application};
-    \node [block, right=of app] (tee) {TEE Service};
-    \node [block, right=of tee] (enclave) {Secure Enclave};
-    \node [block, below=of enclave] (attestation) {Attestation Service};
-    \node [block, below=of tee] (key) {Key Management};
+    % Components inside TEE
+    \node[box, fill=yellow!10, minimum width=1.5cm, minimum height=0.8cm] (processor) 
+         at (-1,2) {Secure Processor};
+    \node[box, fill=yellow!10, minimum width=1.5cm, minimum height=0.8cm] (memory) 
+         at (1,2) {Encrypted Memory};
+         
+    % Draw a box around TEE components
+    \draw[dashed] (-2.5,1) rectangle (2.5,3);
     
-    % Draw edges
-    \path [line] (app) -- node {1. Request} (tee);
-    \path [line] (tee) -- node {2. Load Code} (enclave);
-    \path [line] (enclave) -- node {3. Generate Attestation} (attestation);
-    \path [line] (attestation) -- node [left] {4. Verify} (tee);
-    \path [line] (tee) -- node [above] {5. Manage Keys} (key);
-    \path [line] (enclave) -- node [above] {6. Execute} (enclave);
-    \path [line] (enclave) -- node [above] {7. Result} (tee);
-    \path [line] (tee) -- node [above] {8. Response} (app);
+    % Connections
+    \draw[line] (app) -- node[above-arrow-text] {Encrypted Data} (enclave);
+    \draw[line] (enclave) -- node[above-arrow-text] {Verified Results} (blockchain);
+    \draw[line] (processor) -- node[above-arrow-text, right] {Secure Operations} (memory);
+    
+    % Additional note
+    \draw[->] (3,2.5) -- (2.3,2.5);
+    \draw[->] (3,1.5) -- (2.3,1.5);
+    \node[above-arrow-text] at (2.8,3.5) {Hardware Protection};
 \end{tikzpicture}
-\end{tcolorbox}
-\caption{Trusted Execution Environment Architecture and Flow}
-\label{fig:tee-architecture}
+\caption{Trusted Execution Environment Service}
+\label{fig:tee-service}
 \end{figure}

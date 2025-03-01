@@ -1,137 +1,144 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[11pt]{article}
 \usepackage{amsmath}
-\usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{tikz}
-\usetikzlibrary{patterns}
-\usetikzlibrary{shadows}
-\usetikzlibrary{arrows} % Old arrows library for backward compatibility
-\usetikzlibrary{arrows.meta}
-\usetikzlibrary{shapes}
-\usetikzlibrary{shapes.geometric}
-\usetikzlibrary{positioning}
-\usetikzlibrary{calc}
-
-% Set up TikZ with compatible arrow and node styles
-\tikzset{
-  % Use the modern arrow tip syntax
-  >=latex, % Use the older latex arrow tip for compatibility
-  % Common styles for diagrams
-  line/.style={draw, ->},
-  box/.style={draw, rectangle, minimum size=1cm, pattern=#1},
-  cloud/.style={draw, ellipse, minimum width=2cm, minimum height=1cm}
-}
-
-% Improve float placement
-\usepackage{float}
-\floatplacement{figure}{htbp}
-\floatplacement{table}{htbp}
-
-% Load hyperref last (except for cleveref if used)
-\usepackage{listings}
-\usepackage{xcolor}
-\usepackage{enumitem}
-\usepackage{tcolorbox}
-\tcbuselibrary{listings,breakable,skins,theorems}
+\usepackage{etoolbox}
 \usepackage{hyperref}
-\hypersetup{
-  colorlinks=true,
-  linkcolor=blue,
-  filecolor=magenta,
-  urlcolor=cyan,
-  pdftitle={Neo Service Layer Whitepaper},
-  pdfauthor={R3E Network}
-}
+\usepackage{geometry}
+\usepackage{amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable,theorems}
+\usepackage{xcolor}
 
-% Remove algorithmic package since it's not available
-% We'll need to modify the protocol environments to use standard LaTeX environments
+% TikZ libraries
+\usetikzlibrary{shapes,arrows,positioning,fit,calc,backgrounds,decorations.pathreplacing,shapes.geometric,shapes.misc,shadows}
 
-% Define the definition environment with tcolorbox for better visual presentation
-\newtcolorbox[auto counter,number within=section]{definition}[1][]{%
-    enhanced,
-    breakable,
-    colback=green!5!white,
-    colframe=green!75!black,
-    fonttitle=\bfseries,
-    coltitle=white,
-    attach boxed title to top left={yshift=-2mm, xshift=5mm},
-    boxed title style={colback=green!75!black},
-    title=Definition~\thetcbcounter: #1,
-}
-
-% Redefine the protocol environment to use tcolorbox for better visual presentation
-\newtcolorbox[auto counter,number within=section]{protocol}[2][]{%
-    enhanced,
-    breakable,
-    colback=blue!5!white,
-    colframe=blue!75!black,
-    fonttitle=\bfseries,
-    coltitle=white,
-    attach boxed title to top left={yshift=-2mm, xshift=5mm},
-    boxed title style={colback=blue!75!black},
-    title=Protocol~\thetcbcounter: #2,
-    arc=5mm,
-    boxrule=1.5pt,
-    shadow={2mm}{-2mm}{0mm}{black!50},
-    drop fuzzy shadow,
-    #1
-}
-
-% Define a custom environment for algorithmic listings with better formatting
-\newenvironment{algorithmic}[1][]
-  {\begin{tcolorbox}[
-    enhanced,
-    colback=gray!5!white,
-    colframe=gray!50!black,
-    boxrule=0.5pt,
-    fonttitle=\bfseries,
-    coltitle=black,
-    boxed title style={colback=gray!50!black},
-    title=Algorithm,
-    left=5pt,
-    right=5pt,
-    top=5pt,
-    bottom=5pt
-    ]
-    \begin{itemize}[leftmargin=*,itemsep=2pt,parsep=0pt]}
-  {\end{itemize}\end{tcolorbox}}
-   
-\newcommand{\State}{\item}
-\newcommand{\If}{\item \textbf{If} }
-\newcommand{\ElsIf}{\item \textbf{ElsIf} }
-\newcommand{\Else}{\item \textbf{Else}}
-\newcommand{\EndIf}{\item \textbf{EndIf}}
-\newcommand{\For}{\item \textbf{For} }
-\newcommand{\EndFor}{\item \textbf{EndFor}}
-\newcommand{\While}{\item \textbf{While} }
-\newcommand{\EndWhile}{\item \textbf{EndWhile}}
-\newcommand{\Require}{\item \textbf{Require:} }
-\newcommand{\Ensure}{\item \textbf{Ensure:} }
-\newcommand{\Return}{\textbf{return} }
-\newcommand{\Comment}[1]{\textcolor{gray}{// #1}}
-
-% Add ellipse shape support
+% Define TikZ styles used across figures
 \tikzset{
-  ellipse/.style={shape=ellipse}
+    block/.style={rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em},
+    line/.style={draw, -latex'},
+    connector/.style={draw, -latex'},
+    entity/.style={rectangle, draw, fill=green!20, text width=8em, text centered, rounded corners, minimum height=3em},
+    note/.style={font=\small\itshape, midway},
+    cloud/.style={draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em},
+    % Define arrow-text style for consistent text positioning
+    arrow-text/.style={font=\footnotesize, text width=2.5cm, align=center},
+    above-arrow-text/.style={above, arrow-text},
+    below-arrow-text/.style={below, arrow-text}
 }
 
-% Fix for overfull boxes
-\setlength{\emergencystretch}{3em}
-\tolerance=1000
+% Page geometry
+\geometry{a4paper, margin=1in}
 
-\title{Neo Service Layer Whitepaper}
-\author{R3E Network}
+% Float placement
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+
+% Algorithm formatting - using etoolbox to set font size
+\AtBeginEnvironment{algorithm}{\small}
+\AtBeginEnvironment{algorithmic}{\small}
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+\algrenewcommand\algorithmiccomment[1]{\hfill\(\triangleright\) #1}
+
+% Custom theorem environments
+\newtheorem{definition}{Definition}
+
+% Global TikZ settings - consistent styling
+\tikzset{
+  box/.style={
+    rectangle, 
+    draw, 
+    rounded corners=3pt, 
+    minimum height=2em, 
+    minimum width=4em,
+    text centered,
+    fill=white
+  },
+  cloud/.style={
+    draw,
+    ellipse,
+    minimum height=2em,
+    minimum width=3em,
+    text centered,
+    fill=white
+  },
+  arrow/.style={
+    ->,
+    >=stealth,
+    thick
+  },
+  connector/.style={
+    ->,
+    >=stealth,
+    thick,
+    bend right=15
+  },
+  title/.style={
+    font=\bfseries\large
+  },
+  % Arrow text styles for consistent text appearance and positioning
+  arrow-text/.style={
+    font=\footnotesize,
+    text width=2.5cm,
+    align=center
+  },
+  above-arrow-text/.style={
+    above,
+    arrow-text
+  },
+  below-arrow-text/.style={
+    below,
+    arrow-text
+  }
+}
+
+% Simple logo
+\newcommand{\companylogo}{%
+  \begin{tikzpicture}
+    \node[rectangle, draw, minimum width=3cm, minimum height=1.5cm, fill=blue!10] {R3E};
+  \end{tikzpicture}%
+}
+
+% Title information
+\title{Neo Service Layer}
+\author{R3E Team}
 \date{\today}
 
+% Document begin
 \begin{document}
-\maketitle
+
+% Set algorithm indentation here after \begin{document}
+%\setlength{\algorithmicindent}{1.5em}
+\setlength{\itemsep}{0.8em}
+
+% Title page with logo
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    \includegraphics[width=0.5\textwidth]{figures/logo.png}\\[2cm]
+    
+    {\LARGE\bfseries Neo Service Layer\\}
+    \vspace{1.5cm}
+    
+    {\large R3E Team\\}
+    \vspace{1cm}
+    
+    {\large \today\\}
+    
+    \vfill
+\end{titlepage}
+
 \tableofcontents
 \newpage
 
-\section{Neo Service Layer}
-\label{sec:neo-service-layer}
 
-\subsection{Introduction}
+\section{Introduction}
 \label{subsec:nsl-intro}
 
 The Neo Service Layer represents a critical advancement in the Neo ecosystem, providing a comprehensive suite of services designed to enhance the capabilities of Neo Smart Contracts and improve the user experience. As blockchain technology continues to mature, the need for specialized services that bridge the gap between on-chain logic and off-chain resources becomes increasingly important. The Neo Service Layer addresses this need by offering a robust infrastructure that enables developers to build more powerful and versatile decentralized applications.
@@ -142,7 +149,7 @@ The Neo Service Layer is built on several core principles that guide its design 
 
 This section explores the architecture, components, and capabilities of the Neo Service Layer, demonstrating how it enhances the Neo ecosystem and enables new classes of decentralized applications.
 
-\subsection{Architectural Overview}
+\section{Architectural Overview}
 \label{subsec:nsl-architecture}
 
 The Neo Service Layer is designed with a modular architecture that provides both flexibility and robustness. This architecture consists of several key components that work together to deliver a comprehensive service infrastructure for Neo Smart Contracts and users.
@@ -153,7 +160,7 @@ The architecture consists of several interconnected layers that work together to
 
 This layered approach ensures clear separation of concerns while enabling seamless integration between components. Each layer implements specific security controls, creating a defense-in-depth model that protects against threats at multiple levels while maintaining the performance characteristics necessary for commercial applications.
 
-\subsection{Core Services}
+\section{Core Services}
 \label{subsec:nsl-core-services}
 
 The Neo Service Layer provides several core services that enhance the capabilities of Neo Smart Contracts and improve the user experience. These services address common challenges in blockchain application development and enable new use cases that would be difficult or impossible to implement using on-chain logic alone.
@@ -183,14 +190,12 @@ The Gas Bank supports multiple fee models to accommodate different application r
 
 The Gas Bank service also provides credit facilities, allowing applications to continue operating even when their Gas Bank account balance is temporarily depleted. This feature ensures uninterrupted service for users while giving application developers time to replenish their accounts.
 
-\input{figures/neo-service-layer/gas_bank_operations}
-
 \paragraph{Deposit and Withdrawal Operations}
 The Gas Bank implements a comprehensive system for managing deposits and withdrawals. \textbf{User Deposits} allow individuals to deposit GAS tokens into the Gas Bank through direct blockchain transactions or application interfaces, with each deposit verified on-chain and credited to the appropriate account. For developers, \textbf{Application Deposits} provide a way to fund their Gas Bank accounts through direct deposits or automated funding mechanisms, ensuring sufficient balance for covering user transaction fees. The \textbf{Withdrawal Process} enables account owners to withdraw their GAS tokens through a secure process that includes verification of ownership, balance checks, and transaction confirmation to prevent unauthorized access. To maintain operational continuity, \textbf{Automated Refills} can be configured by applications to trigger deposits from designated funding sources when account balances fall below specified thresholds, preventing service interruptions due to insufficient funds.
 
-A formal specification of the Gas Bank operations protocol is provided in Section \ref{subsec:gas-bank-protocol}.
+A formal specification of the Gas Bank operations protocol is provided in Section \ref{subsec:gas-bank-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/gas_bank_protocol}
+\input{figures/neo-service-layer/fixed/gas_bank_protocol.tex}
 
 \paragraph{Fee Calculation and Payment}
 When a user interacts with an application that uses the Gas Bank:
@@ -251,9 +256,9 @@ The complete workflow for processing a meta transaction involves several steps:
     \item \textbf{Result Notification}: The service notifies the application of the transaction result, including success status, transaction hash, and any return values.
 \end{enumerate}
 
-A formal specification of the Meta Transaction protocol is provided in Section \ref{subsec:meta-tx-protocol}.
+A formal specification of the Meta Transaction protocol is provided in Section \ref{subsec:meta-tx-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/meta_tx_protocol}
+\input{figures/neo-service-layer/fixed/meta_tx_protocol.tex}
 
 \paragraph{Signature Verification Protocol}
 The Meta Transaction Service implements a robust signature verification protocol that supports multiple signature schemes. For Neo N3 transactions, the service performs \textbf{Neo N3 Verification} by verifying secp256r1 signatures against the transaction hash, ensuring the signature matches the claimed sender's public key and maintaining the security model of the Neo blockchain. When handling Ethereum-compatible transactions, the service implements \textbf{EIP-712 Verification} using the EIP-712 standard for typed data signing, which provides enhanced security by having users sign structured data rather than raw transaction bytes, making the signing process more transparent and secure for users. For applications that operate across multiple blockchain networks, the service supports \textbf{Cross-Chain Verification} by verifying signatures using the appropriate scheme for each chain, enabling seamless cross-chain interactions while maintaining the security guarantees of each underlying blockchain.
@@ -289,9 +294,9 @@ The Oracle Service is designed to be extensible, allowing for the addition of ne
 \paragraph{Price Data Feed System}
 The Price Data Feed is one of the most critical components of the Oracle Service, providing reliable and timely price information for various assets. The system employs \textbf{Multi-Source Aggregation} by retrieving price data from multiple sources, including major exchanges (Binance, Coinbase, etc.), aggregation services (CoinGecko, CoinMarketCap), and specialized price feeds, ensuring comprehensive market coverage and resilience against single-source failures. To handle the complexity of asset identification across different platforms, a \textbf{Price Index Registry} serves as a sophisticated mapping system that maintains relationships between different symbol representations across various data sources, ensuring consistent identification of assets regardless of the specific notation used by different providers. Performance optimization is achieved through \textbf{Dynamic Caching} which implements an intelligent caching mechanism that balances data freshness with response time, with cache invalidation strategies tailored to different asset types based on their volatility and trading volume. To maintain data quality, \textbf{Outlier Detection} algorithms identify and filter out anomalous price data that could result from market manipulation, technical issues, or other irregularities, protecting applications from acting on incorrect information. Each price point is assigned a \textbf{Confidence Scoring} based on factors such as source reliability, data recency, and consistency across sources, allowing applications to make informed decisions based on the quality of the price data they receive.
 
-A formal specification of the Price Data Feed protocol is provided in Section \ref{subsec:price-feed-protocol}.
+A formal specification of the Price Data Feed protocol is provided in Section \ref{subsec:price-feed-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/price_feed_protocol}
+\input{figures/neo-service-layer/fixed/price_feed_protocol.tex}
 
 \paragraph{Oracle Request Processing Protocol}
 The Oracle Service implements a comprehensive protocol for processing requests that ensures reliability, security, and efficiency. The process begins with \textbf{Request Validation}, where incoming requests are thoroughly validated for proper formatting, parameter completeness, and requester authorization to prevent malformed or unauthorized requests from entering the system. Once validated, \textbf{Request Classification} categorizes requests by type and priority to ensure appropriate handling and resource allocation, allowing critical requests to be processed with higher priority. The system then performs \textbf{Source Selection}, where based on the request type and parameters, appropriate data sources are selected from the available provider pool, considering factors such as reliability, specialization, and historical performance. To optimize performance, \textbf{Parallel Data Retrieval} is employed, retrieving data from multiple sources simultaneously to minimize latency and ensure redundancy in case any individual source fails. The collected data undergoes \textbf{Data Aggregation} using appropriate algorithms such as median, volume-weighted average, or other statistical methods based on the data type, producing a consensus result that mitigates outliers and anomalies. Before delivery, \textbf{Result Verification} checks the aggregated results against predefined validity criteria and historical patterns to detect potential errors or manipulation. For security, \textbf{Response Signing} cryptographically signs the final result to ensure its authenticity and integrity, allowing recipients to verify its origin. The system then handles \textbf{Response Delivery}, where the signed result is delivered to the requester through the specified callback mechanism or stored for retrieval, with support for various delivery methods including blockchain transactions, API callbacks, and message queues. For blockchain-based callbacks, \textbf{Transaction Confirmation} monitors the transaction until confirmation, ensuring that the data is successfully recorded on-chain. Finally, \textbf{Request Archiving} stores request details and results for audit, dispute resolution, and performance analysis, creating a comprehensive record of all oracle operations.
@@ -320,11 +325,17 @@ An Event is a discrete occurrence or notification that represents a change in st
 The Event Messaging System consists of several key components that work together to provide a comprehensive event processing pipeline. \textbf{Event Sources} serve as connectors that monitor and capture events from various origins, including blockchain networks, external APIs, and internal services, providing the raw event data that enters the system. The \textbf{Event Registry} functions as a centralized repository that maintains information about event types, their schemas, and associated triggers, ensuring that events are properly categorized and matched with appropriate handlers. When events enter the system, the \textbf{Trigger Evaluator} evaluates them against registered triggers to determine which functions should be executed in response, applying complex matching rules and conditions to ensure precise function selection. Once triggers are matched, the \textbf{Event Processor} handles events by enriching them with additional context and routing them to the appropriate handlers, transforming raw events into actionable information. Finally, the \textbf{Function Executor} executes the functions triggered by events, managing their lifecycle from initialization to completion and handling their results, which may include storing data, sending notifications, or triggering additional events.
 
 \paragraph{Event Processing Protocol}
-The Event Messaging System implements a comprehensive protocol for processing events that ensures reliable and efficient event handling. The process begins with \textbf{Event Detection}, where specialized monitors observe various sources such as blockchain networks, message queues, and system components to identify relevant events as they occur. Once detected, \textbf{Event Validation} checks these events against their schema definitions to ensure they contain all required fields and conform to the expected format, preventing malformed events from entering the processing pipeline. To enhance the event's utility, \textbf{Event Enrichment} adds additional context such as related data from other systems, historical information, or derived attributes, creating a more comprehensive event representation. The enriched events undergo \textbf{Trigger Matching}, where they are compared against registered triggers using pattern matching, condition evaluation, and other criteria to determine which actions should be taken in response. When a trigger matches an event, \textbf{Function Selection} identifies the associated functions that should be executed, creating a mapping between events and their handlers. Before execution, \textbf{Execution Planning} determines the optimal execution order, parallelization strategy, and resource allocation for the selected functions, ensuring efficient processing. The system then performs \textbf{Function Invocation}, where selected functions are called with the event data and any additional context required for processing, executing the business logic associated with the event. After execution, \textbf{Result Handling} processes the function results, which may include storing data, sending notifications, or triggering additional events, creating a chain of event-driven actions. Finally, \textbf{Event Archiving} stores processed events and their handling results for auditing, analytics, and debugging purposes, creating a comprehensive record of system activity.
+The Event Messaging System implements a comprehensive protocol for processing events that ensures reliable and efficient event handling. The process begins with \textbf{Event Detection}, where specialized monitors observe various sources such as blockchain networks, message queues, and system components to identify relevant events as they occur. Once detected, \textbf{Event Validation} checks these events against their schema definitions to ensure they contain all required fields and conform to the expected format, preventing malformed events from entering the processing pipeline.
 
-A formal specification of the event processing protocol is provided in Section \ref{subsec:event-protocol}.
+To enhance the event's utility, the system performs event enrichment by adding additional context such as related data from other systems, historical information, or derived attributes, creating a more comprehensive event representation. The enriched events are then matched against registered triggers using pattern matching, condition evaluation, and other criteria to determine which actions should be taken in response.
 
-\input{figures/neo-service-layer/fixed/event_protocol}
+When a trigger matches an event, the system identifies the associated functions that should be executed, creating a mapping between events and their handlers. Before execution, the system determines the optimal execution order, parallelization strategy, and resource allocation for the selected functions, ensuring efficient processing. The system then invokes the selected functions with the event data and any additional context required for processing, executing the business logic associated with the event.
+
+After execution, the system processes the function results, which may include storing data, sending notifications, or triggering additional events, creating a chain of event-driven actions. Finally, the system archives processed events and their handling results for auditing, analytics, and debugging purposes, creating a comprehensive record of system activity.
+
+A formal specification of the event processing protocol is provided in Section \ref{subsec:event-protocol-spec}.
+
+\input{figures/neo-service-layer/fixed/event_protocol.tex}
 
 \paragraph{Blockchain Event Integration}
 The Event Messaging System provides specialized integration with the Neo N3 blockchain through a comprehensive set of event types that capture different aspects of blockchain activity. The system processes \textbf{Block Events} which provide notifications for new blocks, including block height, timestamp, and transaction count, enabling applications to track blockchain progression and synchronize with the latest state. For transaction monitoring, \textbf{Transaction Events} deliver notifications for transactions, including transaction hash, sender, receiver, and amount, allowing applications to track fund movements and transaction confirmations in real-time. Smart contract interactions are captured through \textbf{Contract Events} which provide notifications for smart contract events, including contract hash, event name, and parameters, enabling applications to respond to specific contract state changes and user interactions. The system also monitors \textbf{State Changes} with notifications for modifications to the blockchain state, such as balance updates, contract deployments, and storage modifications, providing a comprehensive view of the evolving blockchain ecosystem.
@@ -354,14 +365,14 @@ A Function is a unit of code that performs a specific task when invoked. Each fu
 \paragraph{Function Deployment Process}
 The deployment process involves several interconnected steps to ensure functions are properly registered, stored, and made available for execution. The process begins with \textbf{Function Submission}, where developers submit functions through the API Service, providing the function code, configuration, and metadata necessary for deployment. Once submitted, \textbf{Code Validation} thoroughly checks the code for syntax correctness, security vulnerabilities, and compliance with platform policies, ensuring that only secure and well-formed functions enter the system. For functions with external dependencies, \textbf{Dependency Resolution} identifies, validates, and prepares any required dependencies for inclusion in the execution environment, ensuring that functions have access to all necessary libraries and resources. The function is then formally added to the system through \textbf{Function Registration} in the Function Registry, which maintains comprehensive information about all available functions, including their interfaces, permissions, and metadata. For persistent storage, the \textbf{Storage} step securely saves the function code and configuration in the Storage System, which provides durable and versioned storage with rollback capabilities. To enable event-driven execution, \textbf{Trigger Registration} records any triggers associated with the function in the Event Registry, enabling event-based invocation when specified conditions are met. Finally, \textbf{Distribution} deploys the function to Worker Nodes, which prepare the execution environment and cache the function for efficient invocation, optimizing performance by reducing cold-start times.
 
-A formal specification of the function deployment and execution protocol is provided in Section \ref{subsec:function-protocol}.
+A formal specification of the function deployment and execution protocol is provided in Section \ref{subsec:function-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/function_protocol}
+\input{figures/neo-service-layer/fixed/function_protocol.tex}
 
-\input{figures/neo-service-layer/function_execution}
+\input{figures/neo-service-layer/function_execution.tex}
 
 \paragraph{Function Execution Flow}
-When a function is triggered for execution, the system follows a comprehensive flow to ensure reliable and secure processing. The process begins with \textbf{Trigger Evaluation}, where an event or direct invocation initiates the function execution process, determining which function needs to be executed and with what parameters. Once triggered, \textbf{Scheduler Assignment} occurs, where the Scheduler assigns the function execution task to an appropriate Worker Node based on factors such as load, locality, and resource requirements, optimizing resource utilization across the platform. The selected Worker Node then undergoes \textbf{Worker Preparation}, allocating resources and initializing the execution environment to ensure it has sufficient capacity to handle the function. For security, \textbf{Sandbox Creation} establishes a secure sandbox environment to isolate the function execution from other functions and the host system, preventing potential security breaches or resource conflicts. Within this sandbox, \textbf{Runtime Initialization} prepares the JavaScript runtime (based on Deno Core) with appropriate permissions and API access, creating a controlled execution context with precisely defined capabilities. The system then performs \textbf{Function Loading}, where the function code and dependencies are loaded into the runtime environment, making them available for execution. The core step of \textbf{Execution} runs the function with the provided input data and context, executing the business logic defined by the developer. During execution, \textbf{Monitoring} tracks resource usage, execution time, and other metrics to ensure compliance with limits and detect anomalies, preventing runaway processes or resource exhaustion. After execution completes, \textbf{Result Capture} collects the function's output, including return values, errors, and side effects, providing comprehensive information about the execution outcome. The system then performs \textbf{Resource Cleanup}, releasing resources and cleaning up or recycling the sandbox environment to maintain system efficiency. Finally, \textbf{Result Processing} handles the execution results according to the function configuration, which may include storing data, sending notifications, or triggering additional functions, creating chains of function executions that can implement complex workflows.
+When a function is triggered for execution, the system follows a comprehensive flow to ensure reliable and secure processing. The process begins with \textbf{Trigger Evaluation}, where an event or direct invocation initiates the function execution process, determining which function needs to be executed and with what parameters. Once triggered, \textbf{Scheduler Assignment} occurs, where the Scheduler assigns the function execution task to an appropriate Worker Node based on factors such as load, locality, and resource requirements, optimizing resource utilization across the platform. The selected Worker Node then undergoes \textbf{Worker Preparation}, allocating resources and initializing the execution environment to ensure it has sufficient capacity to handle the function. For security, \textbf{Sandbox Creation} establishes a secure sandbox environment to isolate the function execution from other functions and the host system, preventing potential security breaches or resource conflicts. Within this sandbox, \textbf{Runtime Initialization} prepares the JavaScript runtime (based on Deno Core) with appropriate permissions and API access, creating a controlled execution context with precisely defined capabilities. The system then performs \textbf{Function Loading}, where the function code and dependencies are loaded into the runtime environment, making them available for execution. The core step of \textbf{Execution} runs the function with the provided input data and context, executing the business logic defined by the developer. During execution, \textbf{Monitoring} tracks resource usage, execution time, and other metrics to ensure compliance with limits and detect anomalies, preventing runaway processes or resource exhaustion. After execution completes, \textbf{Result Capture} collects the function's output, including return values, errors, and side effects, providing comprehensive information about the execution outcome. The system then performs \textbf{Resource Cleanup}, releasing resources and cleaning up or recycling the sandbox environment to maintain system efficiency. Finally, the system handles the execution results according to the function configuration, which may include storing data, sending notifications, or triggering additional functions, creating chains of function executions that can implement complex workflows.
 
 \paragraph{Resource Management}
 The function execution system implements sophisticated resource management to ensure efficient and fair allocation across all functions and applications. The system enforces \textbf{CPU Limits} by allocating specific CPU quotas to functions, preventing excessive usage by any single function and ensuring fair sharing of computational resources across all workloads. To prevent memory-related issues, \textbf{Memory Allocation} is carefully monitored and limited to prevent memory leaks and excessive consumption, ensuring system stability even under high load conditions. For operational safety, \textbf{Execution Timeouts} are implemented where functions have maximum execution time limits to prevent infinite loops and resource hogging, automatically terminating functions that exceed their allocated time. The platform optimizes overall throughput through \textbf{Concurrency Control}, managing the number of concurrent function executions to balance responsiveness with system stability, preventing overload while maximizing resource utilization. To adapt to changing demand patterns, \textbf{Auto-scaling} capabilities allow Worker Nodes to be dynamically scaled based on demand, automatically adding resources during peak periods and reducing them during low-demand periods to handle varying workloads efficiently while optimizing operational costs.
@@ -390,9 +401,9 @@ The Secret Storage system implements a multi-layered architecture to ensure comp
 \paragraph{Secret Management Protocol}
 The system implements a comprehensive protocol for managing secrets throughout their lifecycle, ensuring security at every stage. The process begins with \textbf{Secret Creation}, where a new secret is assigned a unique identifier, encrypted with a master key, and stored in the storage layer, establishing the foundation for secure secret management. Following creation, \textbf{Access Control Configuration} allows the owner to define precise access permissions, specifying which functions or users can access the secret, implementing the principle of least privilege. When a function requires access to a secret, \textbf{Secret Retrieval} is initiated, where the function sends a request to the Secret API with its authentication credentials, initiating the secure access process. Upon receiving a request, the system performs an \textbf{Authorization Check}, verifying that the requesting function has permission to access the requested secret, preventing unauthorized access attempts. For authorized requests, \textbf{Decryption} occurs where the service retrieves the encrypted secret from storage, decrypts it using the master key, and returns it to the function, ensuring that secrets are only exposed to authorized entities. To maintain a comprehensive audit trail, \textbf{Usage Tracking} logs all access to secrets, including the requester, timestamp, and operation, providing visibility into secret usage patterns and potential security incidents. To minimize the risk of long-term compromise, \textbf{Secret Rotation} automatically updates secrets according to configured policies, ensuring that even if a secret is compromised, the window of vulnerability is limited. In cases of suspected compromise, \textbf{Secret Revocation} provides immediate invalidation of secrets, preventing further access and mitigating potential damage from unauthorized use.
 
-A formal specification of the secret management protocol is provided in Section \ref{subsec:secret-protocol}.
+A formal specification of the secret management protocol is provided in Section \ref{subsec:secret-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/secret_protocol}
+\input{figures/neo-service-layer/fixed/secret_protocol.tex}
 
 \paragraph{Encryption Technologies}
 The Secret Storage system employs multiple encryption technologies to provide comprehensive protection for secrets throughout their lifecycle. The system implements \textbf{Envelope Encryption} where secrets are encrypted with data keys, which are themselves encrypted with a master key, providing multiple layers of protection that limit exposure of the master key and enable efficient key rotation. For the highest level of security, \textbf{Hardware Security Modules (HSMs)} can be used to store master keys, providing hardware-level protection against extraction and ensuring that cryptographic operations occur within a secure, tamper-resistant environment. To minimize the impact of potential key compromise, \textbf{Key Rotation} mechanisms regularly update encryption keys according to configurable policies, ensuring that even if a key is compromised, its utility is limited to a specific time window. The system also employs \textbf{Secure Key Derivation} techniques where keys are derived using secure algorithms that incorporate multiple factors, such as user credentials and environmental attributes, creating context-specific keys that are more resistant to brute force attacks and unauthorized access attempts.
@@ -420,9 +431,9 @@ The Sandbox system implements a multi-layered architecture to provide comprehens
 \paragraph{Sandbox Security Mechanisms}
 The system implements multiple security mechanisms to ensure comprehensive protection throughout the function execution lifecycle. For execution isolation, \textbf{Process Isolation} ensures that functions run in separate processes to prevent interference and limit the impact of crashes, creating strong boundaries between different functions. To control resource access, \textbf{Namespace Isolation} provides each sandbox with its own namespace for files, network, and other resources, preventing access to resources outside the sandbox and creating a contained environment for execution. The system implements \textbf{Capability-Based Security} where functions must explicitly request and be granted permissions for specific capabilities, such as network access or file system operations, enforcing the principle of least privilege at a granular level. To prevent resource monopolization, \textbf{Resource Quotas} impose strict limits on CPU time, memory usage, network bandwidth, and other resources to prevent denial-of-service attacks, ensuring fair resource allocation across all functions. For operational safety, \textbf{Time Limits} enforce maximum execution time limits to prevent infinite loops and resource exhaustion, automatically terminating functions that exceed their allocated time. Network security is maintained through \textbf{Network Filtering} where network access is controlled through fine-grained rules that specify which hosts and ports can be accessed, preventing unauthorized network communication and limiting potential attack vectors.
 
-A formal specification of the sandbox security protocol is provided in Section \ref{subsec:sandbox-protocol}.
+A formal specification of the sandbox security protocol is provided in Section \ref{subsec:sandbox-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/sandbox_protocol}
+\input{figures/neo-service-layer/fixed/sandbox_protocol.tex}
 
 \paragraph{JavaScript Runtime Security}
 The Deno Core JavaScript runtime provides additional security features that enhance the overall sandbox protection model. The runtime implements a \textbf{Secure Module System} where modules must be explicitly imported and can only access the capabilities they are granted, preventing unauthorized code execution and limiting the potential attack surface. For improved code quality and security, \textbf{TypeScript Support} provides static type checking that can catch potential security issues at compile time, reducing the risk of type-related vulnerabilities and improving code reliability. Access to potentially dangerous functionality is controlled through \textbf{Controlled API Access} where access to sensitive APIs is managed through a permission system that requires explicit grants, ensuring that functions can only use the specific capabilities they need. The system follows \textbf{Secure Defaults} principles where, by default, functions have no access to the file system, network, or environment variables, requiring explicit permission for each capability, implementing a zero-trust security model that minimizes the risk of unauthorized access.
@@ -467,9 +478,9 @@ The Neo Service Layer provides tools and libraries that simplify smart contract 
 \paragraph{Smart Contract Deployment Process}
 The deployment process for smart contracts involves several interconnected steps that ensure proper integration with the Neo ecosystem. The process begins with \textbf{Contract Development}, where developers write smart contracts using Neo's supported languages (C\#, Python, Go, TypeScript) with Service Layer integration, leveraging the specialized libraries and SDKs to create contracts that can interact with off-chain services. Once the contract code is complete, \textbf{Compilation} transforms the high-level code into Neo Executable Format (NEF) files, which contain the bytecode that runs on the Neo Virtual Machine (NeoVM), optimizing the code for on-chain execution. To define the contract's capabilities and interfaces, \textbf{Manifest Creation} generates a manifest file that describes the contract's interface, permissions, and other metadata, establishing the contract's identity and access rights within the blockchain ecosystem. For contracts that leverage Service Layer functionality, \textbf{Service Registration} connects them with the relevant services to establish the necessary connections, enabling seamless interaction between on-chain and off-chain components. The actual blockchain integration occurs during \textbf{Deployment}, where the NEF file and manifest are deployed to the Neo N3 blockchain through a transaction, making the contract available for interaction on the network. After deployment, \textbf{Verification} ensures that the deployed contract matches the source code and functions as expected, confirming that no errors occurred during the compilation and deployment process. Finally, \textbf{Integration Configuration} sets up Service Layer components to interact with the deployed contract, establishing event listeners, callbacks, and other integration points that enable the contract to leverage the full capabilities of the Neo Service Layer.
 
-A formal specification of the Smart Contract Integration protocol is provided in Section \ref{subsec:smart-contract-protocol}.
+A formal specification of the Smart Contract Integration protocol is provided in Section \ref{subsec:smart-contract-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/smart_contract_protocol}
+\input{figures/neo-service-layer/fixed/smart_contract_protocol.tex}
 
 \paragraph{Service Layer Integration Patterns}
 Smart contracts can integrate with the Service Layer through several patterns that enable powerful combinations of on-chain and off-chain capabilities. Through \textbf{Event-Driven Integration}, contracts emit events that trigger Service Layer functions, enabling off-chain processing of on-chain actions and creating responsive systems that can react to blockchain state changes with complex off-chain logic. For accessing external data, \textbf{Oracle Integration} allows contracts to request information from the Oracle Service, enabling access to real-world information not natively available on the blockchain such as price feeds, weather data, or sports results. To improve user experience, \textbf{Gas Bank Integration} enables contracts to interact with the Gas Bank service to implement gas-free transactions for users, removing the friction of requiring users to hold cryptocurrency for transaction fees. Similarly, \textbf{Meta Transaction Integration} allows contracts to support meta transactions, enabling users to interact with blockchain applications without directly paying for transaction fees, with costs covered by application developers or subsidized through other mechanisms. For privacy-sensitive operations, \textbf{TEE Integration} allows contracts to delegate sensitive computations to the Trusted Execution Environment service, enabling private processing with on-chain verification that maintains confidentiality while leveraging blockchain security. Advanced user experiences are enabled through \textbf{Abstract Account Integration}, where contracts interact with the Abstract Account service to support sophisticated account management features such as social recovery, multi-signature control, and programmable authorization policies.
@@ -499,9 +510,9 @@ The ZK service enables the generation and verification of zero-knowledge proofs,
 \paragraph{Cross-Service Integration}
 The advanced cryptographic services can be combined to create powerful hybrid solutions that leverage the complementary strengths of different cryptographic approaches. The \textbf{TEE-FHE Hybrid} integration uses Trusted Execution Environments to accelerate Fully Homomorphic Encryption operations while providing additional security guarantees, addressing the performance limitations of FHE while enhancing its security properties through hardware protection. For privacy-preserving proof generation, the \textbf{TEE-ZK Hybrid} approach uses TEEs to generate zero-knowledge proofs more efficiently while ensuring the privacy of the witness data, significantly improving the performance of complex zero-knowledge proof generation while maintaining strong privacy guarantees. To verify encrypted computations, the \textbf{FHE-ZK Hybrid} combines zero-knowledge proofs to verify the correctness of FHE computations without revealing the encryption keys or the computation itself, creating a verifiable yet private computational framework. For collaborative applications, \textbf{Multi-Party Computation} integrations combine multiple cryptographic techniques to enable secure computation among mutually distrusting parties, allowing organizations to jointly compute results without revealing their sensitive inputs to each other.
 
-A formal specification of the Advanced Cryptographic Services protocol is provided in Section \ref{subsec:advanced-crypto-protocol}.
+A formal specification of the Advanced Cryptographic Services protocol is provided in Section \ref{subsec:advanced-crypto-protocol-spec}.
 
-\input{figures/neo-service-layer/fixed/advanced_crypto_protocol}
+\input{figures/neo-service-layer/fixed/advanced_crypto_protocol.tex}
 
 \paragraph{Application Domains}
 The advanced cryptographic services enable a wide range of privacy-preserving and secure applications across diverse domains. In the financial sector, \textbf{Private DeFi} applications preserve user privacy while ensuring compliance with regulations, enabling financial transactions that protect sensitive information while still meeting regulatory requirements. For identity management, \textbf{Confidential Identity} systems allow selective disclosure of attributes without revealing unnecessary information, giving users control over their personal data while still providing necessary verification to service providers. In data analytics, \textbf{Secure Multi-Party Analytics} enables collaborative analysis on sensitive data without exposing the raw data to any party, allowing organizations to derive insights from combined datasets without compromising data confidentiality. For organizational decision-making, \textbf{Private Governance} systems protect voter privacy while ensuring correct tallying, enabling transparent yet private voting processes for corporate governance, DAOs, and other collective decision-making contexts. In logistics and manufacturing, \textbf{Confidential Supply Chain} tracking preserves commercial confidentiality while enabling verification of claims, allowing businesses to validate supply chain information without exposing proprietary details about suppliers, pricing, or volumes.
@@ -521,7 +532,7 @@ The Abstract Account service supports various account operations that enable fle
 
 This service is particularly valuable for applications requiring enhanced security, corporate governance, or complex authorization workflows. By abstracting account management into a dedicated service, applications can implement sophisticated control mechanisms without burdening users with technical complexity.
 
-\subsection{Integration with Neo Ecosystem}
+\section{Integration with Neo Ecosystem}
 \label{subsec:nsl-integration}
 
 The Neo Service Layer is designed to integrate seamlessly with the broader Neo ecosystem, enhancing the capabilities of existing components and enabling new synergies between different parts of the platform.
@@ -551,7 +562,7 @@ The Oracle Service within the Neo Service Layer complements Neo's native oracle 
 
 This integration creates a comprehensive solution for connecting Neo applications with external data and systems, enabling a diverse range of cross-domain applications. In the financial sector, \textbf{Cross-Chain DeFi} applications can operate across multiple blockchain ecosystems, allowing for liquidity pooling, asset transfers, and financial operations that span different blockchain networks. For physical asset representation, \textbf{Real-World Asset Tokenization} enables the representation of physical assets on the blockchain with real-time data updates, creating digital twins of real-world assets that maintain current information about their status and value. In the connected devices space, \textbf{IoT Integration} facilitates the connection of blockchain applications with Internet of Things devices and data, enabling secure and transparent recording of sensor data and automated contract execution based on real-world events. For enterprise adoption, \textbf{Enterprise System Integration} bridges blockchain applications with traditional enterprise systems, allowing organizations to leverage blockchain capabilities while maintaining compatibility with existing IT infrastructure and business processes.
 
-\subsection{Security and Privacy Considerations}
+\section{Security and Privacy Considerations}
 \label{subsec:nsl-security}
 
 Security and privacy are fundamental considerations in the design and implementation of the Neo Service Layer. As a bridge between on-chain and off-chain environments, the Service Layer must maintain the security guarantees of the blockchain while addressing the unique challenges of off-chain services.
@@ -573,7 +584,7 @@ The Neo Service Layer includes several features designed to enhance privacy whil
 
 The Neo Service Layer is designed to facilitate compliance with relevant regulations while preserving the decentralized nature of blockchain applications. The compliance framework includes several integrated components that work together to create a comprehensive approach to regulatory requirements. For user verification, \textbf{Identity Verification} integrates with Neo's digital identity system for KYC/AML compliance, enabling applications to meet regulatory requirements for user identification while maintaining privacy. Regulatory oversight is supported through \textbf{Audit Trails} that provide comprehensive logging for regulatory reporting and auditing, creating immutable records of system activities that can be used for compliance verification. To address regional variations in regulations, \textbf{Configurable Controls} offer adjustable security and compliance settings for different jurisdictions, allowing applications to adapt to specific regulatory environments without requiring code changes. The system architecture implements \textbf{Privacy by Design} principles from the ground up, ensuring that privacy considerations are built into every component rather than added as an afterthought. For operational transparency, \textbf{Transparency Reports} provide regular reporting on service operation and compliance measures, creating accountability and building trust with users, regulators, and the broader community.
 
-\subsection{Developer Experience}
+\section{Developer Experience}
 \label{subsec:nsl-developer}
 
 The Neo Service Layer is designed to provide a seamless and productive experience for developers building applications on the Neo ecosystem. This focus on developer experience is reflected in several key aspects of the Service Layer:
@@ -593,7 +604,7 @@ The Neo Service Layer provides comprehensive SDKs and libraries that simplify in
 
 The Neo Service Layer includes a suite of tools designed to streamline the development, testing, and deployment of applications, creating a comprehensive developer experience. For isolated testing, a \textbf{Local Development Environment} provides a self-contained environment for local testing, allowing developers to build and test applications without requiring access to production infrastructure. To simulate service interactions, \textbf{Service Simulators} offer mock implementations of services for testing, enabling developers to test their applications against simulated service responses without requiring actual service deployments. When issues arise, \textbf{Debugging Tools} provide specialized utilities for troubleshooting service interactions, helping developers quickly identify and resolve integration issues. For operational visibility, a \textbf{Monitoring Dashboard} delivers real-time insights into service performance and usage, allowing developers to monitor their applications in production and identify potential issues before they impact users. To simplify production deployment, \textbf{Deployment Automation} tools facilitate deploying applications to production environments, streamlining the transition from development to production with automated workflows and validation checks.
 
-\subsection{Use Cases and Applications}
+\section{Use Cases and Applications}
 \label{subsec:nsl-use-cases}
 
 The Neo Service Layer enables a wide range of applications that leverage the security and transparency of blockchain technology while overcoming its traditional limitations. This section explores some of the key use cases and applications that the Service Layer makes possible.
@@ -618,7 +629,7 @@ Enterprise blockchain applications can leverage the Neo Service Layer to address
 
 The Neo Service Layer can support public infrastructure and social impact applications, enabling transparent and efficient systems for societal benefit. For democratic processes, \textbf{Transparent Governance} provides secure voting and decision-making processes for public organizations, creating auditable records of governance activities while protecting voter privacy. Humanitarian efforts are enhanced through \textbf{Aid Distribution} systems that enable efficient and transparent distribution of humanitarian aid using blockchain verification, ensuring that resources reach intended recipients and reducing opportunities for fraud or diversion. Environmental initiatives benefit from \textbf{Carbon Credits} functionality that supports verification and trading of carbon offsets with real-world data integration, creating trusted markets for environmental assets based on verifiable data. Civic infrastructure is improved through \textbf{Public Records} systems that provide secure and accessible storage of public records with privacy protections, balancing transparency with individual privacy rights. Educational systems are enhanced through \textbf{Educational Credentials} verification that enables verifiable academic and professional credentials with selective disclosure, allowing individuals to prove their qualifications without revealing unnecessary personal information.
 
-\subsection{Future Directions}
+\section{Future Directions}
 \label{subsec:nsl-future}
 
 The Neo Service Layer is designed to evolve alongside the broader blockchain ecosystem, adapting to new technologies, use cases, and requirements. Several key directions for future development include:
@@ -643,17 +654,16 @@ The Neo Service Layer will progressively decentralize its components, moving tow
 
 Integration with artificial intelligence technologies will create new capabilities, enabling a new generation of intelligent blockchain applications. For on-chain intelligence, \textbf{On-Chain AI Models} will enable deployment of lightweight AI models directly on the blockchain, allowing for deterministic AI-driven smart contracts and decentralized autonomous organizations with embedded intelligence. Computational security will be enhanced through \textbf{Secure AI Computation} that enables execution of AI workloads in trusted environments, allowing sensitive data to be used for AI inference without exposing the underlying information. Result integrity will be ensured through \textbf{Verifiable AI Results} with cryptographic verification of AI model outputs, creating provable records of AI decisions that can be independently verified without requiring re-execution of the models. Collaborative intelligence will be fostered through \textbf{Decentralized Training} that enables collaborative training of AI models while preserving data privacy, allowing multiple parties to contribute to model improvement without sharing their raw data.
 
-\subsection{Formal Protocol Specifications}
+\section{Formal Protocol Specifications}
 \label{subsec:formal-protocols}
 
 This section provides formal specifications for the protocols that govern the operation of the Neo Service Layer components. These specifications define the precise behavior, interactions, and security properties of each component, ensuring consistent implementation and operation across different environments.
 
-\subsection{Event Processing Protocol}
+\section{Event Processing Protocol}
 \label{subsec:event-protocol-spec}
 
 The Event Processing Protocol defines how events are detected, processed, and routed to appropriate handlers within the Neo Service Layer. This protocol is essential for enabling event-driven architectures that can respond to blockchain events, external triggers, and internal system events.
-
-\input{figures/neo-service-layer/fixed/event_protocol}
+\input{figures/neo-service-layer/fixed/event_protocol.tex}
 
 The protocol begins with event detection, where specialized monitors observe various sources such as blockchain networks, message queues, and system components to identify relevant events as they occur. Once detected, events undergo validation against their schema definitions to ensure they contain all required fields and conform to the expected format, preventing malformed events from entering the processing pipeline.
 
@@ -663,12 +673,11 @@ When a trigger matches an event, the system identifies the associated functions 
 
 After execution, the system processes the function results, which may include storing data, sending notifications, or triggering additional events, creating a chain of event-driven actions. Finally, the system archives processed events and their handling results for auditing, analytics, and debugging purposes, creating a comprehensive record of system activity.
 
-\subsection{Function Deployment and Execution Protocol}
+\section{Function Deployment and Execution Protocol}
 \label{subsec:function-protocol-spec}
 
 The Function Deployment and Execution Protocol defines how functions are deployed, managed, and executed within the Neo Service Layer. This protocol ensures that functions are properly registered, stored, and made available for execution in a secure and efficient manner.
 
-\input{figures/neo-service-layer/fixed/function_protocol}
 
 The deployment process begins with function submission, where developers submit functions through the API Service, providing the function code, configuration, and metadata necessary for deployment. Once submitted, the code undergoes thorough validation for syntax correctness, security vulnerabilities, and compliance with platform policies, ensuring that only secure and well-formed functions enter the system.
 
@@ -682,14 +691,13 @@ The selected Worker Node allocates resources and initializes the execution envir
 
 The function code and dependencies are then loaded into the runtime environment, making them available for execution. The function is executed with the provided input data and context, executing the business logic defined by the developer. During execution, the system tracks resource usage, execution time, and other metrics to ensure compliance with limits and detect anomalies, preventing runaway processes or resource exhaustion.
 
-After execution completes, the system collects the function's output, including return values, errors, and side effects, providing comprehensive information about the execution outcome. The system then releases resources and cleans up or recycles the sandbox environment to maintain system efficiency. Finally, the system handles the execution results according to the function configuration, which may include storing data, sending notifications, or triggering additional functions, creating chains of function executions that can implement complex workflows.
+After execution completes, the system collects the function's output, including return values, errors, and side effects, providing comprehensive information about the execution outcome. The system then performs \textbf{Resource Cleanup}, releasing resources and cleaning up or recycling the sandbox environment to maintain system efficiency. Finally, the system handles the execution results according to the function configuration, which may include storing data, sending notifications, or triggering additional functions, creating chains of function executions that can implement complex workflows.
 
-\subsection{Secret Management Protocol}
+\section{Secret Management Protocol}
 \label{subsec:secret-protocol-spec}
 
 The Secret Management Protocol defines how sensitive information is securely stored, accessed, and managed within the Neo Service Layer. This protocol ensures that secrets are protected from unauthorized access while remaining available to authorized functions.
 
-\input{figures/neo-service-layer/fixed/secret_protocol}
 
 The protocol begins with secret creation, where a new secret is assigned a unique identifier, encrypted with a master key, and stored in the storage layer, establishing the foundation for secure secret management. Following creation, the owner defines precise access permissions, specifying which functions or users can access the secret, implementing the principle of least privilege.
 
@@ -699,14 +707,13 @@ To maintain a comprehensive audit trail, the system logs all access to secrets, 
 
 The Secret Storage system implements a multi-layered architecture to ensure comprehensive security throughout the secret management lifecycle. The API Layer provides a standardized interface for functions to store, retrieve, and manage secrets, offering a consistent and secure access point for all secret operations. The Service Layer implements the core logic for secret management, including access control, encryption, and lifecycle management, coordinating the various components involved in secret handling.
 
-The Encryption Layer ensures that all secrets are encrypted at rest using strong cryptographic algorithms, preventing unauthorized access even if the underlying storage is compromised. The Storage Layer provides durable and reliable storage for encrypted secrets, ensuring that secrets remain available and intact even in the face of system failures. Throughout the system, Access Control mechanisms enforce permissions and policies that determine who can access which secrets, implementing the principle of least privilege to minimize potential security risks.
+The Encryption Layer ensures that all secrets are encrypted at rest using strong cryptographic algorithms, preventing unauthorized access even if the underlying storage is compromised. The Storage Layer provides durable and reliable storage for encrypted secrets, ensuring that secrets remain available and intact even in the face of system failures. Throughout the system, Access Control mechanisms enforce permissions and policies that determine who can access which secrets, implementing the principle of least privilege to minimize potential security risks. For security monitoring and compliance, comprehensive \textbf{Audit Logging} records all access attempts and operations, creating an immutable trail of all interactions with the secret storage system that can be used for security analysis and regulatory compliance.
 
-\subsection{Sandbox Security Protocol}
+\section{Sandbox Security Protocol}
 \label{subsec:sandbox-protocol-spec}
 
 The Sandbox Security Protocol defines how function execution is isolated and secured to protect both the platform and other functions. This protocol ensures that functions can only access the resources they are explicitly authorized to use, preventing potential security breaches and resource conflicts.
 
-\input{figures/neo-service-layer/fixed/sandbox_protocol}
 
 The protocol begins with sandbox creation, where the system establishes an isolated environment for function execution based on the function's requirements and permissions. This environment includes process isolation, namespace isolation, and resource quotas to prevent interference between different functions and limit the impact of potential security issues.
 
@@ -720,12 +727,11 @@ The Sandbox system implements multiple security mechanisms to ensure comprehensi
 
 The system implements capability-based security where functions must explicitly request and be granted permissions for specific capabilities, such as network access or file system operations, enforcing the principle of least privilege at a granular level. Resource quotas impose strict limits on CPU time, memory usage, network bandwidth, and other resources to prevent denial-of-service attacks, ensuring fair resource allocation across all functions. Time limits enforce maximum execution time limits to prevent infinite loops and resource exhaustion, automatically terminating functions that exceed their allocated time.
 
-\subsection{Gas Bank Operations Protocol}
+\section{Gas Bank Operations Protocol}
 \label{subsec:gas-bank-protocol-spec}
 
 The Gas Bank Operations Protocol defines how the Gas Bank service manages deposits, withdrawals, and fee payments on behalf of users and applications. This protocol ensures secure and efficient handling of GAS tokens, enabling gas-free transactions for end users.
 
-\input{figures/neo-service-layer/fixed/gas_bank_protocol}
 
 The protocol begins with account creation, where a new Gas Bank account is established with specified parameters such as fee model, credit limit, and access controls. This account serves as the foundation for all subsequent operations, providing a secure and managed repository for GAS tokens.
 
@@ -741,12 +747,11 @@ The Gas Bank also supports automated refills, where accounts can be configured t
 
 Throughout all operations, the Gas Bank maintains comprehensive transaction records and audit trails, providing transparency and accountability for all token movements and fee payments. These records are essential for reconciliation, reporting, and dispute resolution, ensuring that all parties have visibility into their Gas Bank activities.
 
-\subsection{Meta Transaction Protocol}
+\section{Meta Transaction Protocol}
 \label{subsec:meta-tx-protocol-spec}
 
 The Meta Transaction Protocol defines how users can interact with smart contracts without directly paying for transaction fees. This protocol enables a more seamless user experience by abstracting away the complexity of blockchain transaction fees.
 
-\input{figures/neo-service-layer/fixed/meta_tx_protocol}
 
 The protocol begins with transaction creation, where a user creates a transaction request containing the target contract, method, parameters, and any other required information. This request represents the operation the user wants to perform on the blockchain, but without including the transaction fee payment.
 
@@ -762,12 +767,11 @@ Finally, the service notifies the application of the transaction result, includi
 
 To prevent replay attacks, where a valid transaction is maliciously resubmitted, the Meta Transaction Service implements several comprehensive protection mechanisms. Each user account has an associated nonce that must be included in the transaction and incremented with each submission, ensuring transactions can only be processed once in the correct order. Transactions include a timestamp and are rejected if they are too old or too far in the future, creating a time window for valid submissions. Transactions include a chain identifier, preventing the same transaction from being replayed on different blockchain networks. Additionally, the service maintains a registry of processed transaction hashes to provide an extra layer of protection against duplicate submissions.
 
-\subsection{Smart Contract Integration Protocol}
+\section{Smart Contract Integration Protocol}
 \label{subsec:smart-contract-protocol-spec}
 
 The Smart Contract Integration Protocol defines how smart contracts interact with the Neo Service Layer components, enabling powerful combinations of on-chain and off-chain capabilities. This protocol ensures seamless integration between blockchain-based smart contracts and the various services provided by the Neo Service Layer.
 
-\input{figures/neo-service-layer/fixed/smart_contract_protocol}
 
 The protocol begins with contract development, where developers write smart contracts using Neo's supported languages (C\#, Python, Go, TypeScript) with Service Layer integration. Developers leverage specialized libraries and SDKs to create contracts that can interact with off-chain services, establishing the foundation for hybrid blockchain applications.
 
@@ -783,12 +787,11 @@ Finally, Service Layer components are configured to interact with the deployed c
 
 Smart contracts can integrate with the Service Layer through several patterns that enable powerful combinations of on-chain and off-chain capabilities. Through event-driven integration, contracts emit events that trigger Service Layer functions, enabling off-chain processing of on-chain actions. Oracle integration allows contracts to request information from the Oracle Service, enabling access to real-world information not natively available on the blockchain. Gas Bank integration enables contracts to implement gas-free transactions for users, removing the friction of requiring users to hold cryptocurrency for transaction fees. Meta Transaction integration allows contracts to support meta transactions, enabling users to interact with blockchain applications without directly paying for transaction fees. TEE integration allows contracts to delegate sensitive computations to the Trusted Execution Environment service, enabling private processing with on-chain verification.
 
-\subsection{Price Data Feed Protocol}
+\section{Price Data Feed Protocol}
 \label{subsec:price-feed-protocol-spec}
 
 The Price Data Feed Protocol defines how price data is collected, aggregated, and provided to smart contracts and applications. This protocol ensures reliable and timely price information for various assets, enabling a wide range of financial applications.
 
-\input{figures/neo-service-layer/fixed/price_feed_protocol}
 
 The protocol begins with price data collection, where the system retrieves price data from multiple sources, including major exchanges, aggregation services, and specialized price feeds. This multi-source approach ensures comprehensive market coverage and resilience against single-source failures, providing a more accurate and reliable price feed.
 
@@ -806,12 +809,11 @@ When a smart contract or application requests price data, the system retrieves t
 
 For blockchain-based applications, the system can provide cryptographic proofs of the price data, enabling on-chain verification of off-chain price information. These proofs allow smart contracts to trust the price data without requiring direct access to external sources, maintaining the security and determinism of blockchain execution.
 
-\subsection{Advanced Cryptographic Services Protocol}
+\section{Advanced Cryptographic Services Protocol}
 \label{subsec:advanced-crypto-protocol-spec}
 
 The Advanced Cryptographic Services Protocol defines how the TEE, FHE, and ZK services operate and interact with applications. This protocol enables sophisticated privacy, security, and computational capabilities beyond what is available in standard blockchain environments.
 
-\input{figures/neo-service-layer/fixed/advanced_crypto_protocol}
 
 The protocol begins with service selection, where applications choose the appropriate cryptographic service based on their specific requirements for privacy, security, and computation. Each service offers different trade-offs in terms of performance, privacy guarantees, and complexity, allowing applications to select the most suitable approach for their use case.
 
@@ -825,7 +827,7 @@ The protocol also defines how these advanced cryptographic services can be combi
 
 Throughout all operations, the protocol ensures that cryptographic keys and sensitive data are protected using the strongest available security measures, including hardware security modules, secure enclaves, and advanced key management techniques. This comprehensive approach to security creates a foundation of trust for applications that leverage these advanced cryptographic capabilities.
 
-\subsection{Conclusion}
+\section{Conclusion}
 \label{subsec:nsl-conclusion}
 
 The Neo Service Layer represents a significant advancement in blockchain infrastructure, bridging the gap between on-chain security and off-chain capabilities. By providing a comprehensive suite of services specifically designed for the Neo ecosystem, the Service Layer enables developers to build more powerful, user-friendly, and versatile applications.

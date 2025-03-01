@@ -1,17 +1,18 @@
+cargo-features = ["edition2024"]
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
 [package]
 name = "r3e-fhe"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["R3E Network Team"]
 description = "Fully Homomorphic Encryption service for the R3E FaaS platform"
 license = "MIT"
 
 [dependencies]
 # FHE libraries
-concrete-core = { version = "2.0.0-beta", optional = true }
+concrete-core = { version = "1.0.2", optional = true }
 tfhe = { version = "0.5.3", features = ["integer", "shortint"], optional = false }
 
 # Serialization
@@ -23,7 +24,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
-rocksdb = "0.20"
+rocksdb = { version = "0.21.0", features = ["multi-threaded-cf"] }
 log = "0.4"
 futures = "0.3"
 uuid = { version = "1.3", features = ["v4", "serde"] }

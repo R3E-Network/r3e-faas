@@ -1,0 +1,28 @@
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}
+        % Define nodes
+        \node[box=grid, minimum width=5cm, minimum height=6cm] (sandbox) at (0,0) {};
+        \node[box=north east lines, text width=4cm] (contract) at (0,3) {Smart Contract};
+        \node[box=dots, text width=3.5cm] (vm) at (0,1) {Isolated VM};
+        \node[box=crosshatch, text width=3.5cm] (access) at (0,-1) {Resource Controller};
+        \node[box=dots, text width=3.5cm] (monitor) at (0,-3) {Execution Monitor};
+        
+        % External systems
+        \node[cloud, minimum width=2cm] (data) at (-4,0) {External Data};
+        \node[cloud, minimum width=2cm] (blockchain) at (4,0) {Blockchain};
+        
+        % Add sandbox label
+        \node[anchor=north] at (0,3.5) {\textbf{Sandbox Environment}};
+        
+        % Define connections
+        \path [line] (contract) -- (vm);
+        \path [line] (vm) -- (access);
+        \path [line] (access) -- (monitor);
+        \path [line, dashed] (data) -- node[above-arrow-text] {Filtered Access} (access);
+        \path [line, dashed] (access) -- node[above-arrow-text] {Limited Interaction} (blockchain);
+        \path [line, <->] (monitor) to[out=180,in=270] node[above-arrow-text, left] {Security Checks} (sandbox.west |- contract);
+    \end{tikzpicture}
+    \caption{Sandbox Service Architecture}
+    \label{fig:sandbox-architecture}
+\end{figure} 

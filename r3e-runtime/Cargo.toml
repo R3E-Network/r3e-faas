@@ -1,17 +1,18 @@
+cargo-features = ["edition2024"]
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
 [package]
 name = "r3e-runtime"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 
 [dependencies]
 r3e-core  = { path = "../r3e-core" }
 
 v8        =  { version = "0" }
-serde_v8  =  { version = "0" }
+serde_v8  =  { version = "0.180.0" }
 serde     =  { version = "1", features = ["derive"] }
 
 thiserror =  { version = "1" }

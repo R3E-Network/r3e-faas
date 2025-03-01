@@ -1,0 +1,45 @@
+% This file should only be \input{} in a document that loads the algorithm and algorithmic packages
+% Do not compile this file directly with pdflatex
+
+\begin{algorithm}
+\caption{Price Feed Protocol}
+\label{alg:price-feed}
+\begin{algorithmic}[1]
+\Require Asset pair, data sources, update frequency
+\Ensure Reliable and accurate price data
+
+\State \textbf{Initialize:} Set up data sources and validation rules
+\State $config \gets \{assetPair, dataSources, updateFreq, validationRules\}$
+\State $aggregator \gets initializeAggregator(config)$
+
+\State \textbf{Fetch:} Retrieve price data from external sources
+\For{each $source$ in $config.dataSources$}
+    \State $data[source] \gets fetchPriceData(source, config.assetPair)$
+    \If{$!isValid(data[source], config.validationRules)$}
+        \State $data[source].valid \gets false$
+        \State $logIssue(source, data[source], "validation failed")$
+    \EndIf
+\EndFor
+
+\State \textbf{Aggregate:} Combine data from multiple sources
+\State $validData \gets filterValidData(data)$
+\If{$|validData| < config.minimumSources$}
+    \State \Return Insufficient valid data sources error
+\EndIf
+\State $aggregatedPrice \gets aggregator.process(validData)$
+\State $confidence \gets calculateConfidence(validData, aggregatedPrice)$
+
+\State \textbf{Validate:} Apply additional verification steps
+\If{$confidence < config.minConfidence$}
+    \State $applyFallbackStrategy(aggregatedPrice, confidence)$
+    \State $logIssue("aggregation", aggregatedPrice, "low confidence")$
+\EndIf
+
+\State \textbf{Publish:} Make price data available on-chain
+\State $transaction \gets prepareUpdateTransaction(aggregatedPrice, confidence)$
+\State $receipt \gets submitTransaction(transaction)$
+\State $logPriceUpdate(config.assetPair, aggregatedPrice, confidence, receipt)$
+
+\State \Return Success, aggregatedPrice, confidence
+\end{algorithmic}
+\end{algorithm} 

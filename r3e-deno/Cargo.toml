@@ -1,21 +1,22 @@
+cargo-features = ["edition2024"]
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
 [package]
 name = "r3e-deno"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 
 [dependencies]
 r3e-core    = { path = "../r3e-core" }
 r3e-event   = { path = "../r3e-event" }
 
-deno_core   =  { version = "0.340.0" }
-v8          =  { version = "134.5.0", default-features = false }
+deno_core   =  { version = "0.272.0" }
+v8          =  { version = "0.106.0", default-features = false }
 
 serde       = { version = "1" }
-serde_v8    = { version = "0.249.0" }
+serde_v8    = { version = "0.180.0" }
 
 tokio       =  { version = "1", features = ["full"]}
 futures     =  { version = "0.3" }

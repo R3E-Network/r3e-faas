@@ -28,11 +28,11 @@
     \node [block, below=of detector] (functions) {Function Executor};
     
     % Draw edges
-    \path [line] (sources) -- node {Events} (detector);
-    \path [line] (detector) -- node {Detected Events} (router);
-    \path [line] (router) -- node {Query} (registry);
-    \path [line] (registry) -- node [left] {Function Mappings} (router);
-    \path [line] (router) -- node [above] {Routed Events} (functions);
+    \path [line] (sources) -- node[above-arrow-text] {Events} (detector);
+    \path [line] (detector) -- node[above-arrow-text] {Detected Events} (router);
+    \path [line] (router) -- node[above-arrow-text] {Query} (registry);
+    \path [line] (registry) -- node[above-arrow-text, left] {Function Mappings} (router);
+    \path [line] (router) -- node[above-arrow-text] {Routed Events} (functions);
 \end{tikzpicture}
 \end{tcolorbox}
 \caption{Event Messaging System Architecture}

@@ -1,42 +1,20 @@
-\begin{figure}[h]
-\centering
-\begin{tcolorbox}[
-    enhanced,
-    colback=blue!5!white,
-    colframe=blue!75!black,
-    arc=5mm,
-    boxrule=1.5pt,
-    title=Meta Transaction Flow,
-    fonttitle=\bfseries,
-    coltitle=white,
-    attach boxed title to top left={yshift=-2mm, xshift=5mm},
-    boxed title style={colback=blue!75!black, rounded corners},
-    shadow={2mm}{-2mm}{0mm}{black!50},
-    drop fuzzy shadow
-]
-\begin{tikzpicture}[node distance=2cm, auto]
-    % Define styles
-    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
-    \tikzstyle{line} = [draw, -latex']
-    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
-    
-    % Place nodes
-    \node [block] (user) {User};
-    \node [block, below=of user] (wallet) {Wallet};
-    \node [block, right=of wallet] (relay) {Meta Tx Relay};
-    \node [block, below=of relay] (blockchain) {Neo Blockchain};
-    
-    % Draw edges
-    \path [line] (user) -- node {1. Request Action} (wallet);
-    \path [line] (wallet) -- node {2. Sign Message} (wallet);
-    \path [line] (wallet) -- node {3. Send Signature} (relay);
-    \path [line] (relay) -- node {4. Verify Signature} (relay);
-    \path [line] (relay) -- node {5. Pay Gas Fee} (blockchain);
-    \path [line] (relay) -- node [below] {6. Submit Transaction} (blockchain);
-    \path [line] (blockchain) -- node [left] {7. Confirm} (relay);
-    \path [line] (relay) -- node [above] {8. Notify Success} (wallet);
-\end{tikzpicture}
-\end{tcolorbox}
-\caption{Meta Transaction Flow and Signature Verification}
-\label{fig:meta-tx-flow}
+\begin{figure}[ht]
+    \centering
+    \begin{tikzpicture}
+        % Define nodes
+        \node[cloud, minimum width=2.5cm] (user) at (-5,2) {End User};
+        \node[box=north east lines, text width=2.5cm] (dapp) at (0,4) {dApp};
+        \node[box=dots, text width=3cm] (relay) at (0,0) {Meta-Tx Relayer};
+        \node[cloud, minimum width=3cm] (neo) at (5,2) {Neo Blockchain};
+        
+        % Define connections
+        \path [line] (user) -- node[above] {1. Sign tx} (dapp);
+        \path [line] (dapp) -- node[right] {2. Forward signed tx} (relay);
+        \path [line] (relay) -- node[below] {3. Pay gas \& submit tx} (neo);
+        \path [line] (neo) -- node[above] {4. Confirm tx} (relay);
+        \path [line] (relay) -- node[left] {5. Notify result} (dapp);
+        \path [line] (dapp) -- node[below] {6. Update UI} (user);
+    \end{tikzpicture}
+    \caption{Meta-Transaction Flow}
+    \label{fig:meta-transaction}
 \end{figure}

@@ -1,40 +1,23 @@
-\begin{figure}[h]
+% This file should only be \input{} in a document that loads the tikz package
+% Do not compile this file directly with pdflatex
+
+\begin{figure}[ht]
 \centering
-\begin{tcolorbox}[
-    enhanced,
-    colback=blue!5!white,
-    colframe=blue!75!black,
-    arc=5mm,
-    boxrule=1.5pt,
-    title=Oracle Service Architecture,
-    fonttitle=\bfseries,
-    coltitle=white,
-    attach boxed title to top left={yshift=-2mm, xshift=5mm},
-    boxed title style={colback=blue!75!black, rounded corners},
-    shadow={2mm}{-2mm}{0mm}{black!50},
-    drop fuzzy shadow
-]
-\begin{tikzpicture}[node distance=1.5cm, auto]
-    % Define styles
-    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
-    \tikzstyle{line} = [draw, -latex']
-    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+\begin{tikzpicture}[font=\scriptsize, node distance=5.5cm]
+    % Define nodes using our consistent style
+    \node[block] (sources) {Data Sources};
+    \node[block, right of=sources, node distance=5.5cm] (providers) {Data Providers};
+    \node[block, right of=providers, node distance=5.5cm] (oracle) {Oracle Service};
+    \node[block, below of=oracle, node distance=3.5cm] (blockchain) {Neo Blockchain};
+    \node[block, left of=blockchain, node distance=5.5cm] (apps) {Applications};
     
-    % Place nodes
-    \node [block] (sources) {Data Sources};
-    \node [block, right=of sources] (providers) {Data Providers};
-    \node [block, right=of providers] (oracle) {Oracle Service};
-    \node [block, below=of oracle] (blockchain) {Neo Blockchain};
-    \node [block, left=of blockchain] (apps) {Applications};
-    
-    % Draw edges
-    \path [line] (sources) -- node {Raw Data} (providers);
-    \path [line] (providers) -- node {Verified Data} (oracle);
-    \path [line] (oracle) -- node {Price Feeds} (blockchain);
-    \path [line] (blockchain) -- node [above] {Data Access} (apps);
-    \path [line] (oracle) -- node [left] {Direct API} (apps);
+    % Connections with our consistent style
+    \draw[connector] (sources) -- node[above-arrow-text] {Raw Data} (providers);
+    \draw[connector] (providers) -- node[above-arrow-text] {Verified Data} (oracle);
+    \draw[connector] (oracle) -- node[above-arrow-text, right] {Price Feeds} (blockchain);
+    \draw[connector] (blockchain) -- node[above-arrow-text] {Data Access} (apps);
+    \draw[connector] (oracle) to[bend right=30] node[above-arrow-text, left] {Direct API} (apps);
 \end{tikzpicture}
-\end{tcolorbox}
 \caption{Oracle Service Architecture and Data Flow}
 \label{fig:oracle-architecture}
 \end{figure}

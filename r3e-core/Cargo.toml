@@ -1,10 +1,11 @@
+cargo-features = ["edition2024"]
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
 [package]
 name = "r3e-core"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 
 [dependencies]
@@ -19,3 +20,8 @@ cfg-if       = { version = "1" }
 git-version  = { version = "0.3" }
 compile-time = { version = "0.2" }
 const_format = { version = "0.2"}
+
+# Added dependencies
+serde        = { version = "1.0", features = ["derive"] }
+serde_json   = { version = "1.0" }
+thiserror    = { version = "1.0" }

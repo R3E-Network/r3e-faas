@@ -1,40 +1,20 @@
-\begin{figure}[h]
+% This file should only be \input{} in a document that loads the tikz package
+% Do not compile this file directly with pdflatex
+
+\begin{figure}[ht]
 \centering
-\begin{tcolorbox}[
-    enhanced,
-    colback=blue!5!white,
-    colframe=blue!75!black,
-    arc=5mm,
-    boxrule=1.5pt,
-    title=Meta Transaction Architecture,
-    fonttitle=\bfseries,
-    coltitle=white,
-    attach boxed title to top left={yshift=-2mm, xshift=5mm},
-    boxed title style={colback=blue!75!black, rounded corners},
-    shadow={2mm}{-2mm}{0mm}{black!50},
-    drop fuzzy shadow
-]
-\begin{tikzpicture}[node distance=1.5cm, auto]
-    % Define styles
-    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
-    \tikzstyle{line} = [draw, -latex']
-    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+\begin{tikzpicture}[font=\scriptsize, node distance=3cm]
+    % Define nodes
+    \node[cloud] (user) at (0,0) {User};
+    \node[box] (relay) at (4,0) {Meta-TX Relay};
+    \node[box] (chain) at (8,0) {Blockchain};
     
-    % Place nodes
-    \node [block] (user) {User};
-    \node [block, right=of user] (app) {Application};
-    \node [block, right=of app] (relay) {Meta Tx Relay};
-    \node [block, below=of relay] (blockchain) {Neo Blockchain};
-    
-    % Draw edges
-    \path [line] (user) -- node {1. Sign Msg} (app);
-    \path [line] (app) -- node {2. Submit Sig} (relay);
-    \path [line] (relay) -- node {3. Verify Sig} (relay);
-    \path [line] (relay) -- node {4. Submit Tx} (blockchain);
-    \path [line] (blockchain) -- node [left] {5. Confirm} (relay);
-    \path [line] (relay) -- node [above] {6. Response} (app);
+    % Define connections
+    \draw[connector] (user) -- node[above-arrow-text] {1. Sign transaction} (relay);
+    \draw[connector] (relay) to[bend left=20] node[above-arrow-text] {2. Submit transaction} (chain);
+    \draw[connector] (chain) to[bend left=20] node[below-arrow-text] {3. Confirm transaction} (relay);
+    \draw[connector] (relay) -- node[below-arrow-text] {4. Notify user} (user);
 \end{tikzpicture}
-\end{tcolorbox}
-\caption{Meta Transaction Architecture and Flow}
-\label{fig:meta-tx-architecture}
+\caption{Meta-Transaction Flow}
+\label{fig:meta-tx-flow}
 \end{figure}

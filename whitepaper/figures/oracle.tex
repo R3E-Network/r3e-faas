@@ -25,14 +25,14 @@
 \node[box=grid] (external) at (0,-4) {External Data Sources};
 
 % Arrows
-\draw[arrow] (contract) -- node[left, font=\footnotesize] {1. Request} (oracle);
-\draw[dashed_arrow] (oracle) -- node[right, font=\footnotesize] {4. Response} (contract);
+\draw[arrow] (contract) -- node[above-arrow-text, left] {1. Request} (oracle);
+\draw[dashed_arrow] (oracle) -- node[above-arrow-text, right] {4. Response} (contract);
 
-\draw[arrow] (oracle) -- node[left, font=\footnotesize] {2. Query} (price);
+\draw[arrow] (oracle) -- node[above-arrow-text, left] {2. Query} (price);
 \draw[arrow] (oracle) -- (random);
 \draw[arrow] (oracle) -- (weather);
 \draw[arrow] (oracle) -- (sports);
-\draw[arrow] (oracle) -- node[right, font=\footnotesize] {2. Query} (custom);
+\draw[arrow] (oracle) -- node[above-arrow-text, right] {2. Query} (custom);
 
 \draw[arrow] (price) -- (external);
 \draw[arrow] (random) -- (external);
@@ -40,7 +40,7 @@
 \draw[arrow] (sports) -- (external);
 \draw[arrow] (custom) -- (external);
 
-\draw[dashed_arrow] (external) -- node[right, font=\footnotesize] {3. Data} (oracle);
+\draw[dashed_arrow] (external) -- node[above-arrow-text, right] {3. Data} (oracle);
 
 % Labels
 \node[text width=3cm, align=center] at (0,4.5) {Oracle Service};
