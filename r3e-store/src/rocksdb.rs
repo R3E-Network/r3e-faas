@@ -230,7 +230,7 @@ impl RocksDbClient {
                         .config
                         .column_families
                         .iter()
-                        .find(|cf| cf.name == cf_name)
+                        .find(|cf| cf.name == *cf_name)
                         .cloned()
                         .unwrap_or_else(|| {
                             warn!(
@@ -353,7 +353,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf_handle(&self, cf_name: &str) -> DbResult<&ColumnFamily> {
+    fn get_cf_handle(&self, cf_name: &str) -> DbResult<ColumnFamily> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
@@ -375,7 +375,7 @@ impl RocksDbClient {
         
         // Get the column family handle directly from the DB
         match db.cf_handle(cf_name) {
-            Some(cf) => Ok(cf),
+            Some(cf) => Ok(cf.clone()),
             None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
         }
     }

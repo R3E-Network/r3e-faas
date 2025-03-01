@@ -167,6 +167,10 @@ impl UserRepository {
 }
 
 // Implement the DbRepository trait using the macro
-crate::rocksdb::impl_db_repository!(UserRepository, User, String, CF_USERS, |user: &User| user
-    .id
-    .clone());
+crate::rocksdb::impl_db_repository!(
+    UserRepository, 
+    User, 
+    String, 
+    CF_USERS, 
+    |user: &User| -> String { user.id.clone() }
+);
