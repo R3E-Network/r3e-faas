@@ -1,3 +1,47 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{float}
+
+% Remove algorithmic package since it's not available
+% We'll need to modify the protocol environments to use standard LaTeX environments
+
+% Define the definition environment
+\newtheorem{definition}{Definition}
+\newtheorem{protocol}{Protocol}
+
+% Define a custom environment for algorithmic listings
+\newenvironment{algorithmic}[1][]
+  {\begin{quote}\begin{tabular}{l}}
+  {\end{tabular}\end{quote}}
+  
+\newcommand{\State}{\item}
+\newcommand{\If}{\item \textbf{If} }
+\newcommand{\Else}{\item \textbf{Else} }
+\newcommand{\ElsIf}{\item \textbf{Else If} }
+\newcommand{\EndIf}{\item \textbf{End If}}
+\newcommand{\For}{\item \textbf{For} }
+\newcommand{\EndFor}{\item \textbf{End For}}
+\newcommand{\While}{\item \textbf{While} }
+\newcommand{\EndWhile}{\item \textbf{End While}}
+\newcommand{\Require}{\item \textbf{Require:} }
+\newcommand{\Ensure}{\item \textbf{Ensure:} }
+\newcommand{\Return}{\item \textbf{Return} }
+
+\title{Neo Service Layer Whitepaper}
+\author{R3E Network}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
 \section{Neo Service Layer}
 \label{sec:neo-service-layer}
 
@@ -1174,6 +1218,8 @@ This section provides formal specifications for the protocols that govern the op
 
 \subsection{Conclusion}
 \label{subsec:nsl-conclusion}
+
+\end{document}
 
 The Neo Service Layer represents a significant advancement in blockchain infrastructure, bridging the gap between on-chain security and off-chain capabilities. By providing a comprehensive suite of services specifically designed for the Neo ecosystem, the Service Layer enables developers to build more powerful, user-friendly, and versatile applications.
 
