@@ -26,20 +26,6 @@ url         = { version = "2" }
 primitive-types = { version = "0.13.1" }
 serde_json  = { version = "1.0" }
 
-<<<<<<< Updated upstream
-||||||| constructed merge base
-# Missing dependencies
-log         = { version = "0.4" }
-uuid        = { version = "1.4", features = ["v4", "serde"] }
-chrono      = { version = "0.4", features = ["serde"] }
-chrono-tz   = { version = "0.8" }
-cron        = { version = "0.12" }
-jsonpath_lib = { version = "0.3" }
-reqwest     = { version = "0.11", features = ["json"] }
-regex       = { version = "1.9" }
-ethers      = { version = "2.0", features = ["legacy"] }
-
-=======
 # Missing dependencies
 log         = { version = "0.4" }
 uuid        = { version = "1.4", features = ["v4", "serde"] }
@@ -53,8 +39,6 @@ regex       = { version = "1.9" }
 ethers      = { version = "2.0", features = ["legacy"] }
 rand        = { version = "0.8", features = ["std"] }
 std-semaphore = { version = "0.1" }
-
->>>>>>> Stashed changes
 
 [dev-dependencies]
 deno_core   = { version = "0.340.0" }
