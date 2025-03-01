@@ -6,24 +6,23 @@ name = "r3e-event"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 r3e-core    = { path = "../r3e-core" }
 r3e-store   = { path = "../r3e-store" }
 
-thiserror   = { version = "2.0.11" }
+thiserror   = { version = "1.0" }
 serde       = { version = "1", features = ["derive"] }
 
-tokio       =  { version = "1", features = ["full"]}
+tokio       = { version = "1", features = ["full"]}
 async-trait = { version = "0.1" }
 
-prost       = { version = "0.13" }
-tonic       = { version = "0.12" }
+prost       = { version = "0.11" }
+tonic       = { version = "0.8" }
 
 # Neo N3 SDK
 neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 url         = { version = "2" }
-primitive-types = { version = "0.13.1" }
+primitive-types = { version = "0.12.1" }
 serde_json  = { version = "1.0" }
 
 # Missing dependencies
@@ -41,12 +40,11 @@ rand        = { version = "0.8", features = ["std"] }
 std-semaphore = { version = "0.1" }
 
 [dev-dependencies]
-deno_core   = { version = "0.340.0" }
-
+deno_core   = { version = "0.68.0" }
 serde_json  = { version = "1" }
-serde_v8    = { version = "0.180.0" }
-v8 = { version = "0.87.0", default-features = false }
+serde_v8    = { version = "0.68.0" }
+v8 = { version = "0.68.0", default-features = false }
 
 [build-dependencies]
-prost-build = { version = "0.13" }
-tonic-build = { version = "0.12" }
+prost-build = { version = "0.11" }
+tonic-build = { version = "0.8" }
