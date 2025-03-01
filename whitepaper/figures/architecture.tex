@@ -1,46 +1,57 @@
-\begin{figure}[htbp]
+\begin{figure}[h]
 \centering
-\begin{tikzpicture}[
-    scale=0.9,
-    box/.style={rectangle, draw=black!70, rounded corners=3pt, 
-               fill=#1, text width=6cm, align=center, minimum height=1cm,
-               drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}},
-    arrow/.style={->, >=stealth, thick, draw=black!70},
-    layer/.style={box=#1, text width=6cm},
-    component/.style={rectangle, draw=black!70, rounded corners=3pt, 
-                 fill=white, text width=2.5cm, align=center, minimum height=0.8cm,
-                 pattern=#1, pattern color=black!20,
-                 drop shadow={opacity=0.15, shadow xshift=0.5mm, shadow yshift=-0.5mm}}
-]
-
-% Architecture layers with increased vertical spacing and patterns instead of colors
-\node[layer=white, pattern=north east lines, pattern color=black!20] (apps) at (0,6) {Applications};
-\node[layer=white, pattern=north west lines, pattern color=black!20] (api) at (0,4) {API Layer};
-\node[layer=white, pattern=crosshatch, pattern color=black!20] (services) at (0,1.5) {Service Layer};
-\node[layer=white, pattern=dots, pattern color=black!20] (integration) at (0,-1) {Integration Layer};
-\node[layer=white, pattern=grid, pattern color=black!20] (neo) at (0,-3) {Neo N3 Blockchain};
-
-% Service components
-\node[component=north east lines] (gas) at (-3,1.5) {Gas Bank};
-\node[component=north west lines] (meta) at (-1,1.5) {Meta Tx};
-\node[component=crosshatch] (oracle) at (1,1.5) {Oracle};
-\node[component=dots] (tee) at (3,1.5) {TEE};
-\node[component=grid] (abstract) at (0,0) {Abstract Account};
-
-% Arrows connecting layers
-\draw[arrow] (apps) -- (api);
-\draw[arrow] (api) -- (services);
-\draw[arrow] (services) -- (integration);
-\draw[arrow] (integration) -- (neo);
-
-% Sample blocks - using absolute positioning with adequate spacing
-\node at ($(apps.east)+(4cm,0)$) [font=\small, align=left] {dApps, Wallets, User Interfaces};
-\node at ($(api.east)+(4cm,0)$) [font=\small, align=left] {REST, GraphQL, WebSockets};
-\node at ($(services.east)+(4cm,0)$) [font=\small, align=left] {Core Service Components};
-\node at ($(integration.east)+(4cm,0)$) [font=\small, align=left] {Event Monitoring, State Sync};
-\node at ($(neo.east)+(4cm,0)$) [font=\small, align=left] {Smart Contracts, Consensus};
-
+\begin{tikzpicture}[node distance=1.5cm, auto, thick]
+    % Define styles
+    \tikzstyle{layer} = [rectangle, draw, fill=blue!20, text width=16em, text centered, rounded corners, minimum height=3em]
+    \tikzstyle{component} = [rectangle, draw, fill=green!20, text width=7em, text centered, rounded corners, minimum height=2.5em]
+    \tikzstyle{line} = [draw, ->]
+    
+    % Place nodes - layers
+    \node [layer] (blockchain) {Neo N3 Blockchain};
+    \node [layer, below of=blockchain, node distance=5cm] (integration) {Integration Layer};
+    \node [layer, below of=integration, node distance=5cm] (service) {Service Layer};
+    \node [layer, below of=service, node distance=5cm] (api) {API Layer};
+    \node [layer, below of=api, node distance=3cm] (app) {Applications};
+    
+    % Place nodes - components in Integration Layer
+    \node [component, above of=integration, node distance=1.5cm, xshift=-4cm] (event) {Event System};
+    \node [component, above of=integration, node distance=1.5cm] (tx) {Transaction Manager};
+    \node [component, above of=integration, node distance=1.5cm, xshift=4cm] (state) {State Sync};
+    
+    % Place nodes - components in Service Layer
+    \node [component, above of=service, node distance=1.5cm, xshift=-6cm] (gas) {Gas Bank};
+    \node [component, above of=service, node distance=1.5cm, xshift=-3cm] (meta) {Meta Tx};
+    \node [component, above of=service, node distance=1.5cm] (oracle) {Oracle};
+    \node [component, above of=service, node distance=1.5cm, xshift=3cm] (tee) {TEE};
+    \node [component, above of=service, node distance=1.5cm, xshift=6cm] (account) {Abstract Account};
+    
+    % Place nodes - components in API Layer
+    \node [component, above of=api, node distance=1.5cm, xshift=-4cm] (rest) {REST API};
+    \node [component, above of=api, node distance=1.5cm] (graphql) {GraphQL};
+    \node [component, above of=api, node distance=1.5cm, xshift=4cm] (websocket) {WebSocket};
+    
+    % Draw edges between layers
+    \path [line] (blockchain) -- (integration);
+    \path [line] (integration) -- (service);
+    \path [line] (service) -- (api);
+    \path [line] (api) -- (app);
+    
+    % Connect components to layers
+    \path [line] (event) -- (blockchain);
+    \path [line] (tx) -- (blockchain);
+    \path [line] (state) -- (blockchain);
+    
+    \path [line] (gas) -- (integration);
+    \path [line] (meta) -- (integration);
+    \path [line] (oracle) -- (integration);
+    \path [line] (tee) -- (integration);
+    \path [line] (account) -- (integration);
+    
+    \path [line] (rest) -- (service);
+    \path [line] (graphql) -- (service);
+    \path [line] (websocket) -- (service);
+    
 \end{tikzpicture}
 \caption{Neo Service Layer Architecture}
-\label{fig:nsl-architecture}
+\label{fig:architecture}
 \end{figure}

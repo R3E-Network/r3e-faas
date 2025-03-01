@@ -86,103 +86,17 @@ pub struct ServiceFunctionParameter {
 pub async fn list_services(
     State(service): State<Arc<EndpointService>>,
 ) -> Result<Json<Vec<Service>>, Error> {
-    // In a real implementation, this would fetch the services from a database
-    // or service registry
-
-    // For this example, we'll return a mock response
-    let services = vec![
-        Service {
-            id: Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap(),
-            name: "Gas Bank Service".to_string(),
-            description: "Provides gas for transactions".to_string(),
-            service_type: "core".to_string(),
-            version: "1.0.0".to_string(),
-            functions: vec![
-                ServiceFunction {
-                    name: "deposit".to_string(),
-                    description: "Deposit gas to the gas bank".to_string(),
-                    parameters: vec![ServiceFunctionParameter {
-                        name: "amount".to_string(),
-                        description: "Amount to deposit".to_string(),
-                        parameter_type: "u64".to_string(),
-                        required: true,
-                    }],
-                    return_type: "bool".to_string(),
-                    requires_auth: true,
-                    requires_signature: true,
-                },
-                ServiceFunction {
-                    name: "withdraw".to_string(),
-                    description: "Withdraw gas from the gas bank".to_string(),
-                    parameters: vec![ServiceFunctionParameter {
-                        name: "amount".to_string(),
-                        description: "Amount to withdraw".to_string(),
-                        parameter_type: "u64".to_string(),
-                        required: true,
-                    }],
-                    return_type: "bool".to_string(),
-                    requires_auth: true,
-                    requires_signature: true,
-                },
-                ServiceFunction {
-                    name: "balance".to_string(),
-                    description: "Get the gas bank balance".to_string(),
-                    parameters: vec![],
-                    return_type: "u64".to_string(),
-                    requires_auth: true,
-                    requires_signature: false,
-                },
-            ],
-            created_at: 1609459200,
-            updated_at: 1609459200,
-        },
-        Service {
-            id: Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap(),
-            name: "Meta Transaction Service".to_string(),
-            description: "Provides meta transaction functionality".to_string(),
-            service_type: "core".to_string(),
-            version: "1.0.0".to_string(),
-            functions: vec![
-                ServiceFunction {
-                    name: "submit".to_string(),
-                    description: "Submit a meta transaction".to_string(),
-                    parameters: vec![
-                        ServiceFunctionParameter {
-                            name: "tx_data".to_string(),
-                            description: "Transaction data".to_string(),
-                            parameter_type: "string".to_string(),
-                            required: true,
-                        },
-                        ServiceFunctionParameter {
-                            name: "signature".to_string(),
-                            description: "Signature".to_string(),
-                            parameter_type: "string".to_string(),
-                            required: true,
-                        },
-                    ],
-                    return_type: "string".to_string(),
-                    requires_auth: true,
-                    requires_signature: true,
-                },
-                ServiceFunction {
-                    name: "status".to_string(),
-                    description: "Get the status of a meta transaction".to_string(),
-                    parameters: vec![ServiceFunctionParameter {
-                        name: "id".to_string(),
-                        description: "Transaction ID".to_string(),
-                        parameter_type: "string".to_string(),
-                        required: true,
-                    }],
-                    return_type: "string".to_string(),
-                    requires_auth: true,
-                    requires_signature: false,
-                },
-            ],
-            created_at: 1609459200,
-            updated_at: 1609459200,
-        },
-    ];
-
+    // Fetch services from the database
+    let services = service.db_client.list_services().await
+        .map_err(|e| Error::Internal(format!("Database error: {}", e)))?;
+        
+    // If no services found, return empty array instead of error
+    if services.is_empty() {
+        log::info!("No services found in database");
+    } else {
+        log::info!("Found {} services", services.len());
+    }
+    
     Ok(Json(services))
 }
 
@@ -191,108 +105,31 @@ pub async fn get_service(
     State(service): State<Arc<EndpointService>>,
     Path(id): Path<String>,
 ) -> Result<Json<Service>, Error> {
-    // In a real implementation, this would fetch the service from a database
-    // or service registry
-
-    // For this example, we'll return a mock response
+    // Parse the service ID
     let service_id = Uuid::parse_str(&id)
         .map_err(|e| Error::Validation(format!("Invalid service ID: {}", e)))?;
-
-    let service = match service_id.to_string().as_str() {
-        "00000000-0000-0000-0000-000000000001" => Service {
-            id: service_id,
-            name: "Gas Bank Service".to_string(),
-            description: "Provides gas for transactions".to_string(),
-            service_type: "core".to_string(),
-            version: "1.0.0".to_string(),
-            functions: vec![
-                ServiceFunction {
-                    name: "deposit".to_string(),
-                    description: "Deposit gas to the gas bank".to_string(),
-                    parameters: vec![ServiceFunctionParameter {
-                        name: "amount".to_string(),
-                        description: "Amount to deposit".to_string(),
-                        parameter_type: "u64".to_string(),
-                        required: true,
-                    }],
-                    return_type: "bool".to_string(),
-                    requires_auth: true,
-                    requires_signature: true,
-                },
-                ServiceFunction {
-                    name: "withdraw".to_string(),
-                    description: "Withdraw gas from the gas bank".to_string(),
-                    parameters: vec![ServiceFunctionParameter {
-                        name: "amount".to_string(),
-                        description: "Amount to withdraw".to_string(),
-                        parameter_type: "u64".to_string(),
-                        required: true,
-                    }],
-                    return_type: "bool".to_string(),
-                    requires_auth: true,
-                    requires_signature: true,
-                },
-                ServiceFunction {
-                    name: "balance".to_string(),
-                    description: "Get the gas bank balance".to_string(),
-                    parameters: vec![],
-                    return_type: "u64".to_string(),
-                    requires_auth: true,
-                    requires_signature: false,
-                },
-            ],
-            created_at: 1609459200,
-            updated_at: 1609459200,
-        },
-        "00000000-0000-0000-0000-000000000002" => Service {
-            id: service_id,
-            name: "Meta Transaction Service".to_string(),
-            description: "Provides meta transaction functionality".to_string(),
-            service_type: "core".to_string(),
-            version: "1.0.0".to_string(),
-            functions: vec![
-                ServiceFunction {
-                    name: "submit".to_string(),
-                    description: "Submit a meta transaction".to_string(),
-                    parameters: vec![
-                        ServiceFunctionParameter {
-                            name: "tx_data".to_string(),
-                            description: "Transaction data".to_string(),
-                            parameter_type: "string".to_string(),
-                            required: true,
-                        },
-                        ServiceFunctionParameter {
-                            name: "signature".to_string(),
-                            description: "Signature".to_string(),
-                            parameter_type: "string".to_string(),
-                            required: true,
-                        },
-                    ],
-                    return_type: "string".to_string(),
-                    requires_auth: true,
-                    requires_signature: true,
-                },
-                ServiceFunction {
-                    name: "status".to_string(),
-                    description: "Get the status of a meta transaction".to_string(),
-                    parameters: vec![ServiceFunctionParameter {
-                        name: "id".to_string(),
-                        description: "Transaction ID".to_string(),
-                        parameter_type: "string".to_string(),
-                        required: true,
-                    }],
-                    return_type: "string".to_string(),
-                    requires_auth: true,
-                    requires_signature: false,
-                },
-            ],
-            created_at: 1609459200,
-            updated_at: 1609459200,
-        },
-        _ => return Err(Error::NotFound(format!("Service not found: {}", id))),
+        
+    // Fetch the service from the database
+    let service_data = service.db_client.get_service(&service_id).await
+        .map_err(|e| Error::Internal(format!("Database error: {}", e)))?;
+        
+    // Check if service exists
+    let service_data = match service_data {
+        Some(service) => service,
+        None => {
+            log::warn!("Service not found: {}", service_id);
+            return Err(Error::NotFound(format!("Service not found: {}", service_id)));
+        }
     };
-
-    Ok(Json(service))
+    
+    // Check if service is enabled
+    if !service_data.is_enabled {
+        log::warn!("Service is disabled: {}", service_id);
+        return Err(Error::Forbidden("Service is disabled".into()));
+    }
+    
+    log::info!("Service found: {} ({})", service_data.name, service_id);
+    Ok(Json(service_data))
 }
 
 /// Invoke service handler
@@ -301,51 +138,171 @@ pub async fn invoke_service(
     Path(id): Path<String>,
     Json(request): Json<ServiceInvocationRequest>,
 ) -> Result<Json<ServiceInvocationResponse>, Error> {
-    // In a real implementation, this would invoke the service function
-    // and return the result
-
-    // For this example, we'll return a mock response
+    // Parse the service ID
     let service_id = Uuid::parse_str(&id)
         .map_err(|e| Error::Validation(format!("Invalid service ID: {}", e)))?;
-
-    let invocation_id = Uuid::new_v4().to_string();
-    let start_time = Utc::now().timestamp_millis();
-
-    // Mock result based on service ID and function
-    let result = match (service_id.to_string().as_str(), request.function.as_str()) {
-        ("00000000-0000-0000-0000-000000000001", "balance") => {
-            serde_json::json!({ "balance": 1000 })
-        }
-        ("00000000-0000-0000-0000-000000000001", "deposit") => {
-            serde_json::json!({ "success": true })
-        }
-        ("00000000-0000-0000-0000-000000000001", "withdraw") => {
-            serde_json::json!({ "success": true })
-        }
-        ("00000000-0000-0000-0000-000000000002", "submit") => {
-            serde_json::json!({ "request_id": Uuid::new_v4().to_string() })
-        }
-        ("00000000-0000-0000-0000-000000000002", "status") => {
-            serde_json::json!({ "status": "pending" })
-        }
-        _ => {
-            return Err(Error::NotFound(format!(
-                "Service function not found: {}.{}",
-                id, request.function
-            )))
+        
+    // Fetch the service from the database
+    let service_data = service.db_client.get_service(&service_id).await
+        .map_err(|e| Error::Internal(format!("Database error: {}", e)))?;
+    
+    // Check if service exists
+    let service_data = match service_data {
+        Some(s) => s,
+        None => {
+            log::warn!("Service not found: {}", service_id);
+            return Err(Error::NotFound(format!("Service not found: {}", service_id)));
         }
     };
-
+    
+    // Check if service is enabled
+    if !service_data.is_enabled {
+        log::warn!("Service is disabled: {}", service_id);
+        return Err(Error::Forbidden("Service is disabled".into()));
+    }
+    
+    // Find the function in the service
+    let function = service_data.functions.iter().find(|f| f.name == request.function);
+    
+    // Check if function exists
+    let function = match function {
+        Some(f) => f,
+        None => {
+            log::warn!("Function not found: {}.{}", service_id, request.function);
+            return Err(Error::NotFound(format!(
+                "Function not found: {}.{}",
+                service_id, request.function
+            )));
+        }
+    };
+    
+    // Check function auth requirements
+    if function.requires_auth && request.auth_token.is_none() {
+        log::warn!("Auth token required for function: {}.{}", service_id, request.function);
+        return Err(Error::Authentication("Auth token required".into()));
+    }
+    
+    // Verify authentication if present
+    if let Some(token) = &request.auth_token {
+        match crate::utils::verify_jwt_token(token, &service.config.jwt_secret) {
+            Ok(_) => {
+                log::debug!("Auth token verified for function: {}.{}", service_id, request.function);
+            }
+            Err(e) => {
+                log::warn!("Invalid auth token for function: {}.{}: {}", service_id, request.function, e);
+                return Err(Error::Authentication("Invalid auth token".into()));
+            }
+        }
+    }
+    
+    // Check signature requirements
+    if function.requires_signature && request.signature.is_none() {
+        log::warn!("Signature required for function: {}.{}", service_id, request.function);
+        return Err(Error::Authentication("Signature required".into()));
+    }
+    
+    // Verify signature if present
+    if let Some(sig_data) = &request.signature {
+        let signature_valid = crate::utils::verify_signature(
+            &sig_data.blockchain_type,
+            &sig_data.signature_curve,
+            &sig_data.address,
+            &serde_json::to_string(&request.parameters).unwrap_or_default(),
+            &sig_data.signature,
+        )?;
+        
+        if !signature_valid {
+            log::warn!("Invalid signature for function: {}.{}", service_id, request.function);
+            return Err(Error::Authentication("Invalid signature".into()));
+        }
+    }
+    
+    // Validate parameters
+    for param_def in &function.parameters {
+        if param_def.required {
+            if !request.parameters.contains_key(&param_def.name) {
+                log::warn!(
+                    "Required parameter missing: {}.{}.{}",
+                    service_id, request.function, param_def.name
+                );
+                return Err(Error::Validation(format!(
+                    "Required parameter missing: {}",
+                    param_def.name
+                )));
+            }
+        }
+    }
+    
+    // Generate invocation ID
+    let invocation_id = Uuid::new_v4().to_string();
+    
+    // Record start time
+    let start_time = Utc::now().timestamp_millis();
+    
+    // Execute the service function
+    let result = match service.service_registry.invoke_service(
+        &service_id,
+        &request.function,
+        &request.parameters,
+        request.auth_token.as_deref(),
+        request.signature.as_ref(),
+    ).await {
+        Ok(result) => {
+            log::info!(
+                "Service function executed successfully: {}.{} ({})",
+                service_id, request.function, invocation_id
+            );
+            result
+        }
+        Err(e) => {
+            log::error!(
+                "Service function execution failed: {}.{} ({}): {}",
+                service_id, request.function, invocation_id, e
+            );
+            
+            // Record the invocation in the database as failed
+            let _ = service.db_client.record_service_invocation(
+                &invocation_id,
+                &service_id,
+                &request.function,
+                &request.parameters,
+                None,
+                Some(&e.to_string()),
+                "error",
+                start_time,
+                Utc::now().timestamp_millis()
+            ).await;
+            
+            return Err(Error::Internal(format!("Service execution failed: {}", e)));
+        }
+    };
+    
+    // Calculate execution time
     let end_time = Utc::now().timestamp_millis();
-
+    let execution_time = end_time - start_time;
+    
+    // Record the invocation in the database
+    let _ = service.db_client.record_service_invocation(
+        &invocation_id,
+        &service_id,
+        &request.function,
+        &request.parameters,
+        Some(&result),
+        None,
+        "success",
+        start_time,
+        end_time
+    ).await;
+    
+    // Construct response
     let response = ServiceInvocationResponse {
         invocation_id,
         result,
         status: "success".to_string(),
         error: None,
-        execution_time_ms: (end_time - start_time) as u64,
+        execution_time_ms: execution_time as u64,
         timestamp: Utc::now().timestamp() as u64,
     };
-
+    
     Ok(Json(response))
 }

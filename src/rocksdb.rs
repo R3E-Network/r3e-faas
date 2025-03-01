@@ -15,8 +15,6 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::*;
-
 #[derive(Debug, Error)]
 pub enum DbError {
     #[error("RocksDB error: {0}")]
@@ -555,7 +553,7 @@ impl RocksDbClient {
 
 /// Asynchronous RocksDB client
 pub struct AsyncRocksDbClient {
-    inner: Arc<RocksDbClient>,
+    pub inner: Arc<RocksDbClient>,
 }
 
 impl AsyncRocksDbClient {
@@ -711,29 +709,29 @@ pub trait DbRepository<T, ID> {
 macro_rules! impl_db_repository {
     ($repo:ident, $entity:ty, $id:ty, $cf_name:expr, $id_fn:expr) => {
         #[async_trait::async_trait]
-        impl $crate::rocksdb::DbRepository<$entity, $id> for $repo {
-            async fn get_by_id(&self, id: &$id) -> $crate::rocksdb::DbResult<Option<$entity>> {
+        impl crate::rocksdb::DbRepository<$entity, $id> for $repo {
+            async fn get_by_id(&self, id: &$id) -> crate::rocksdb::DbResult<Option<$entity>> {
                 let key = format!("{}", id);
                 self.db.get_cf($cf_name, key).await
             }
 
-            async fn save(&self, entity: &$entity) -> $crate::rocksdb::DbResult<()> {
+            async fn save(&self, entity: &$entity) -> crate::rocksdb::DbResult<()> {
                 let id = $id_fn(entity);
                 let key = format!("{}", id);
                 self.db.put_cf($cf_name, key, entity).await
             }
 
-            async fn delete(&self, id: &$id) -> $crate::rocksdb::DbResult<()> {
+            async fn delete(&self, id: &$id) -> crate::rocksdb::DbResult<()> {
                 let key = format!("{}", id);
                 self.db.delete_cf($cf_name, key).await
             }
 
-            async fn exists(&self, id: &$id) -> $crate::rocksdb::DbResult<bool> {
+            async fn exists(&self, id: &$id) -> crate::rocksdb::DbResult<bool> {
                 let key = format!("{}", id);
                 self.db.exists_cf($cf_name, key).await
             }
 
-            async fn list_all(&self) -> $crate::rocksdb::DbResult<Vec<$entity>> {
+            async fn list_all(&self) -> crate::rocksdb::DbResult<Vec<$entity>> {
                 // This is a simplified implementation that loads all entities in memory
                 // For a real implementation with large datasets, consider using pagination
                 let inner = self.db.inner.clone();
@@ -745,11 +743,11 @@ macro_rules! impl_db_repository {
                     Ok(entities)
                 })
                 .await
-                .map_err(|e| $crate::rocksdb::DbError::TransactionFailed(e.to_string()))?
+                .map_err(|e| crate::rocksdb::DbError::TransactionFailed(e.to_string()))?
             }
         }
     };
 }
 
 // Re-export
-pub use impl_db_repository;
+pub use impl_db_repository; 

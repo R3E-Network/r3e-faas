@@ -42,3 +42,12 @@ pub fn create_router(service: Arc<EndpointService>) -> Router {
         // Add the service state
         .with_state(service)
 }
+
+pub fn auth_routes() -> Router<Arc<EndpointService>> {
+    Router::new()
+        // Wallet authentication routes 
+        .route("/wallet/connect", post(auth::connect_wallet))
+        .route("/wallet/authenticate", post(auth::authenticate_wallet))
+        // Token refresh route
+        .route("/refresh", post(auth::refresh))
+}

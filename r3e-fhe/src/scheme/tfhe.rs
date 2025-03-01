@@ -173,54 +173,113 @@ impl TfheScheme {
     
     /// Multiply two ciphertexts using TFHE.
     fn multiply_tfhe(&self, ciphertext1: &[u8], ciphertext2: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to multiply the ciphertexts
-        // For now, we'll create a placeholder
+        use tfhe::integer::RadixCiphertext;
+        use tfhe::shortint::ServerKey;
+        use bincode::{deserialize, serialize};
         
-        // Ensure the ciphertexts have the same length
-        if ciphertext1.len() != ciphertext2.len() {
-            return Err(FheError::InvalidInputError(
-                "Ciphertexts must have the same length".into(),
-            ));
-        }
+        // Deserialize the ciphertexts
+        let c1: RadixCiphertext = deserialize(ciphertext1)
+            .map_err(|e| FheError::SerializationError(format!("Failed to deserialize ciphertext1: {}", e)))?;
+            
+        let c2: RadixCiphertext = deserialize(ciphertext2)
+            .map_err(|e| FheError::SerializationError(format!("Failed to deserialize ciphertext2: {}", e)))?;
+            
+        // Extract server key parameters from the ciphertext
+        // In a real implementation, the server key would be managed by a secure key manager
+        // This is a simplified example that assumes the server key is available
+        let server_key_path = self.get_temp_file_path("server_key.bin");
+        let server_key: ServerKey = if server_key_path.exists() {
+            let data = std::fs::read(&server_key_path)
+                .map_err(|e| FheError::IoError(format!("Failed to read server key: {}", e)))?;
+                
+            deserialize(&data)
+                .map_err(|e| FheError::SerializationError(format!("Failed to deserialize server key: {}", e)))?
+        } else {
+            return Err(FheError::InvalidOperationError("Server key not found".into()));
+        };
         
-        // Create a simple "multiplication" by ANDing the ciphertexts
-        let mut result = Vec::with_capacity(ciphertext1.len());
-        for (i, &byte) in ciphertext1.iter().enumerate() {
-            result.push(byte & ciphertext2[i]);
-        }
+        // Multiply the ciphertexts
+        let result = server_key.mul(&c1, &c2);
         
-        Ok(result)
+        // Serialize the result
+        let result_data = serialize(&result)
+            .map_err(|e| FheError::SerializationError(format!("Failed to serialize result: {}", e)))?;
+            
+        Ok(result_data)
     }
     
     /// Negate a ciphertext using TFHE.
     fn negate_tfhe(&self, ciphertext: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the TFHE library to negate the ciphertext
-        // For now, we'll create a placeholder
+        use tfhe::integer::RadixCiphertext;
+        use tfhe::shortint::ServerKey;
+        use bincode::{deserialize, serialize};
         
-        // Create a simple "negation" by inverting the bits
-        let mut result = Vec::with_capacity(ciphertext.len());
-        for &byte in ciphertext.iter() {
-            result.push(!byte);
-        }
+        // Deserialize the ciphertext
+        let c: RadixCiphertext = deserialize(ciphertext)
+            .map_err(|e| FheError::SerializationError(format!("Failed to deserialize ciphertext: {}", e)))?;
+            
+        // Extract server key parameters
+        let server_key_path = self.get_temp_file_path("server_key.bin");
+        let server_key: ServerKey = if server_key_path.exists() {
+            let data = std::fs::read(&server_key_path)
+                .map_err(|e| FheError::IoError(format!("Failed to read server key: {}", e)))?;
+                
+            deserialize(&data)
+                .map_err(|e| FheError::SerializationError(format!("Failed to deserialize server key: {}", e)))?
+        } else {
+            return Err(FheError::InvalidOperationError("Server key not found".into()));
+        };
         
-        Ok(result)
+        // Negate the ciphertext
+        let result = server_key.neg(&c);
+        
+        // Serialize the result
+        let result_data = serialize(&result)
+            .map_err(|e| FheError::SerializationError(format!("Failed to serialize result: {}", e)))?;
+            
+        Ok(result_data)
     }
     
     /// Estimate the noise budget of a ciphertext.
     fn estimate_noise_budget_tfhe(&self, ciphertext: &[u8]) -> FheResult<Option<u32>> {
-        // In a real implementation, we would use the TFHE library to estimate the noise budget
-        // For now, we'll create a placeholder
+        use tfhe::integer::RadixCiphertext;
+        use tfhe::shortint::ServerKey;
+        use bincode::deserialize;
         
-        // Count the number of set bits as a simple "noise budget"
-        let mut count = 0;
-        for &byte in ciphertext.iter() {
-            count += byte.count_ones();
+        // Deserialize the ciphertext
+        let c: RadixCiphertext = deserialize(ciphertext)
+            .map_err(|e| FheError::SerializationError(format!("Failed to deserialize ciphertext: {}", e)))?;
+            
+        // Extract server key parameters
+        let server_key_path = self.get_temp_file_path("server_key.bin");
+        let server_key: ServerKey = if server_key_path.exists() {
+            let data = std::fs::read(&server_key_path)
+                .map_err(|e| FheError::IoError(format!("Failed to read server key: {}", e)))?;
+                
+            deserialize(&data)
+                .map_err(|e| FheError::SerializationError(format!("Failed to deserialize server key: {}", e)))?
+        } else {
+            return Err(FheError::InvalidOperationError("Server key not found".into()));
+        };
+        
+        // Calculate noise using the TFHE-rs library
+        // In TFHE-rs, this would be done by checking the noise level of each block
+        // For this example, we're using a simplified approach
+        let mut total_noise = 0;
+        let blocks = c.blocks();
+        for block in blocks {
+            let block_noise = server_key.measure_noise(block);
+            total_noise += block_noise as u32;
         }
         
-        // Return a value between 0 and 100
-        let budget = 100 - ((count as f32 / (ciphertext.len() * 8) as f32) * 100.0) as u32;
+        // Return average noise level (scaled out of 100)
+        let noise_budget = if blocks.len() > 0 {
+            Some((total_noise / blocks.len() as u32) % 100)
+        } else {
+            Some(0)
+        };
         
-        Ok(Some(budget))
+        Ok(noise_budget)
     }
 }
 
@@ -235,42 +294,51 @@ impl FheScheme for TfheScheme {
     }
 
     async fn generate_key_pair(&self, params: &FheParameters) -> FheResult<FheKeyPair> {
-        info!("Generating key pair with TFHE scheme");
-        debug!("Parameters: {:?}", params);
-
+        use tfhe::integer::gen_keys_radix;
+        use tfhe::shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
+        use bincode::serialize;
+        
         // Generate TFHE parameters
         let tfhe_params = self.generate_tfhe_params(params)?;
         
-        // In a real implementation, we would use the TFHE library to generate keys
-        // For now, we'll create a simple key pair
+        // Use the TFHE-rs library to generate key material
+        // Number of bits to use for the integers
+        let num_bits = params.key_size as usize;
         
-        let timestamp = Self::current_timestamp();
+        // Generate the client and server keys
+        let (client_key, server_key) = gen_keys_radix(PARAM_MESSAGE_2_CARRY_2, num_bits);
         
-        // Generate a random public key
-        let mut rng = rand::thread_rng();
-        let mut public_key_data = vec![0u8; 32];
-        rand::RngCore::fill_bytes(&mut rng, &mut public_key_data);
-        
-        // Generate a random private key
-        let mut private_key_data = vec![0u8; 32];
-        rand::RngCore::fill_bytes(&mut rng, &mut private_key_data);
+        // Serialize the keys
+        let public_key_data = serialize(&server_key)
+            .map_err(|e| FheError::SerializationError(format!("Failed to serialize server key: {}", e)))?;
+            
+        let private_key_data = serialize(&client_key)
+            .map_err(|e| FheError::SerializationError(format!("Failed to serialize client key: {}", e)))?;
+            
+        // Save the server key for future operations
+        let server_key_path = self.get_temp_file_path("server_key.bin");
+        std::fs::write(&server_key_path, &public_key_data)
+            .map_err(|e| FheError::IoError(format!("Failed to write server key: {}", e)))?;
         
         // Append the parameters to the keys
-        public_key_data.extend_from_slice(&tfhe_params);
-        private_key_data.extend_from_slice(&tfhe_params);
+        let mut public_key_with_params = public_key_data.clone();
+        public_key_with_params.extend_from_slice(&tfhe_params);
+        
+        let mut private_key_with_params = private_key_data;
+        private_key_with_params.extend_from_slice(&tfhe_params);
 
         let public_key = FhePublicKey {
             id: FhePublicKeyId::new(),
             scheme_type: FheSchemeType::Tfhe,
-            key_data: public_key_data,
-            created_at: timestamp,
+            key_data: public_key_with_params,
+            created_at: Self::current_timestamp(),
         };
 
         let private_key = FhePrivateKey {
             id: FhePrivateKeyId::new(),
             scheme_type: FheSchemeType::Tfhe,
-            key_data: private_key_data,
-            created_at: timestamp,
+            key_data: private_key_with_params,
+            created_at: Self::current_timestamp(),
         };
 
         let key_pair = FheKeyPair {
@@ -279,7 +347,7 @@ impl FheScheme for TfheScheme {
             public_key,
             private_key,
             parameters: params.clone(),
-            created_at: timestamp,
+            created_at: Self::current_timestamp(),
         };
 
         Ok(key_pair)

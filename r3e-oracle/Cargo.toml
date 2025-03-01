@@ -11,6 +11,9 @@ r3e-core    = { path = "../r3e-core" }
 # Neo N3 SDK
 neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 
+# Ethereum SDK
+ethers = { version = "2.0", features = ["abigen", "ws", "rustls"] }
+
 # Async runtime
 tokio       = { version = "1", features = ["full"] }
 futures     = { version = "0.3" }

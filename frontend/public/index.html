@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="R3E FaaS Platform - Functions as a Service for Neo N3 Ecosystem"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>R3E FaaS Platform</title>
+    
+    <!-- Neo wallet detection script -->
+    <script>
+      window.neoWalletLoaded = false;
+      window.walletDetectionAttempts = 0;
+      
+      // Listen for NeoLine ready event
+      window.addEventListener('NEOLine.NEO.EVENT.READY', () => {
+        console.log('NeoLine wallet detected and ready');
+        window.neoWalletLoaded = true;
+      });
+      
+      // Detect existing wallet instances
+      function detectWallets() {
+        if (window.NEOLineN3 || window.NEOLine || window.OneGate) {
+          console.log('Neo wallet detected', {
+            NEOLine: !!window.NEOLine,
+            NEOLineN3: !!window.NEOLineN3,
+            OneGate: !!window.OneGate
+          });
+          window.neoWalletLoaded = true;
+          return true;
+        }
+        
+        window.walletDetectionAttempts++;
+        
+        // Try up to 20 times (10 seconds)
+        if (window.walletDetectionAttempts < 20) {
+          setTimeout(detectWallets, 500);
+        }
+        
+        return false;
+      }
+      
+      // Start detection process
+      setTimeout(detectWallets, 500);
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    
+    <!-- NeoLine SDK Script -->
+    <script 
+      src="https://cdn.jsdelivr.net/npm/@neoline/neo-line@3.5.1/dist/neo3.js" 
+      integrity="sha256-hy6fsa7I/JtUtwSJQweNIxJBL/gXXZKnzOODLzXxCXE=" 
+      crossorigin="anonymous"
+      onerror="console.error('Failed to load NeoLine SDK');"
+      onload="console.log('NeoLine SDK loaded successfully');"
+    ></script>
+    
+    <!-- Fallback NeoLine SDK if the primary CDN fails -->
+    <script>
+      // Check if NeoLine loaded successfully
+      setTimeout(() => {
+        if (!window.NEOLineN3 && !window.NEOLine) {
+          console.log('Loading fallback NeoLine SDK...');
+          
+          // Create and append a fallback script
+          const fallbackScript = document.createElement('script');
+          fallbackScript.src = 'https://unpkg.com/@neoline/neo-line@3.5.1/dist/neo3.js';
+          fallbackScript.onerror = () => console.error('Failed to load fallback NeoLine SDK');
+          fallbackScript.onload = () => console.log('Fallback NeoLine SDK loaded successfully');
+          document.body.appendChild(fallbackScript);
+        }
+      }, 3000);
+    </script>
+    
+    <!-- You may also consider adding O3 or other Neo wallet SDK scripts if needed -->
+  </body>
+</html> 
