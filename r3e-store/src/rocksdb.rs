@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use ::rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
+    BlockBasedOptions, BoundColumnFamily, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, 
     DBCompressionType, Direction, Error as RocksError, IteratorMode, Options, ReadOptions, 
     SliceTransform, WriteBatch, DB,
 };
@@ -353,7 +353,7 @@ impl RocksDbClient {
     }
 
     /// Get a column family handle
-    fn get_cf_handle(&self, cf_name: &str) -> DbResult<&ColumnFamily> {
+    fn get_cf_handle(&self, cf_name: &str) -> DbResult<Arc<BoundColumnFamily<'_>>> {
         let db = self.get_db()?;
         
         // Check if we know about this column family
