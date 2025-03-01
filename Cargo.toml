@@ -1,4 +1,3 @@
-
 # Copyright @ 2023 - 2024, R3E Network
 # All Rights Reserved
 
@@ -41,14 +40,24 @@ opt-level = 3
 debug = false
 
 [package]
-name = "test-serde-v8"
+name = "r3e-faas-root"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+config = "0.13"
+log = "0.4"
+r3e-core = { path = "r3e-core" }
+r3e-deno = { path = "r3e-deno" }
+r3e-endpoints = { path = "r3e-endpoints" }
+r3e-event = { path = "r3e-event" }
+r3e-secrets = { path = "r3e-secrets" }
+r3e-store = { path = "r3e-store" }
+r3e-worker = { path = "r3e-worker" }
 serde = { version = "1", features = ["derive"] }
-serde_v8 = { version = "0.180.0" }
-v8 = { version = "0.87.0", default-features = false }
-
-[patch.crates-io]
-home = "=0.5.5"
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

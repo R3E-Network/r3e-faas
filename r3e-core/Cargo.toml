@@ -6,21 +6,20 @@ name = "r3e-core"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
-r3e-proc-macros = { path = "../r3e-proc-macros"}
+anyhow = "1.0"
+async-trait = "0.1"
+bytes = "1.2.1"
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1.0"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1.4", features = ["v4", "serde"] }
+v8 = { version = "0.68.0", default-features = false }
 
-v8 = { version = "0.87.0", default-features = false }
-
-log          = { version = "0.4" }
-signal-hook  = { version = "0.3" }
-
-cfg-if       = { version = "1" }
-git-version  = { version = "0.3" }
-compile-time = { version = "0.2" }
-const_format = { version = "0.2"}
-
-# Added dependencies
-serde        = { version = "1.0", features = ["derive"] }
-serde_json   = { version = "1.0" }
-thiserror    = { version = "1.0" }
+[dev-dependencies]
+tempfile = "3.8"
+tokio-test = "0.4"
