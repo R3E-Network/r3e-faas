@@ -420,9 +420,10 @@ impl RocksDbClient {
         K: AsRef<[u8]>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
-        db.delete_cf(&cf, key)?;
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        db.delete_cf(cf, key)?;
         Ok(())
     }
 
@@ -432,9 +433,10 @@ impl RocksDbClient {
         K: AsRef<[u8]>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
-        let value = db.get_cf(&cf, key)?;
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        let value = db.get_cf(cf, key)?;
         Ok(value.is_some())
     }
 
@@ -448,9 +450,10 @@ impl RocksDbClient {
         V: DeserializeOwned,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf_handle(cf_name)?;
+        let cf_name = self.get_cf_handle(cf_name)?;
 
-        let iter = db.iterator_cf(&cf, mode);
+        let cf = db.cf_handle(&cf_name).ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.clone()))?;
+        let iter = db.iterator_cf(cf, mode);
 
         let results: Vec<(Box<[u8]>, V)> = iter
             .map(|result| {
