@@ -3,135 +3,196 @@
 
 The Advanced Cryptographic Services Protocol defines how the TEE, FHE, and ZK services operate and interact with applications.
 
-\begin{protocol}[TEE Secure Execution]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=TEE Secure Execution Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{TEE Secure Execution}
 \label{prot:tee-execution}
 \begin{algorithmic}[1]
 \Require Code $C$, Input data $D$, TEE Service $T$, Requester $R$
 \Ensure Code is executed securely with confidentiality and integrity guarantees
 
-\State \textbf{TEE Selection:}
-\State $\text{teeType} \gets T.\text{selectTEEType}(C.\text{requirements})$
-\State $\text{teeInstance} \gets T.\text{allocateTEEInstance}(\text{teeType})$
-
-\State \textbf{Enclave Initialization:}
-\State $\text{enclave} \gets \text{teeInstance}.\text{createEnclave}()$
-\State $\text{enclaveID} \gets \text{enclave}.\text{getID}()$
-
-\State \textbf{Remote Attestation:}
-\State $\text{quote} \gets \text{enclave}.\text{generateQuote}(C.\text{hash})$
-\State $\text{attestationReport} \gets T.\text{verifyQuote}(\text{quote}, \text{teeType})$
-\State $T.\text{storeAttestationReport}(\text{enclaveID}, \text{attestationReport})$
-
-\State \textbf{Code Loading:}
-\State $\text{enclave}.\text{loadCode}(C)$
-
-\State \textbf{Secure Input Processing:}
-\State $\text{encryptedInput} \gets T.\text{encryptForEnclave}(D, \text{enclave}.\text{publicKey})$
-\State $\text{enclave}.\text{setInput}(\text{encryptedInput})$
-
-\State \textbf{Secure Execution:}
-\State $\text{enclave}.\text{execute}()$
-
-\State \textbf{Result Retrieval:}
-\State $\text{encryptedResult} \gets \text{enclave}.\text{getOutput}()$
-\State $\text{result} \gets T.\text{decryptFromEnclave}(\text{encryptedResult}, R.\text{privateKey})$
-
-\State \textbf{Result Verification:}
-\State $\text{resultHash} \gets \text{Hash}(\text{result})$
-\State $\text{signature} \gets \text{enclave}.\text{signResult}(\text{resultHash})$
-\State $\text{verified} \gets T.\text{verifyEnclaveSignature}(\text{enclaveID}, \text{resultHash}, \text{signature})$
-\If{$\neg \text{verified}$}
-    \State \Return $\{\text{error}: \text{"Result verification failed"}\}$
+\State \textbf{Code Validation:}
+\State $\text{valid} \gets \text{ValidateCode}(C)$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Invalid code format"
 \EndIf
 
-\State \textbf{Enclave Cleanup:}
-\State $\text{enclave}.\text{destroy}()$
-\State $T.\text{releaseTEEInstance}(\text{teeInstance})$
+\State \textbf{TEE Attestation:}
+\State $\text{quote} \gets T.\text{generateQuote}()$
+\State $\text{verified} \gets \text{VerifyAttestation}(\text{quote})$
+\If{$\neg \text{verified}$}
+    \State \textbf{reject} with "TEE attestation failed"
+\EndIf
 
-\State \Return $\{\text{success}: \text{true}, \text{result}: \text{result}, \text{attestation}: \text{attestationReport}, \text{signature}: \text{signature}\}$
+\State \textbf{Input Encryption:}
+\State $\text{pubKey} \gets T.\text{getPublicKey}()$
+\State $D_{\text{enc}} \gets \text{Encrypt}(D, \text{pubKey})$
+
+\State \textbf{Secure Channel Establishment:}
+\State $\text{sessionKey} \gets \text{EstablishSecureChannel}(R, T)$
+
+\State \textbf{Code and Data Transfer:}
+\State $\text{package} \gets \{\text{code}: C, \text{data}: D_{\text{enc}}\}$
+\State $\text{package}_{\text{enc}} \gets \text{Encrypt}(\text{package}, \text{sessionKey})$
+\State $T.\text{receivePackage}(\text{package}_{\text{enc}})$
+
+\State \textbf{Secure Execution:}
+\State $\text{execution} \gets T.\text{executeInEnclave}(C, D_{\text{enc}})$
+
+\State \textbf{Execution Monitoring:}
+\While{$\text{execution}.\text{isRunning}()$}
+    \State $\text{status} \gets T.\text{getExecutionStatus}()$
+    \If{$\text{status}.\text{error} \neq \text{null}$}
+        \State \textbf{reject} with $\text{status}.\text{error}$
+    \EndIf
+    \State $\text{Sleep}(100\text{ ms})$
+\EndWhile
+
+\State \textbf{Result Encryption:}
+\State $\text{result} \gets \text{execution}.\text{getResult}()$
+\State $\text{result}_{\text{enc}} \gets \text{Encrypt}(\text{result}, R.\text{publicKey})$
+
+\State \textbf{Result Signing:}
+\State $\text{signature} \gets T.\text{sign}(\text{result}_{\text{enc}})$
+
+\State \textbf{Result Delivery:}
+\State $\text{package} \gets \{\text{result}: \text{result}_{\text{enc}}, \text{signature}: \text{signature}, \text{attestation}: \text{quote}\}$
+\State $R.\text{deliverResult}(\text{package})$
+
+\State \Return $\{\text{status}: \text{"success"}, \text{attestation}: \text{quote}\}$
 \end{algorithmic}
 \end{protocol}
+\end{tcolorbox}
 
-\begin{protocol}[FHE Computation]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=FHE Computation Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{FHE Computation}
 \label{prot:fhe-computation}
 \begin{algorithmic}[1]
 \Require Function $F$, Encrypted inputs $E$, FHE Service $S$, FHE scheme $\text{scheme}$
 \Ensure Computation is performed on encrypted data without revealing the plaintext
 
-\State \textbf{Scheme Verification:}
-\State $\text{supported} \gets S.\text{supportsScheme}(\text{scheme})$
-\If{$\neg \text{supported}$}
-    \State \Return $\{\text{error}: \text{"Unsupported FHE scheme"}\}$
+\State \textbf{Scheme Validation:}
+\State $\text{valid} \gets \text{ValidateScheme}(\text{scheme})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Unsupported FHE scheme"
 \EndIf
 
 \State \textbf{Function Compilation:}
-\State $\text{compiledFunction} \gets S.\text{compileFunction}(F, \text{scheme})$
-
-\State \textbf{Input Validation:}
-\For{each $\text{input} \in E$}
-    \State $\text{valid} \gets S.\text{validateEncryptedInput}(\text{input}, \text{scheme})$
-    \If{$\neg \text{valid}$}
-        \State \Return $\{\text{error}: \text{"Invalid encrypted input"}\}$
-    \EndIf
-\EndFor
-
-\State \textbf{Execution Planning:}
-\State $\text{executionPlan} \gets S.\text{createExecutionPlan}(\text{compiledFunction}, E)$
-
-\State \textbf{Homomorphic Execution:}
-\State $\text{encryptedResult} \gets S.\text{executeHomomorphically}(\text{executionPlan})$
-
-\State \textbf{Result Verification:}
-\State $\text{valid} \gets S.\text{validateEncryptedResult}(\text{encryptedResult}, \text{scheme})$
-\If{$\neg \text{valid}$}
-    \State \Return $\{\text{error}: \text{"Invalid encrypted result"}\}$
+\State $F_{\text{fhe}} \gets S.\text{compileFHEFunction}(F, \text{scheme})$
+\If{$F_{\text{fhe}} = \text{null}$}
+    \State \textbf{reject} with "Function compilation failed"
 \EndIf
 
-\State \Return $\{\text{success}: \text{true}, \text{encryptedResult}: \text{encryptedResult}\}$
+\State \textbf{Input Validation:}
+\State $\text{valid} \gets \text{ValidateEncryptedInputs}(E, F_{\text{fhe}}.\text{inputTypes})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Invalid encrypted inputs"
+\EndIf
+
+\State \textbf{Computation Environment Setup:}
+\State $\text{env} \gets S.\text{createComputationEnvironment}(\text{scheme})$
+\State $\text{env}.\text{loadFunction}(F_{\text{fhe}})$
+
+\State \textbf{Computation Execution:}
+\State $\text{result}_{\text{enc}} \gets \text{env}.\text{execute}(E)$
+
+\State \textbf{Result Verification:}
+\State $\text{valid} \gets \text{VerifyFHEResult}(\text{result}_{\text{enc}}, F_{\text{fhe}}.\text{outputType})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Invalid computation result"
+\EndIf
+
+\State \textbf{Result Packaging:}
+\State $\text{package} \gets \{\text{result}: \text{result}_{\text{enc}}, \text{scheme}: \text{scheme}, \text{function}: F_{\text{fhe}}.\text{id}\}$
+
+\State \Return $\text{package}$
 \end{algorithmic}
 \end{protocol}
+\end{tcolorbox}
 
-\begin{protocol}[Zero-Knowledge Proof Generation]
+\begin{tcolorbox}[
+    enhanced,
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    arc=5mm,
+    boxrule=1.5pt,
+    title=Zero-Knowledge Proof Generation Protocol,
+    fonttitle=\bfseries,
+    coltitle=white,
+    attach boxed title to top left={yshift=-2mm, xshift=5mm},
+    boxed title style={colback=blue!75!black, rounded corners},
+    shadow={2mm}{-2mm}{0mm}{black!50},
+    drop fuzzy shadow
+]
+\begin{protocol}{Zero-Knowledge Proof Generation}
 \label{prot:zk-proof-generation}
 \begin{algorithmic}[1]
 \Require Circuit $C$, Witness $W$, Public inputs $P$, ZK Service $Z$, Proof system $\text{system}$
-\Ensure A valid zero-knowledge proof is generated that can be verified without revealing the witness
+\Ensure Valid zero-knowledge proof is generated
 
-\State \textbf{System Verification:}
-\State $\text{supported} \gets Z.\text{supportsProofSystem}(\text{system})$
-\If{$\neg \text{supported}$}
-    \State \Return $\{\text{error}: \text{"Unsupported proof system"}\}$
+\State \textbf{System Validation:}
+\State $\text{valid} \gets \text{ValidateProofSystem}(\text{system})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Unsupported proof system"
 \EndIf
 
 \State \textbf{Circuit Compilation:}
-\State $\text{compiledCircuit} \gets Z.\text{compileCircuit}(C, \text{system})$
-
-\State \textbf{Setup Phase:}
-\If{$\text{system}.\text{requiresTrustedSetup}()$}
-    \State $\text{setupParams} \gets Z.\text{getSetupParameters}(\text{compiledCircuit})$
-    \If{$\text{setupParams} = \text{null}$}
-        \State $\text{setupParams} \gets Z.\text{performTrustedSetup}(\text{compiledCircuit})$
-        \State $Z.\text{storeSetupParameters}(\text{compiledCircuit}.\text{hash}, \text{setupParams})$
-    \EndIf
-\Else
-    \State $\text{setupParams} \gets Z.\text{generateVerificationKey}(\text{compiledCircuit})$
+\State $C_{\text{compiled}} \gets Z.\text{compileCircuit}(C, \text{system})$
+\If{$C_{\text{compiled}} = \text{null}$}
+    \State \textbf{reject} with "Circuit compilation failed"
 \EndIf
 
-\State \textbf{Witness Validation:}
-\State $\text{valid} \gets Z.\text{validateWitness}(W, \text{compiledCircuit})$
+\State \textbf{Setup Phase:}
+\State $\{\text{pk}, \text{vk}\} \gets Z.\text{setup}(C_{\text{compiled}})$
+
+\State \textbf{Input Validation:}
+\State $\text{valid} \gets \text{ValidateWitness}(W, C_{\text{compiled}})$
 \If{$\neg \text{valid}$}
-    \State \Return $\{\text{error}: \text{"Invalid witness"}\}$
+    \State \textbf{reject} with "Invalid witness"
+\EndIf
+\State $\text{valid} \gets \text{ValidatePublicInputs}(P, C_{\text{compiled}})$
+\If{$\neg \text{valid}$}
+    \State \textbf{reject} with "Invalid public inputs"
 \EndIf
 
 \State \textbf{Proof Generation:}
-\State $\text{proof} \gets Z.\text{generateProof}(\text{compiledCircuit}, W, P, \text{setupParams})$
+\State $\pi \gets Z.\text{prove}(C_{\text{compiled}}, \text{pk}, W, P)$
 
 \State \textbf{Proof Verification:}
-\State $\text{verified} \gets Z.\text{verifyProof}(\text{proof}, P, \text{setupParams}.\text{verificationKey})$
+\State $\text{verified} \gets Z.\text{verify}(C_{\text{compiled}}, \text{vk}, \pi, P)$
 \If{$\neg \text{verified}$}
-    \State \Return $\{\text{error}: \text{"Generated proof verification failed"}\}$
+    \State \textbf{reject} with "Proof verification failed"
 \EndIf
 
-\State \Return $\{\text{success}: \text{true}, \text{proof}: \text{proof}, \text{verificationKey}: \text{setupParams}.\text{verificationKey}\}$
+\State \textbf{Result Packaging:}
+\State $\text{package} \gets \{\text{proof}: \pi, \text{verificationKey}: \text{vk}, \text{publicInputs}: P, \text{system}: \text{system}\}$
+
+\State \Return $\text{package}$
 \end{algorithmic}
 \end{protocol}
+\end{tcolorbox}
