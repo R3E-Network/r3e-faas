@@ -72,15 +72,16 @@ impl UserRepository {
     }
 
     /// Find user by username
-    pub async fn find_by_username(&self, username: &str) -> DbResult<Option<User>> {
+    pub async fn find_by_username(&self, username: String) -> DbResult<Option<User>> {
         // In a real implementation, we would use a secondary index
         // For simplicity, we'll scan all users
         let inner = self.db.inner.clone();
         let cf_name = CF_USERS.to_string();
 
         tokio::task::spawn_blocking(move || {
-            let iter = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
-            let user = iter
+            let users = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
+            let user = users
+                .into_iter()
                 .filter_map(|(_, user)| {
                     if user.username == username {
                         Some(user)
@@ -97,15 +98,16 @@ impl UserRepository {
     }
 
     /// Find users by email
-    pub async fn find_by_email(&self, email: &str) -> DbResult<Option<User>> {
+    pub async fn find_by_email(&self, email: String) -> DbResult<Option<User>> {
         // Similar to find_by_username, we'll scan all users
         let inner = self.db.inner.clone();
         let cf_name = CF_USERS.to_string();
         let email = email.to_lowercase(); // Normalize email for case-insensitive comparison
 
         tokio::task::spawn_blocking(move || {
-            let iter = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
-            let user = iter
+            let users = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
+            let user = users
+                .into_iter()
                 .filter_map(|(_, user)| {
                     if user.email.to_lowercase() == email {
                         Some(user)
@@ -122,14 +124,14 @@ impl UserRepository {
     }
 
     /// Find users by role
-    pub async fn find_by_role(&self, role: &str) -> DbResult<Vec<User>> {
+    pub async fn find_by_role(&self, role: String) -> DbResult<Vec<User>> {
         let inner = self.db.inner.clone();
         let cf_name = CF_USERS.to_string();
-        let role = role.to_string();
 
         tokio::task::spawn_blocking(move || {
-            let iter = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
-            let users: Vec<User> = iter
+            let users_data = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
+            let users: Vec<User> = users_data
+                .into_iter()
                 .filter_map(|(_, user)| {
                     if user.roles.contains(&role) {
                         Some(user)
@@ -151,8 +153,9 @@ impl UserRepository {
         let cf_name = CF_USERS.to_string();
 
         tokio::task::spawn_blocking(move || {
-            let iter = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
-            let users: Vec<User> = iter
+            let users_data = inner.iter_cf::<User>(&cf_name, rocksdb::IteratorMode::Start)?;
+            let users: Vec<User> = users_data
+                .into_iter()
                 .filter_map(|(_, user)| if user.active { Some(user) } else { None })
                 .collect();
 
