@@ -90,6 +90,35 @@ pub trait PricingStorage: Send + Sync {
         record: BillingRecord,
     ) -> Result<(), PricingError>;
     async fn update_billing_record(&self, record: BillingRecord) -> Result<(), PricingError>;
+    
+    // Resource usage record methods
+    async fn store_resource_usage_record(
+        &self,
+        record: ResourceUsageRecord,
+    ) -> Result<(), PricingError>;
+    
+    async fn get_resource_usage_records(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError>;
+    
+    async fn get_resource_usage_records_by_type(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError>;
+    
+    async fn get_resource_usage_records_by_function(
+        &self,
+        user_id: &str,
+        function_id: &str,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError>;
+    
+    async fn get_resource_usage_records_by_service(
+        &self,
+        user_id: &str,
+        service_id: &str,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError>;
 }
 
 /// In-memory implementation of the pricing storage
@@ -102,6 +131,7 @@ pub struct MemoryPricingStorage {
     user_profiles: RwLock<HashMap<String, UserBillingProfile>>,
     billing_records: RwLock<HashMap<String, BillingRecord>>,
     user_billing_records: RwLock<HashMap<String, Vec<String>>>,
+    resource_usage_records: RwLock<HashMap<String, Vec<ResourceUsageRecord>>>,
 }
 
 impl MemoryPricingStorage {
@@ -116,6 +146,7 @@ impl MemoryPricingStorage {
             user_profiles: RwLock::new(HashMap::new()),
             billing_records: RwLock::new(HashMap::new()),
             user_billing_records: RwLock::new(HashMap::new()),
+            resource_usage_records: RwLock::new(HashMap::new()),
         }
     }
 
@@ -644,5 +675,98 @@ impl PricingStorage for MemoryPricingStorage {
         records.insert(record.id.clone(), record);
 
         Ok(())
+    }
+    
+    // Resource usage record methods
+    async fn store_resource_usage_record(
+        &self,
+        record: ResourceUsageRecord,
+    ) -> Result<(), PricingError> {
+        let mut records = self
+            .resource_usage_records
+            .write()
+            .map_err(|e| PricingError::Storage(format!("Failed to acquire write lock: {}", e)))?;
+            
+        let user_records = records
+            .entry(record.user_id.clone())
+            .or_insert_with(Vec::new);
+            
+        user_records.push(record);
+        
+        Ok(())
+    }
+    
+    async fn get_resource_usage_records(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError> {
+        let records = self
+            .resource_usage_records
+            .read()
+            .map_err(|e| PricingError::Storage(format!("Failed to acquire read lock: {}", e)))?;
+            
+        let user_records = records.get(user_id).cloned().unwrap_or_default();
+        
+        Ok(user_records)
+    }
+    
+    async fn get_resource_usage_records_by_type(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError> {
+        let records = self
+            .resource_usage_records
+            .read()
+            .map_err(|e| PricingError::Storage(format!("Failed to acquire read lock: {}", e)))?;
+            
+        let user_records = records.get(user_id).cloned().unwrap_or_default();
+        
+        let filtered_records = user_records
+            .into_iter()
+            .filter(|r| r.resource_type == resource_type)
+            .collect();
+            
+        Ok(filtered_records)
+    }
+    
+    async fn get_resource_usage_records_by_function(
+        &self,
+        user_id: &str,
+        function_id: &str,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError> {
+        let records = self
+            .resource_usage_records
+            .read()
+            .map_err(|e| PricingError::Storage(format!("Failed to acquire read lock: {}", e)))?;
+            
+        let user_records = records.get(user_id).cloned().unwrap_or_default();
+        
+        let filtered_records = user_records
+            .into_iter()
+            .filter(|r| r.function_id.as_ref().map_or(false, |id| id == function_id))
+            .collect();
+            
+        Ok(filtered_records)
+    }
+    
+    async fn get_resource_usage_records_by_service(
+        &self,
+        user_id: &str,
+        service_id: &str,
+    ) -> Result<Vec<ResourceUsageRecord>, PricingError> {
+        let records = self
+            .resource_usage_records
+            .read()
+            .map_err(|e| PricingError::Storage(format!("Failed to acquire read lock: {}", e)))?;
+            
+        let user_records = records.get(user_id).cloned().unwrap_or_default();
+        
+        let filtered_records = user_records
+            .into_iter()
+            .filter(|r| r.service_id.as_ref().map_or(false, |id| id == service_id))
+            .collect();
+            
+        Ok(filtered_records)
     }
 }

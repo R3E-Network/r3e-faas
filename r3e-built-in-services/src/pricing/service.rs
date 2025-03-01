@@ -154,6 +154,48 @@ pub trait PricingServiceTrait: Send + Sync {
         incentive_id: &str,
         data: serde_json::Value,
     ) -> Result<(), PricingError>;
+    
+    /// Set resource quota
+    async fn set_resource_quota(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+        quota: u64,
+    ) -> Result<(), PricingError>;
+    
+    /// Get resource quota
+    async fn get_resource_quota(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+    ) -> Result<u64, PricingError>;
+    
+    /// Check if resource usage would exceed quota
+    async fn check_resource_quota(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+        requested_usage: u64,
+    ) -> Result<bool, PricingError>;
+    
+    /// Track detailed resource usage
+    async fn track_resource_usage(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+        usage: u64,
+        function_id: Option<String>,
+        service_id: Option<String>,
+    ) -> Result<(), PricingError>;
+    
+    /// Generate usage analytics
+    async fn generate_usage_analytics(&self, user_id: &str) -> Result<UsageAnalytics, PricingError>;
+    
+    /// Get optimization recommendations
+    async fn get_optimization_recommendations(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<OptimizationRecommendation>, PricingError>;
 }
 
 /// Implementation of the pricing service
@@ -797,5 +839,554 @@ impl<S: PricingStorage> PricingServiceTrait for PricingService<S> {
 
         // Update the user's billing profile
         self.storage.update_user_billing_profile(profile).await
+    }
+    
+    async fn set_resource_quota(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+        quota: u64,
+    ) -> Result<(), PricingError> {
+        // Get the user's billing profile
+        let mut profile = self.storage.get_user_billing_profile(user_id).await?;
+        
+        // Set the resource quota
+        profile.resource_quotas.insert(resource_type, quota);
+        
+        // Update the user's billing profile
+        self.storage.update_user_billing_profile(profile).await
+    }
+    
+    async fn get_resource_quota(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+    ) -> Result<u64, PricingError> {
+        // Get the user's billing profile
+        let profile = self.storage.get_user_billing_profile(user_id).await?;
+        
+        // Get the resource quota
+        let quota = profile.resource_quotas.get(&resource_type).cloned().unwrap_or(0);
+        
+        Ok(quota)
+    }
+    
+    async fn check_resource_quota(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+        requested_usage: u64,
+    ) -> Result<bool, PricingError> {
+        // Get the user's billing profile
+        let profile = self.storage.get_user_billing_profile(user_id).await?;
+        
+        // Get the resource quota
+        let quota = profile.resource_quotas.get(&resource_type).cloned().unwrap_or(0);
+        
+        // If quota is 0, it means unlimited
+        if quota == 0 {
+            return Ok(true);
+        }
+        
+        // Get the current usage
+        let current_usage = profile.resource_usage.get(&resource_type).cloned().unwrap_or(0);
+        
+        // Check if the requested usage would exceed the quota
+        Ok(current_usage + requested_usage <= quota)
+    }
+    
+    async fn track_resource_usage(
+        &self,
+        user_id: &str,
+        resource_type: ResourceType,
+        usage: u64,
+        function_id: Option<String>,
+        service_id: Option<String>,
+    ) -> Result<(), PricingError> {
+        // Create a new resource usage record
+        let record = crate::pricing::types::ResourceUsageRecord {
+            id: self.generate_id(),
+            user_id: user_id.to_string(),
+            resource_type,
+            usage,
+            timestamp: self.get_current_timestamp(),
+            function_id,
+            service_id,
+        };
+        
+        // Store the resource usage record
+        self.storage.store_resource_usage_record(record).await?;
+        
+        // Also update the user's billing profile with the usage
+        self.record_resource_usage(user_id, resource_type, usage).await
+    }
+    
+    async fn generate_usage_analytics(&self, user_id: &str) -> Result<UsageAnalytics, PricingError> {
+        // Get the user's billing profile
+        let profile = self.storage.get_user_billing_profile(user_id).await?;
+        
+        // Get all resource usage records for the user
+        let usage_records = self.storage.get_resource_usage_records(user_id).await?;
+        
+        // Generate daily usage patterns
+        let mut daily_usage = HashMap::new();
+        for resource_type in ResourceType::iter() {
+            let records = usage_records.iter()
+                .filter(|r| r.resource_type == resource_type)
+                .collect::<Vec<_>>();
+                
+            let patterns = self.generate_daily_usage_patterns(&records);
+            if !patterns.is_empty() {
+                daily_usage.insert(resource_type, patterns);
+            }
+        }
+        
+        // Generate monthly usage patterns
+        let mut monthly_usage = HashMap::new();
+        for resource_type in ResourceType::iter() {
+            let records = usage_records.iter()
+                .filter(|r| r.resource_type == resource_type)
+                .collect::<Vec<_>>();
+                
+            let patterns = self.generate_monthly_usage_patterns(&records);
+            if !patterns.is_empty() {
+                monthly_usage.insert(resource_type, patterns);
+            }
+        }
+        
+        // Generate usage trends
+        let mut usage_trends = HashMap::new();
+        for resource_type in ResourceType::iter() {
+            if let Some(patterns) = monthly_usage.get(&resource_type) {
+                if patterns.len() >= 2 {
+                    let trend = self.calculate_usage_trend(&patterns);
+                    usage_trends.insert(resource_type, trend);
+                }
+            }
+        }
+        
+        // Generate optimization recommendations
+        let recommendations = self.generate_optimization_recommendations(
+            user_id, 
+            &profile, 
+            &daily_usage, 
+            &monthly_usage, 
+            &usage_trends
+        ).await?;
+        
+        // Create the usage analytics
+        let analytics = UsageAnalytics {
+            user_id: user_id.to_string(),
+            daily_usage,
+            monthly_usage,
+            usage_trends,
+            optimization_recommendations: recommendations,
+            last_updated: self.get_current_timestamp(),
+        };
+        
+        // Store the usage analytics in the user's profile
+        let mut profile = profile.clone();
+        profile.usage_analytics = Some(analytics.clone());
+        self.storage.update_user_billing_profile(profile).await?;
+        
+        Ok(analytics)
+    }
+    
+    async fn get_optimization_recommendations(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<OptimizationRecommendation>, PricingError> {
+        // Get the user's billing profile
+        let profile = self.storage.get_user_billing_profile(user_id).await?;
+        
+        // Check if the user has usage analytics
+        if let Some(analytics) = &profile.usage_analytics {
+            // Check if the analytics are recent (less than 7 days old)
+            let now = self.get_current_timestamp();
+            if now - analytics.last_updated < 7 * 24 * 60 * 60 {
+                // Return the existing recommendations
+                return Ok(analytics.optimization_recommendations.clone());
+            }
+        }
+        
+        // Generate new usage analytics
+        let analytics = self.generate_usage_analytics(user_id).await?;
+        
+        // Return the recommendations
+        Ok(analytics.optimization_recommendations)
+    }
+    
+    // Helper methods for usage analytics
+    
+    fn generate_daily_usage_patterns(
+        &self,
+        records: &[&ResourceUsageRecord],
+    ) -> Vec<DailyUsagePattern> {
+        let mut patterns = Vec::new();
+        
+        // Group records by date
+        let mut records_by_date = HashMap::new();
+        for record in records {
+            let date = chrono::NaiveDateTime::from_timestamp_opt(record.timestamp as i64, 0)
+                .unwrap()
+                .format("%Y-%m-%d")
+                .to_string();
+                
+            records_by_date
+                .entry(date)
+                .or_insert_with(Vec::new)
+                .push(*record);
+        }
+        
+        // Generate patterns for each date
+        for (date, date_records) in records_by_date {
+            // Initialize hourly usage
+            let mut hourly_usage = vec![0; 24];
+            
+            // Calculate hourly usage
+            for record in date_records {
+                let hour = chrono::NaiveDateTime::from_timestamp_opt(record.timestamp as i64, 0)
+                    .unwrap()
+                    .hour() as usize;
+                    
+                hourly_usage[hour] += record.usage;
+            }
+            
+            // Calculate peak and average usage
+            let peak_usage = *hourly_usage.iter().max().unwrap_or(&0);
+            let total_usage = hourly_usage.iter().sum::<u64>();
+            let average_usage = if hourly_usage.iter().filter(|&&u| u > 0).count() > 0 {
+                total_usage as f64 / hourly_usage.iter().filter(|&&u| u > 0).count() as f64
+            } else {
+                0.0
+            };
+            
+            // Create the pattern
+            let pattern = DailyUsagePattern {
+                date,
+                hourly_usage,
+                peak_usage,
+                average_usage,
+                total_usage,
+            };
+            
+            patterns.push(pattern);
+        }
+        
+        // Sort patterns by date
+        patterns.sort_by(|a, b| a.date.cmp(&b.date));
+        
+        patterns
+    }
+    
+    fn generate_monthly_usage_patterns(
+        &self,
+        records: &[&ResourceUsageRecord],
+    ) -> Vec<MonthlyUsagePattern> {
+        let mut patterns = Vec::new();
+        
+        // Group records by month
+        let mut records_by_month = HashMap::new();
+        for record in records {
+            let month = chrono::NaiveDateTime::from_timestamp_opt(record.timestamp as i64, 0)
+                .unwrap()
+                .format("%Y-%m")
+                .to_string();
+                
+            records_by_month
+                .entry(month)
+                .or_insert_with(Vec::new)
+                .push(*record);
+        }
+        
+        // Generate patterns for each month
+        for (month, month_records) in records_by_month {
+            // Group records by day
+            let mut usage_by_day = HashMap::new();
+            for record in month_records {
+                let day = chrono::NaiveDateTime::from_timestamp_opt(record.timestamp as i64, 0)
+                    .unwrap()
+                    .day() as usize;
+                    
+                *usage_by_day.entry(day).or_insert(0) += record.usage;
+            }
+            
+            // Create daily usage array
+            let days_in_month = match month.split('-').nth(1) {
+                Some("02") => if self.is_leap_year(month.split('-').next().unwrap_or("2020").parse().unwrap_or(2020)) { 29 } else { 28 },
+                Some("04") | Some("06") | Some("09") | Some("11") => 30,
+                _ => 31,
+            };
+            
+            let mut daily_usage = vec![0; days_in_month];
+            for (day, usage) in usage_by_day {
+                if day > 0 && day <= days_in_month {
+                    daily_usage[day - 1] = usage;
+                }
+            }
+            
+            // Calculate peak and average usage
+            let peak_usage = *daily_usage.iter().max().unwrap_or(&0);
+            let total_usage = daily_usage.iter().sum::<u64>();
+            let average_usage = if daily_usage.iter().filter(|&&u| u > 0).count() > 0 {
+                total_usage as f64 / daily_usage.iter().filter(|&&u| u > 0).count() as f64
+            } else {
+                0.0
+            };
+            
+            // Create the pattern
+            let pattern = MonthlyUsagePattern {
+                month,
+                daily_usage,
+                peak_usage,
+                average_usage,
+                total_usage,
+            };
+            
+            patterns.push(pattern);
+        }
+        
+        // Sort patterns by month
+        patterns.sort_by(|a, b| a.month.cmp(&b.month));
+        
+        patterns
+    }
+    
+    fn calculate_usage_trend(&self, patterns: &[MonthlyUsagePattern]) -> UsageTrend {
+        if patterns.len() < 2 {
+            return UsageTrend {
+                trend_type: TrendType::Stable,
+                trend_percentage: 0.0,
+                trend_period: 0,
+            };
+        }
+        
+        // Calculate the trend over the last 3 months or all available months
+        let trend_period = std::cmp::min(3, patterns.len()) as u32;
+        let recent_patterns = &patterns[patterns.len() - trend_period as usize..];
+        
+        // Calculate the percentage change
+        let first_usage = recent_patterns.first().unwrap().total_usage;
+        let last_usage = recent_patterns.last().unwrap().total_usage;
+        
+        let trend_percentage = if first_usage > 0 {
+            ((last_usage as f64 - first_usage as f64) / first_usage as f64) * 100.0
+        } else if last_usage > 0 {
+            100.0 // If starting from zero, any increase is 100%
+        } else {
+            0.0 // No change
+        };
+        
+        // Determine the trend type
+        let trend_type = if trend_percentage > 10.0 {
+            TrendType::Increasing
+        } else if trend_percentage < -10.0 {
+            TrendType::Decreasing
+        } else {
+            // Check for fluctuation
+            let mut fluctuating = false;
+            for i in 1..recent_patterns.len() {
+                let prev_usage = recent_patterns[i - 1].total_usage;
+                let curr_usage = recent_patterns[i].total_usage;
+                
+                if prev_usage > 0 {
+                    let change = ((curr_usage as f64 - prev_usage as f64) / prev_usage as f64).abs() * 100.0;
+                    if change > 20.0 {
+                        fluctuating = true;
+                        break;
+                    }
+                }
+            }
+            
+            if fluctuating {
+                TrendType::Fluctuating
+            } else {
+                TrendType::Stable
+            }
+        };
+        
+        UsageTrend {
+            trend_type,
+            trend_percentage: trend_percentage.abs(),
+            trend_period,
+        }
+    }
+    
+    async fn generate_optimization_recommendations(
+        &self,
+        user_id: &str,
+        profile: &UserBillingProfile,
+        daily_usage: &HashMap<ResourceType, Vec<DailyUsagePattern>>,
+        monthly_usage: &HashMap<ResourceType, Vec<MonthlyUsagePattern>>,
+        usage_trends: &HashMap<ResourceType, UsageTrend>,
+    ) -> Result<Vec<OptimizationRecommendation>, PricingError> {
+        let mut recommendations = Vec::new();
+        
+        // Check for subscription optimization
+        if let Some(subscription_id) = &profile.subscription {
+            let subscription = self.storage.get_subscription_model(subscription_id).await?;
+            
+            // Get all subscription models for comparison
+            let all_subscriptions = self.storage.get_all_subscription_models().await?;
+            
+            // Calculate the current monthly cost
+            let current_monthly_cost = match subscription.subscription_type {
+                SubscriptionType::Monthly => subscription.base_price,
+                SubscriptionType::Annual => subscription.base_price / 12.0,
+                SubscriptionType::ReservedCapacity => subscription.base_price / subscription.min_commitment_period as f64,
+                SubscriptionType::PayAsYouGo => {
+                    // Estimate based on recent usage
+                    let mut total_cost = 0.0;
+                    for (resource_type, patterns) in monthly_usage {
+                        if let Some(pattern) = patterns.last() {
+                            let resource_pricing = self.storage.get_resource_pricing(*resource_type, profile.tier).await?;
+                            total_cost += self.calculate_resource_cost(&resource_pricing, pattern.total_usage).await;
+                        }
+                    }
+                    total_cost
+                }
+            };
+            
+            // Check if another subscription would be more cost-effective
+            for other_subscription in all_subscriptions {
+                if other_subscription.id == *subscription_id {
+                    continue;
+                }
+                
+                // Calculate the cost with the other subscription
+                let other_monthly_cost = match other_subscription.subscription_type {
+                    SubscriptionType::Monthly => other_subscription.base_price,
+                    SubscriptionType::Annual => other_subscription.base_price / 12.0,
+                    SubscriptionType::ReservedCapacity => other_subscription.base_price / other_subscription.min_commitment_period as f64,
+                    SubscriptionType::PayAsYouGo => {
+                        // Estimate based on recent usage
+                        let mut total_cost = 0.0;
+                        for (resource_type, patterns) in monthly_usage {
+                            if let Some(pattern) = patterns.last() {
+                                // Calculate overage costs
+                                let included_amount = other_subscription.included_resources.get(resource_type).cloned().unwrap_or(0);
+                                if pattern.total_usage > included_amount {
+                                    let overage = pattern.total_usage - included_amount;
+                                    if let Some(overage_price) = other_subscription.overage_pricing.get(resource_type) {
+                                        total_cost += overage as f64 * overage_price;
+                                    } else {
+                                        let resource_pricing = self.storage.get_resource_pricing(*resource_type, other_subscription.tier).await?;
+                                        total_cost += self.calculate_resource_cost(&resource_pricing, overage).await;
+                                    }
+                                }
+                            }
+                        }
+                        other_subscription.base_price + total_cost
+                    }
+                };
+                
+                // If the other subscription would save at least 10%
+                if other_monthly_cost < current_monthly_cost * 0.9 {
+                    let savings = current_monthly_cost - other_monthly_cost;
+                    recommendations.push(OptimizationRecommendation {
+                        id: self.generate_id(),
+                        recommendation_type: RecommendationType::SubscriptionChange,
+                        description: format!(
+                            "Switching from {} to {} could save approximately {} GAS per month",
+                            subscription.name, other_subscription.name, savings.round()
+                        ),
+                        estimated_savings: savings * 12.0, // Annual savings
+                        resource_type: None,
+                    });
+                    
+                    // Only recommend one subscription change
+                    break;
+                }
+            }
+        }
+        
+        // Check for resource optimization
+        for (resource_type, trend) in usage_trends {
+            match trend.trend_type {
+                TrendType::Increasing if trend.trend_percentage > 30.0 => {
+                    // Recommend resource optimization for rapidly increasing usage
+                    recommendations.push(OptimizationRecommendation {
+                        id: self.generate_id(),
+                        recommendation_type: RecommendationType::ResourceOptimization,
+                        description: format!(
+                            "{} usage has increased by {:.1}% over the last {} months. Consider optimizing your code or implementing caching.",
+                            resource_type, trend.trend_percentage, trend.trend_period
+                        ),
+                        estimated_savings: 0.0, // Cannot estimate without more data
+                        resource_type: Some(*resource_type),
+                    });
+                },
+                TrendType::Fluctuating => {
+                    // Recommend reserved capacity for fluctuating usage
+                    recommendations.push(OptimizationRecommendation {
+                        id: self.generate_id(),
+                        recommendation_type: RecommendationType::ReservedCapacity,
+                        description: format!(
+                            "{} usage is fluctuating significantly. Consider reserved capacity to stabilize costs.",
+                            resource_type
+                        ),
+                        estimated_savings: 0.0, // Cannot estimate without more data
+                        resource_type: Some(*resource_type),
+                    });
+                },
+                _ => {}
+            }
+        }
+        
+        // Check for usage pattern optimization
+        for (resource_type, patterns) in daily_usage {
+            if patterns.len() >= 7 {
+                // Analyze the last 7 days
+                let recent_patterns = &patterns[patterns.len() - 7..];
+                
+                // Check for peak usage times
+                let mut peak_hours = Vec::new();
+                for pattern in recent_patterns {
+                    for (hour, &usage) in pattern.hourly_usage.iter().enumerate() {
+                        if usage > pattern.peak_usage * 0.8 {
+                            peak_hours.push(hour);
+                        }
+                    }
+                }
+                
+                // Count occurrences of each peak hour
+                let mut hour_counts = HashMap::new();
+                for hour in peak_hours {
+                    *hour_counts.entry(hour).or_insert(0) += 1;
+                }
+                
+                // Find the most common peak hours
+                let mut common_peak_hours = hour_counts.iter()
+                    .filter(|(_, &count)| count >= 3) // At least 3 days with this peak hour
+                    .map(|(&hour, _)| hour)
+                    .collect::<Vec<_>>();
+                common_peak_hours.sort();
+                
+                if !common_peak_hours.is_empty() {
+                    let peak_hours_str = common_peak_hours.iter()
+                        .map(|&h| format!("{:02}:00", h))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                        
+                    recommendations.push(OptimizationRecommendation {
+                        id: self.generate_id(),
+                        recommendation_type: RecommendationType::UsagePatternOptimization,
+                        description: format!(
+                            "{} usage peaks at {}. Consider scheduling non-critical tasks outside these hours.",
+                            resource_type, peak_hours_str
+                        ),
+                        estimated_savings: 0.0, // Cannot estimate without more data
+                        resource_type: Some(*resource_type),
+                    });
+                }
+            }
+        }
+        
+        Ok(recommendations)
+    }
+    
+    // Helper method to check if a year is a leap year
+    fn is_leap_year(&self, year: u32) -> bool {
+        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
     }
 }

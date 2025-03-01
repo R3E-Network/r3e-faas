@@ -379,6 +379,9 @@ pub struct UserBillingProfile {
     /// Resource usage
     pub resource_usage: HashMap<ResourceType, u64>,
 
+    /// Resource quotas
+    pub resource_quotas: HashMap<ResourceType, u64>,
+
     /// Billing history
     pub billing_history: Vec<BillingRecord>,
 
@@ -396,6 +399,9 @@ pub struct UserBillingProfile {
 
     /// Neo ecosystem integrations
     pub neo_integrations: Vec<String>,
+    
+    /// Usage analytics
+    pub usage_analytics: Option<UsageAnalytics>,
 }
 
 /// Billing record
@@ -559,4 +565,153 @@ impl std::fmt::Display for IncentiveStatus {
             IncentiveStatus::Paid => write!(f, "paid"),
         }
     }
+}
+
+/// Usage analytics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageAnalytics {
+    /// User ID
+    pub user_id: String,
+    
+    /// Daily usage patterns
+    pub daily_usage: HashMap<ResourceType, Vec<DailyUsagePattern>>,
+    
+    /// Monthly usage patterns
+    pub monthly_usage: HashMap<ResourceType, Vec<MonthlyUsagePattern>>,
+    
+    /// Usage trends
+    pub usage_trends: HashMap<ResourceType, UsageTrend>,
+    
+    /// Cost optimization recommendations
+    pub optimization_recommendations: Vec<OptimizationRecommendation>,
+    
+    /// Last updated timestamp
+    pub last_updated: u64,
+}
+
+/// Daily usage pattern
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyUsagePattern {
+    /// Date (YYYY-MM-DD)
+    pub date: String,
+    
+    /// Hourly usage
+    pub hourly_usage: Vec<u64>,
+    
+    /// Peak usage
+    pub peak_usage: u64,
+    
+    /// Average usage
+    pub average_usage: f64,
+    
+    /// Total usage
+    pub total_usage: u64,
+}
+
+/// Monthly usage pattern
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonthlyUsagePattern {
+    /// Month (YYYY-MM)
+    pub month: String,
+    
+    /// Daily usage
+    pub daily_usage: Vec<u64>,
+    
+    /// Peak usage
+    pub peak_usage: u64,
+    
+    /// Average usage
+    pub average_usage: f64,
+    
+    /// Total usage
+    pub total_usage: u64,
+}
+
+/// Usage trend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageTrend {
+    /// Trend type
+    pub trend_type: TrendType,
+    
+    /// Trend percentage
+    pub trend_percentage: f64,
+    
+    /// Trend period (in days)
+    pub trend_period: u32,
+}
+
+/// Trend type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TrendType {
+    /// Increasing
+    Increasing,
+    
+    /// Decreasing
+    Decreasing,
+    
+    /// Stable
+    Stable,
+    
+    /// Fluctuating
+    Fluctuating,
+}
+
+/// Optimization recommendation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimizationRecommendation {
+    /// Recommendation ID
+    pub id: String,
+    
+    /// Recommendation type
+    pub recommendation_type: RecommendationType,
+    
+    /// Description
+    pub description: String,
+    
+    /// Estimated savings
+    pub estimated_savings: f64,
+    
+    /// Resource type
+    pub resource_type: Option<ResourceType>,
+}
+
+/// Recommendation type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum RecommendationType {
+    /// Subscription change
+    SubscriptionChange,
+    
+    /// Resource optimization
+    ResourceOptimization,
+    
+    /// Usage pattern optimization
+    UsagePatternOptimization,
+    
+    /// Reserved capacity
+    ReservedCapacity,
+}
+
+/// Resource usage record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceUsageRecord {
+    /// Record ID
+    pub id: String,
+    
+    /// User ID
+    pub user_id: String,
+    
+    /// Resource type
+    pub resource_type: ResourceType,
+    
+    /// Usage amount
+    pub usage: u64,
+    
+    /// Timestamp
+    pub timestamp: u64,
+    
+    /// Function ID (if applicable)
+    pub function_id: Option<String>,
+    
+    /// Service ID (if applicable)
+    pub service_id: Option<String>,
 }
