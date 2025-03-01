@@ -3,10 +3,14 @@
 
 pub mod assign;
 pub mod builder;
+pub mod container;
 pub mod function;
+pub mod function_executor;
 pub mod neo_task_source;
+pub mod pool;
 pub mod runner;
 pub mod sandbox;
+pub mod sandbox_executor;
 pub mod worker;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -18,6 +22,7 @@ use duration_str::deserialize_duration;
 use serde::{Deserialize, Serialize};
 
 pub use {assign::*, builder::*, runner::*, sandbox::*, worker::*};
+pub use container::{ContainerManager, ContainerConfig, NetworkMode, ContainerError};
 
 pub const MAX_RUNNERS: u32 = 1024;
 
