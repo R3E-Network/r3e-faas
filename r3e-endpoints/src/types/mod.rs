@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use validator::{Validate, ValidationError};
 
 /// Blockchain type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,13 +106,18 @@ pub struct MessageSigningResponse {
     pub timestamp: u64,
 }
 
+mod validation;
+pub use validation::*;
+
 /// Service invocation request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct ServiceInvocationRequest {
     /// Service ID
+    #[validate(custom = "validate_uuid")]
     pub service_id: Uuid,
 
     /// Function name
+    #[validate(custom = "validate_function_name")]
     pub function: String,
 
     /// Parameters
@@ -121,6 +127,7 @@ pub struct ServiceInvocationRequest {
     pub signature: Option<String>,
 
     /// Timestamp
+    #[validate(custom = "validate_timestamp")]
     pub timestamp: u64,
 }
 

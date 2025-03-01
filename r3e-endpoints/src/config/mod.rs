@@ -29,6 +29,9 @@ pub struct Config {
 
     /// Relayer wallet private key
     pub relayer_private_key: String,
+    
+    /// Rate limit (requests per minute)
+    pub rate_limit_requests_per_minute: u32,
 }
 
 impl Config {
@@ -69,6 +72,12 @@ impl Config {
         let relayer_private_key = env::var("RELAYER_PRIVATE_KEY")
             .map_err(|_| Error::Configuration("RELAYER_PRIVATE_KEY is not set".to_string()))?;
 
+        // Get the rate limit (requests per minute)
+        let rate_limit_requests_per_minute = env::var("RATE_LIMIT_REQUESTS_PER_MINUTE")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse::<u32>()
+            .map_err(|e| Error::Configuration(format!("Invalid rate limit: {}", e)))?;
+
         Ok(Self {
             port,
             database_url,
@@ -77,6 +86,7 @@ impl Config {
             neo_rpc_url,
             eth_rpc_url,
             relayer_private_key,
+            rate_limit_requests_per_minute,
         })
     }
 }

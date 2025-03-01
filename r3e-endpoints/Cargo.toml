@@ -18,8 +18,9 @@ neo3 = { git = "https://github.com/R3E-Network/NeoRust.git" }
 # Web framework
 axum = { version = "0.6", features = ["headers", "multipart"] }
 tower = { version = "0.4" }
-tower-http = { version = "0.4", features = ["cors", "trace", "compression-gzip"] }
+tower-http = { version = "0.4", features = ["cors", "trace", "compression-gzip", "limit"] }
 hyper = { version = "0.14" }
+governor = { version = "0.5", features = ["std", "jitter"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
