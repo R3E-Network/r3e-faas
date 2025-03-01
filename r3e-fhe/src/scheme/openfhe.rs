@@ -1,445 +1,222 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-//! OpenFHE scheme implementation for the Fully Homomorphic Encryption service.
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use async_trait::async_trait;
+use log::{debug, info};
+use serde_json::Value;
 
 use crate::{
     FheCiphertext, FheCiphertextId, FheCiphertextMetadata, FheError, FheKeyPair, FheKeyPairId,
     FheParameters, FhePrivateKey, FhePrivateKeyId, FhePublicKey, FhePublicKeyId, FheResult,
-    FheSchemeType, HomomorphicOperation,
+    FheScheme, FheSchemeType, HomomorphicOperation,
 };
-use async_trait::async_trait;
-use log::{debug, info, warn};
-use rand::Rng;
-use serde_json::Value;
-use std::{
-    fs,
-    io::{Read, Write},
-    path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
-};
-use tempfile::TempDir;
 
-use super::FheScheme;
+// Mock OpenFHE library module
+mod openfhe {
+    use std::fmt;
 
-/// OpenFHE scheme implementation for Fully Homomorphic Encryption operations.
-#[derive(Debug)]
+    #[derive(Debug)]
+    pub struct Error(String);
+
+    impl fmt::Display for Error {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "OpenFHE error: {}", self.0)
+        }
+    }
+
+    pub struct Context {
+        params: Vec<u8>,
+    }
+
+    impl Context {
+        pub fn deserialize_parameters(params: &[u8]) -> Result<Self, Error> {
+            Ok(Self {
+                params: params.to_vec(),
+            })
+        }
+
+        pub fn generate_keypair(&self) -> Result<KeyPair, Error> {
+            Ok(KeyPair {
+                public_key: PublicKey {
+                    data: vec![1, 2, 3, 4],
+                },
+                private_key: PrivateKey {
+                    data: vec![5, 6, 7, 8],
+                },
+            })
+        }
+    }
+
+    pub struct KeyPair {
+        public_key: PublicKey,
+        private_key: PrivateKey,
+    }
+
+    impl KeyPair {
+        pub fn public_key(&self) -> &PublicKey {
+            &self.public_key
+        }
+
+        pub fn private_key(&self) -> &PrivateKey {
+            &self.private_key
+        }
+    }
+
+    pub struct PublicKey {
+        data: Vec<u8>,
+    }
+
+    impl PublicKey {
+        pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+            Ok(self.data.clone())
+        }
+    }
+
+    pub struct PrivateKey {
+        data: Vec<u8>,
+    }
+
+    impl PrivateKey {
+        pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+            Ok(self.data.clone())
+        }
+    }
+}
+
 pub struct OpenFheScheme {
-    /// Path to the OpenFHE library.
-    pub library_path: Option<PathBuf>,
-    /// Default security level in bits.
-    pub default_security_level: u32,
-    /// Default polynomial modulus degree.
-    pub default_polynomial_modulus_degree: u32,
-    /// Default plaintext modulus.
-    pub default_plaintext_modulus: u32,
-    /// Temporary directory for OpenFHE operations.
-    pub temp_dir: TempDir,
+    library_path: PathBuf,
+    default_security_level: u32,
+    default_polynomial_modulus_degree: u32,
+    default_plaintext_modulus: u32,
 }
 
 impl OpenFheScheme {
-    /// Create a new OpenFHE scheme.
     pub fn new(
-        library_path: Option<PathBuf>,
+        library_path: PathBuf,
         default_security_level: u32,
         default_polynomial_modulus_degree: u32,
         default_plaintext_modulus: u32,
     ) -> Self {
-        // Create a temporary directory for OpenFHE operations
-        let temp_dir = TempDir::new().expect("Failed to create temporary directory for OpenFHE operations");
-        debug!("Created temporary directory for OpenFHE operations: {:?}", temp_dir.path());
-        
         Self {
             library_path,
             default_security_level,
             default_polynomial_modulus_degree,
             default_plaintext_modulus,
-            temp_dir,
         }
     }
 
-    /// Get the current timestamp.
     fn current_timestamp() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs()
     }
-    
-    /// Get a temporary file path in the temporary directory.
-    fn get_temp_file_path(&self, prefix: &str, suffix: &str) -> PathBuf {
-        self.temp_dir.path().join(format!("{}_{}{}", prefix, Self::current_timestamp(), suffix))
-    }
-    
-    /// Write data to a temporary file and return the file path.
-    fn write_temp_file(&self, prefix: &str, suffix: &str, data: &[u8]) -> FheResult<PathBuf> {
-        let file_path = self.get_temp_file_path(prefix, suffix);
-        fs::write(&file_path, data).map_err(|e| {
-            FheError::IoError(format!("Failed to write temporary file: {}", e))
-        })?;
-        Ok(file_path)
-    }
-    
-    /// Generate OpenFHE parameters based on the provided FHE parameters.
+
     fn generate_openfhe_params(&self, params: &FheParameters) -> FheResult<Vec<u8>> {
-        // Generate parameters using the OpenFHE library
+        // In a real implementation, this would generate actual OpenFHE parameters
+        // For now, we'll just serialize the parameters to a byte array
         let security_level = params.security_level.unwrap_or(self.default_security_level);
-        let polynomial_modulus_degree = params.polynomial_modulus_degree.unwrap_or(self.default_polynomial_modulus_degree);
-        let plaintext_modulus = params.plaintext_modulus.unwrap_or(self.default_plaintext_modulus);
-        
-        // Create OpenFHE context with the specified parameters
-        let context = openfhe::Context::new()
-            .with_security_level(security_level)
-            .with_polynomial_modulus_degree(polynomial_modulus_degree)
-            .with_plaintext_modulus(plaintext_modulus)
-            .build()
-            .map_err(|e| FheError::ParameterGenerationError(format!("Failed to generate OpenFHE parameters: {}", e)))?;
-            
-        // Serialize the context parameters
-        let params_data = context.serialize_parameters()
-            .map_err(|e| FheError::ParameterGenerationError(format!("Failed to serialize OpenFHE parameters: {}", e)))?;
-        
-        // Generate random parameters as a placeholder
-        let mut rng = rand::thread_rng();
-        let mut params_data = Vec::with_capacity(128);
-        
-        // Add metadata
-        params_data.extend_from_slice(&security_level.to_le_bytes());
-        params_data.extend_from_slice(&polynomial_modulus_degree.to_le_bytes());
-        params_data.extend_from_slice(&plaintext_modulus.to_le_bytes());
-        
-        // Add random data to simulate actual parameters
-        for _ in 0..100 {
-            params_data.push(rng.gen());
-        }
-        
-        Ok(params_data)
+        let polynomial_modulus_degree = params
+            .polynomial_modulus_degree
+            .unwrap_or(self.default_polynomial_modulus_degree);
+        let plaintext_modulus = params
+            .plaintext_modulus
+            .unwrap_or(self.default_plaintext_modulus);
+
+        // Create a simple serialized representation of the parameters
+        let serialized = format!(
+            "security_level={},polynomial_modulus_degree={},plaintext_modulus={}",
+            security_level, polynomial_modulus_degree, plaintext_modulus
+        );
+
+        Ok(serialized.into_bytes())
     }
-    
-    /// Encrypt data using OpenFHE.
+
     fn encrypt_openfhe(&self, public_key_data: &[u8], plaintext: &[u8]) -> FheResult<Vec<u8>> {
-        // Deserialize the public key
-        let public_key = openfhe::PublicKey::deserialize(public_key_data)
-            .map_err(|e| FheError::InvalidInputError(format!("Failed to deserialize public key: {}", e)))?;
-            
-        // Create a plaintext object from the input data
-        let plaintext_obj = openfhe::Plaintext::encode(plaintext)
-            .map_err(|e| FheError::EncryptionError(format!("Failed to encode plaintext: {}", e)))?;
-            
-        // Encrypt the plaintext using OpenFHE
-        let ciphertext = public_key.encrypt(&plaintext_obj)
-            .map_err(|e| FheError::EncryptionError(format!("Failed to encrypt data: {}", e)))?;
-            
-        // Serialize the ciphertext
-        let ciphertext_data = ciphertext.serialize()
-            .map_err(|e| FheError::EncryptionError(format!("Failed to serialize ciphertext: {}", e)))?;
-            
-        Ok(ciphertext_data)
+        // In a real implementation, this would use the OpenFHE library to encrypt the data
+        // For now, we'll just create a mock ciphertext
+        let mut ciphertext = Vec::with_capacity(plaintext.len() * 2);
+        ciphertext.extend_from_slice(public_key_data);
+        ciphertext.extend_from_slice(plaintext);
+
+        Ok(ciphertext)
     }
-    
-    /// Decrypt data using OpenFHE.
-    fn decrypt_openfhe(&self, private_key_data: &[u8], ciphertext_data: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to decrypt the data
-        // For now, we'll create a placeholder
-        
-        if private_key_data.len() < 4 || ciphertext_data.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid key or ciphertext data".into()));
+
+    fn decrypt_openfhe(&self, private_key_data: &[u8], ciphertext: &[u8]) -> FheResult<Vec<u8>> {
+        // In a real implementation, this would use the OpenFHE library to decrypt the data
+        // For now, we'll just extract the plaintext from the mock ciphertext
+        if ciphertext.len() <= private_key_data.len() {
+            return Err(FheError::DecryptionError(
+                "Invalid ciphertext format".into(),
+            ));
         }
-        
-        // Extract metadata
-        let plaintext_len = u32::from_le_bytes([
-            ciphertext_data[0],
-            ciphertext_data[1],
-            ciphertext_data[2],
-            ciphertext_data[3],
-        ]) as usize;
-        
-        if plaintext_len * 2 + 4 > ciphertext_data.len() {
-            return Err(FheError::InvalidInputError("Invalid ciphertext data".into()));
-        }
-        
-        let mut plaintext = Vec::with_capacity(plaintext_len);
-        
-        // Perform a simple XOR-based decryption as a placeholder
-        // In a real implementation, this would be replaced with actual OpenFHE decryption
-        for i in 0..plaintext_len {
-            let ciphertext_index = 4 + i * 2;
-            let encrypted_byte = ciphertext_data[ciphertext_index];
-            let random_byte = ciphertext_data[ciphertext_index + 1];
-            let key_byte = private_key_data[i % private_key_data.len()];
-            plaintext.push(encrypted_byte ^ key_byte ^ random_byte);
-        }
-        
+
+        let plaintext = ciphertext[private_key_data.len()..].to_vec();
         Ok(plaintext)
     }
-    
-    /// Add two ciphertexts using OpenFHE.
+
     fn add_openfhe(&self, ciphertext1: &[u8], ciphertext2: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to add the ciphertexts
-        // For now, we'll create a placeholder
-        
-        if ciphertext1.len() < 4 || ciphertext2.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid ciphertext data".into()));
-        }
-        
-        // Extract metadata
-        let plaintext_len1 = u32::from_le_bytes([
-            ciphertext1[0],
-            ciphertext1[1],
-            ciphertext1[2],
-            ciphertext1[3],
-        ]) as usize;
-        
-        let plaintext_len2 = u32::from_le_bytes([
-            ciphertext2[0],
-            ciphertext2[1],
-            ciphertext2[2],
-            ciphertext2[3],
-        ]) as usize;
-        
-        // Use the larger plaintext length
-        let plaintext_len = plaintext_len1.max(plaintext_len2);
-        
-        let mut result_data = Vec::with_capacity(plaintext_len * 2 + 4);
-        
-        // Add metadata
-        result_data.extend_from_slice(&(plaintext_len as u32).to_le_bytes());
-        
-        // Perform a simple operation as a placeholder
-        // In a real implementation, this would be replaced with actual OpenFHE addition
-        for i in 0..plaintext_len {
-            let mut byte1 = 0;
-            let mut random_byte1 = 0;
-            
-            if i < plaintext_len1 {
-                let index1 = 4 + i * 2;
-                if index1 + 1 < ciphertext1.len() {
-                    byte1 = ciphertext1[index1];
-                    random_byte1 = ciphertext1[index1 + 1];
-                }
-            }
-            
-            let mut byte2 = 0;
-            let mut random_byte2 = 0;
-            
-            if i < plaintext_len2 {
-                let index2 = 4 + i * 2;
-                if index2 + 1 < ciphertext2.len() {
-                    byte2 = ciphertext2[index2];
-                    random_byte2 = ciphertext2[index2 + 1];
-                }
-            }
-            
-            // Simulate homomorphic addition
-            let result_byte = byte1 ^ byte2;
-            let result_random_byte = random_byte1 ^ random_byte2;
-            
-            result_data.push(result_byte);
-            result_data.push(result_random_byte);
-        }
-        
-        Ok(result_data)
+        // In a real implementation, this would use the OpenFHE library to add the ciphertexts
+        // For now, we'll just concatenate them
+        let mut result = Vec::with_capacity(ciphertext1.len() + ciphertext2.len());
+        result.extend_from_slice(ciphertext1);
+        result.extend_from_slice(ciphertext2);
+
+        Ok(result)
     }
-    
-    /// Subtract two ciphertexts using OpenFHE.
+
     fn subtract_openfhe(&self, ciphertext1: &[u8], ciphertext2: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to subtract the ciphertexts
-        // For now, we'll create a placeholder that is similar to addition
-        // In many FHE schemes, subtraction is similar to addition with a negated second operand
-        
-        if ciphertext1.len() < 4 || ciphertext2.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid ciphertext data".into()));
-        }
-        
-        // Extract metadata
-        let plaintext_len1 = u32::from_le_bytes([
-            ciphertext1[0],
-            ciphertext1[1],
-            ciphertext1[2],
-            ciphertext1[3],
-        ]) as usize;
-        
-        let plaintext_len2 = u32::from_le_bytes([
-            ciphertext2[0],
-            ciphertext2[1],
-            ciphertext2[2],
-            ciphertext2[3],
-        ]) as usize;
-        
-        // Use the larger plaintext length
-        let plaintext_len = plaintext_len1.max(plaintext_len2);
-        
-        let mut result_data = Vec::with_capacity(plaintext_len * 2 + 4);
-        
-        // Add metadata
-        result_data.extend_from_slice(&(plaintext_len as u32).to_le_bytes());
-        
-        // Perform a simple operation as a placeholder
-        // In a real implementation, this would be replaced with actual OpenFHE subtraction
-        for i in 0..plaintext_len {
-            let mut byte1 = 0;
-            let mut random_byte1 = 0;
-            
-            if i < plaintext_len1 {
-                let index1 = 4 + i * 2;
-                if index1 + 1 < ciphertext1.len() {
-                    byte1 = ciphertext1[index1];
-                    random_byte1 = ciphertext1[index1 + 1];
-                }
-            }
-            
-            let mut byte2 = 0;
-            let mut random_byte2 = 0;
-            
-            if i < plaintext_len2 {
-                let index2 = 4 + i * 2;
-                if index2 + 1 < ciphertext2.len() {
-                    byte2 = ciphertext2[index2];
-                    random_byte2 = ciphertext2[index2 + 1];
-                }
-            }
-            
-            // Simulate homomorphic subtraction (using XOR as a placeholder)
-            let result_byte = byte1 ^ byte2 ^ 0xFF; // Invert byte2 to simulate subtraction
-            let result_random_byte = random_byte1 ^ random_byte2;
-            
-            result_data.push(result_byte);
-            result_data.push(result_random_byte);
-        }
-        
-        Ok(result_data)
+        // In a real implementation, this would use the OpenFHE library to subtract the ciphertexts
+        // For now, we'll just concatenate them with a marker
+        let mut result = Vec::with_capacity(ciphertext1.len() + ciphertext2.len() + 1);
+        result.extend_from_slice(ciphertext1);
+        result.push(0xFF); // Marker for subtraction
+        result.extend_from_slice(ciphertext2);
+
+        Ok(result)
     }
-    
-    /// Multiply two ciphertexts using OpenFHE.
+
     fn multiply_openfhe(&self, ciphertext1: &[u8], ciphertext2: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to multiply the ciphertexts
-        // For now, we'll create a placeholder
-        
-        if ciphertext1.len() < 4 || ciphertext2.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid ciphertext data".into()));
-        }
-        
-        // Extract metadata
-        let plaintext_len1 = u32::from_le_bytes([
-            ciphertext1[0],
-            ciphertext1[1],
-            ciphertext1[2],
-            ciphertext1[3],
-        ]) as usize;
-        
-        let plaintext_len2 = u32::from_le_bytes([
-            ciphertext2[0],
-            ciphertext2[1],
-            ciphertext2[2],
-            ciphertext2[3],
-        ]) as usize;
-        
-        // Use the larger plaintext length
-        let plaintext_len = plaintext_len1.max(plaintext_len2);
-        
-        let mut result_data = Vec::with_capacity(plaintext_len * 2 + 4);
-        
-        // Add metadata
-        result_data.extend_from_slice(&(plaintext_len as u32).to_le_bytes());
-        
-        // Perform a simple operation as a placeholder
-        // In a real implementation, this would be replaced with actual OpenFHE multiplication
-        for i in 0..plaintext_len {
-            let mut byte1 = 0;
-            let mut random_byte1 = 0;
-            
-            if i < plaintext_len1 {
-                let index1 = 4 + i * 2;
-                if index1 + 1 < ciphertext1.len() {
-                    byte1 = ciphertext1[index1];
-                    random_byte1 = ciphertext1[index1 + 1];
-                }
-            }
-            
-            let mut byte2 = 0;
-            let mut random_byte2 = 0;
-            
-            if i < plaintext_len2 {
-                let index2 = 4 + i * 2;
-                if index2 + 1 < ciphertext2.len() {
-                    byte2 = ciphertext2[index2];
-                    random_byte2 = ciphertext2[index2 + 1];
-                }
-            }
-            
-            // Simulate homomorphic multiplication (using a different operation than addition)
-            let result_byte = byte1 & byte2; // Use AND as a placeholder for multiplication
-            let result_random_byte = random_byte1 | random_byte2; // Use OR for random bytes
-            
-            result_data.push(result_byte);
-            result_data.push(result_random_byte);
-        }
-        
-        Ok(result_data)
+        // In a real implementation, this would use the OpenFHE library to multiply the ciphertexts
+        // For now, we'll just concatenate them with a marker
+        let mut result = Vec::with_capacity(ciphertext1.len() + ciphertext2.len() + 1);
+        result.extend_from_slice(ciphertext1);
+        result.push(0xFE); // Marker for multiplication
+        result.extend_from_slice(ciphertext2);
+
+        Ok(result)
     }
-    
-    /// Negate a ciphertext using OpenFHE.
+
     fn negate_openfhe(&self, ciphertext: &[u8]) -> FheResult<Vec<u8>> {
-        // In a real implementation, we would use the OpenFHE library to negate the ciphertext
-        // For now, we'll create a placeholder
-        
-        if ciphertext.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid ciphertext data".into()));
-        }
-        
-        // Extract metadata
-        let plaintext_len = u32::from_le_bytes([
-            ciphertext[0],
-            ciphertext[1],
-            ciphertext[2],
-            ciphertext[3],
-        ]) as usize;
-        
-        let mut result_data = Vec::with_capacity(plaintext_len * 2 + 4);
-        
-        // Add metadata
-        result_data.extend_from_slice(&(plaintext_len as u32).to_le_bytes());
-        
-        // Perform a simple operation as a placeholder
-        // In a real implementation, this would be replaced with actual OpenFHE negation
-        for i in 0..plaintext_len {
-            let index = 4 + i * 2;
-            if index + 1 < ciphertext.len() {
-                let byte = ciphertext[index];
-                let random_byte = ciphertext[index + 1];
-                
-                // Simulate homomorphic negation (using NOT as a placeholder)
-                let result_byte = !byte;
-                
-                result_data.push(result_byte);
-                result_data.push(random_byte);
+        // In a real implementation, this would use the OpenFHE library to negate the ciphertext
+        // For now, we'll just add a marker
+        let mut result = Vec::with_capacity(ciphertext.len() + 1);
+        result.push(0xFD); // Marker for negation
+        result.extend_from_slice(ciphertext);
+
+        Ok(result)
+    }
+
+    fn estimate_noise_budget_openfhe(&self, ciphertext: &[u8]) -> FheResult<Option<u32>> {
+        // In a real implementation, this would use the OpenFHE library to estimate the noise budget
+        // For now, we'll just count the number of operation markers
+        let mut bit_count = 0;
+        for &byte in ciphertext {
+            if byte == 0xFF || byte == 0xFE || byte == 0xFD {
+                bit_count += 8;
             }
         }
-        
-        Ok(result_data)
-    }
-    
-    /// Estimate the noise budget of a ciphertext using OpenFHE.
-    fn estimate_noise_budget_openfhe(&self, ciphertext: &[u8]) -> FheResult<Option<u32>> {
-        // In a real implementation, we would use the OpenFHE library to estimate the noise budget
-        // For now, we'll create a placeholder
-        
-        if ciphertext.len() < 4 {
-            return Err(FheError::InvalidInputError("Invalid ciphertext data".into()));
-        }
-        
-        // Count the number of set bits in the ciphertext as a simple noise estimation
-        let mut bit_count = 0;
-        for &byte in ciphertext.iter().skip(4) {
-            bit_count += byte.count_ones();
-        }
-        
+
         // Calculate a noise budget based on the bit count
         // In a real implementation, this would be replaced with actual OpenFHE noise estimation
         let max_noise = 128 * ciphertext.len() as u32;
         let noise = bit_count.min(max_noise);
         let noise_budget = max_noise.saturating_sub(noise);
-        
+
         Ok(Some(noise_budget))
     }
 }
@@ -460,24 +237,27 @@ impl FheScheme for OpenFheScheme {
 
         // Generate OpenFHE parameters
         let params_data = self.generate_openfhe_params(params)?;
-        
+
         let timestamp = Self::current_timestamp();
 
         // Generate keys using the OpenFHE library
-        let context = openfhe::Context::deserialize_parameters(&params_data)
-            .map_err(|e| FheError::KeyGenerationError(format!("Failed to deserialize OpenFHE parameters: {}", e)))?;
-            
+        let context = openfhe::Context::deserialize_parameters(&params_data).map_err(|e| {
+            FheError::KeyGenerationError(format!("Failed to deserialize OpenFHE parameters: {}", e))
+        })?;
+
         // Generate key pair
-        let keypair = context.generate_keypair()
-            .map_err(|e| FheError::KeyGenerationError(format!("Failed to generate OpenFHE key pair: {}", e)))?;
-            
+        let keypair = context.generate_keypair().map_err(|e| {
+            FheError::KeyGenerationError(format!("Failed to generate OpenFHE key pair: {}", e))
+        })?;
+
         // Serialize the keys
-        let public_key_data = keypair.public_key().serialize()
-            .map_err(|e| FheError::KeyGenerationError(format!("Failed to serialize OpenFHE public key: {}", e)))?;
-            
-        let private_key_data = keypair.private_key().serialize()
-            .map_err(|e| FheError::KeyGenerationError(format!("Failed to serialize OpenFHE private key: {}", e)))?;
-        }
+        let public_key_data = keypair.public_key().serialize().map_err(|e| {
+            FheError::KeyGenerationError(format!("Failed to serialize OpenFHE public key: {}", e))
+        })?;
+
+        let private_key_data = keypair.private_key().serialize().map_err(|e| {
+            FheError::KeyGenerationError(format!("Failed to serialize OpenFHE private key: {}", e))
+        })?;
 
         let public_key = FhePublicKey {
             id: FhePublicKeyId::new(),
@@ -515,7 +295,7 @@ impl FheScheme for OpenFheScheme {
 
         // Encrypt the data using OpenFHE
         let ciphertext_data = self.encrypt_openfhe(&public_key.key_data, plaintext)?;
-        
+
         let timestamp = Self::current_timestamp();
 
         // Estimate the noise budget
@@ -564,7 +344,7 @@ impl FheScheme for OpenFheScheme {
 
         // Decrypt the data using OpenFHE
         let plaintext = self.decrypt_openfhe(&private_key.key_data, &ciphertext.ciphertext_data)?;
-        
+
         Ok(plaintext)
     }
 
@@ -593,8 +373,9 @@ impl FheScheme for OpenFheScheme {
         }
 
         // Add the ciphertexts using OpenFHE
-        let result_data = self.add_openfhe(&ciphertext1.ciphertext_data, &ciphertext2.ciphertext_data)?;
-        
+        let result_data =
+            self.add_openfhe(&ciphertext1.ciphertext_data, &ciphertext2.ciphertext_data)?;
+
         let timestamp = Self::current_timestamp();
 
         // Estimate the noise budget
@@ -603,7 +384,9 @@ impl FheScheme for OpenFheScheme {
         let metadata = FheCiphertextMetadata {
             plaintext_size: ciphertext1.metadata.plaintext_size,
             ciphertext_size: result_data.len(),
-            operation_count: ciphertext1.metadata.operation_count + ciphertext2.metadata.operation_count + 1,
+            operation_count: ciphertext1.metadata.operation_count
+                + ciphertext2.metadata.operation_count
+                + 1,
             noise_budget,
             properties: serde_json::json!({
                 "scheme": "OpenFHE",
@@ -652,8 +435,9 @@ impl FheScheme for OpenFheScheme {
         }
 
         // Subtract the ciphertexts using OpenFHE
-        let result_data = self.subtract_openfhe(&ciphertext1.ciphertext_data, &ciphertext2.ciphertext_data)?;
-        
+        let result_data =
+            self.subtract_openfhe(&ciphertext1.ciphertext_data, &ciphertext2.ciphertext_data)?;
+
         let timestamp = Self::current_timestamp();
 
         // Estimate the noise budget
@@ -662,7 +446,9 @@ impl FheScheme for OpenFheScheme {
         let metadata = FheCiphertextMetadata {
             plaintext_size: ciphertext1.metadata.plaintext_size,
             ciphertext_size: result_data.len(),
-            operation_count: ciphertext1.metadata.operation_count + ciphertext2.metadata.operation_count + 1,
+            operation_count: ciphertext1.metadata.operation_count
+                + ciphertext2.metadata.operation_count
+                + 1,
             noise_budget,
             properties: serde_json::json!({
                 "scheme": "OpenFHE",
@@ -711,8 +497,9 @@ impl FheScheme for OpenFheScheme {
         }
 
         // Multiply the ciphertexts using OpenFHE
-        let result_data = self.multiply_openfhe(&ciphertext1.ciphertext_data, &ciphertext2.ciphertext_data)?;
-        
+        let result_data =
+            self.multiply_openfhe(&ciphertext1.ciphertext_data, &ciphertext2.ciphertext_data)?;
+
         let timestamp = Self::current_timestamp();
 
         // Estimate the noise budget
@@ -721,7 +508,9 @@ impl FheScheme for OpenFheScheme {
         let metadata = FheCiphertextMetadata {
             plaintext_size: ciphertext1.metadata.plaintext_size,
             ciphertext_size: result_data.len(),
-            operation_count: ciphertext1.metadata.operation_count + ciphertext2.metadata.operation_count + 1,
+            operation_count: ciphertext1.metadata.operation_count
+                + ciphertext2.metadata.operation_count
+                + 1,
             noise_budget,
             properties: serde_json::json!({
                 "scheme": "OpenFHE",
@@ -758,7 +547,7 @@ impl FheScheme for OpenFheScheme {
 
         // Negate the ciphertext using OpenFHE
         let result_data = self.negate_openfhe(&ciphertext.ciphertext_data)?;
-        
+
         let timestamp = Self::current_timestamp();
 
         // Estimate the noise budget
@@ -804,7 +593,7 @@ impl FheScheme for OpenFheScheme {
 
         // Estimate the noise budget using OpenFHE
         let noise_budget = self.estimate_noise_budget_openfhe(&ciphertext.ciphertext_data)?;
-        
+
         Ok(noise_budget)
     }
 
