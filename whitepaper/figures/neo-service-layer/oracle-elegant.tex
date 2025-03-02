@@ -1,0 +1,85 @@
+% This file should only be \input{} in a document that loads the tikz package
+% Do not compile this file directly with pdflatex
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    scale=1.0,
+    node distance=2.5cm,
+    % Define styles locally
+    modern-box/.style={
+      rectangle, 
+      rounded corners=3pt, 
+      draw=gray!60, 
+      thick, 
+      fill=#1,
+      drop shadow={opacity=0.25, shadow xshift=1.5pt, shadow yshift=-1.5pt},
+      text width=2.5cm,
+      align=center, 
+      minimum height=1.2cm
+    },
+    modern-arrow/.style={
+      -stealth, 
+      thick, 
+      draw=gray!70,
+      shorten >=2pt,
+      shorten <=2pt
+    },
+    modern-dashed/.style={
+      modern-arrow,
+      dashed
+    },
+    modern-text/.style={
+      font=\small,
+      text width=2.2cm,
+      align=center,
+      midway
+    }
+]
+    % Define the main components with modern styling
+    \node[modern-box=blue!10, font=\bfseries] (contract) at (0,5) {Smart Contract};
+    \node[modern-box=red!10, font=\bfseries, text width=3.5cm] (oracle) at (0,2) {Oracle Service};
+    \node[modern-box=gray!10, text width=4.5cm] (external) at (0,-3) {External Data Sources};
+    
+    % Data types with consistent styling
+    \node[modern-box=orange!10] (price) at (-4.5,0) {Price Data};
+    \node[modern-box=orange!10] (random) at (-2.25,0) {Random};
+    \node[modern-box=orange!10] (weather) at (0,0) {Weather};
+    \node[modern-box=orange!10] (sports) at (2.25,0) {Sports};
+    \node[modern-box=orange!10] (custom) at (4.5,0) {Custom};
+    
+    % Connect components with elegant arrows
+    \draw[modern-arrow] (contract) -- node[modern-text, left] {1. Request\\Data} (oracle);
+    \draw[modern-dashed] (oracle) -- node[modern-text, right] {4. Verified\\Response} (contract);
+    
+    % Connect Oracle to data types
+    \foreach \datatype in {price, random, weather, sports, custom} {
+        \draw[modern-arrow] (oracle) -- node[modern-text, sloped, font=\footnotesize] {2. Query} (\datatype);
+        \draw[modern-arrow] (\datatype) -- node[modern-text, sloped, font=\footnotesize] {Access} (external);
+    }
+    
+    % Connect external sources back to Oracle
+    \draw[modern-dashed] (external) -- node[modern-text, right] {3. Raw Data} (oracle);
+    
+    % Add a title
+    \node[font=\bfseries\large, text width=7cm, align=center] at (0,7) {Oracle Service Architecture};
+    
+    % Add a decorative border around the data types
+    \draw[rounded corners=8pt, dashed, thick, draw=gray!60] 
+        (-5.2,0.8) rectangle (5.2,-0.8) node[pos=0.5, below=1.5cm] {\textbf{Data Categories}};
+        
+    % Add a subtle background for the entire diagram
+    \begin{scope}[on background layer]
+        \fill[rounded corners=15pt, blue!5, opacity=0.3] (-6,-4) rectangle (6,6);
+    \end{scope}
+    
+    % Add a legend for the arrow types
+    \node[anchor=south west, align=left, font=\footnotesize] at (-5.8,-4.5) {
+        \textbf{Legend:}\\
+        \rule{0.8cm}{1pt} Request Flow\\
+        \rule[0.5ex]{0.15cm}{1pt}\rule[0.5ex]{0.15cm}{0pt}\rule[0.5ex]{0.15cm}{1pt}\rule[0.5ex]{0.15cm}{0pt}\rule[0.5ex]{0.15cm}{1pt} Response Flow
+    };
+\end{tikzpicture}
+\caption{Enhanced Oracle Service Architecture}
+\label{fig:oracle-service-elegant}
+\end{figure} 

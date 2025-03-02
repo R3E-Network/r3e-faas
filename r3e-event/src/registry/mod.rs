@@ -3,122 +3,120 @@
 
 pub mod examples;
 pub mod rocksdb;
+pub mod registry;
 pub mod service;
 pub mod storage;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-
 use uuid::Uuid;
 
-use crate::registry::proto::*;
 use crate::registry::storage::FunctionStorage;
 
-// Define proto types
-pub mod proto {
-    // Function metadata
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct FunctionMetadata {
-        pub id: String,
-        pub name: String,
-        pub description: String,
-        pub version: u32,
-        pub created_at: u64,
-        pub updated_at: u64,
-        pub trigger: Option<TriggerConfig>,
-        pub permissions: Option<Permissions>,
-        pub resources: Option<Resources>,
-        pub code: String,
-    }
+// Re-export registry types 
+pub use registry::*;
 
-    // Trigger configuration
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct TriggerConfig {
-        pub trigger_type: String,
-        pub config: serde_json::Value,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct FunctionMetadata {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub version: u32,
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub trigger: Option<TriggerConfig>,
+    pub permissions: Option<Permissions>,
+    pub resources: Option<Resources>,
+    pub code: String,
+}
 
-    // Permissions
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Permissions {
-        pub network: bool,
-        pub filesystem: bool,
-        pub environment: bool,
-    }
+// Trigger configuration
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct TriggerConfig {
+    pub trigger_type: String,
+    pub config: serde_json::Value,
+}
 
-    // Resources
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct Resources {
-        pub memory_mb: u32,
-        pub cpu_units: u32,
-        pub timeout_ms: u32,
-    }
+// Permissions
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Permissions {
+    pub network: bool,
+    pub filesystem: bool,
+    pub environment: bool,
+}
 
-    // Request/Response types
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct RegisterFunctionRequest {
-        pub name: String,
-        pub description: String,
-        pub trigger: Option<TriggerConfig>,
-        pub permissions: Option<Permissions>,
-        pub resources: Option<Resources>,
-        pub code: String,
-    }
+// Resources
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Resources {
+    pub memory_mb: u32,
+    pub cpu_units: u32,
+    pub timeout_ms: u32,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct RegisterFunctionResponse {
-        pub metadata: Option<FunctionMetadata>,
-    }
+// Request/Response types
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct RegisterFunctionRequest {
+    pub name: String,
+    pub description: String,
+    pub trigger: Option<TriggerConfig>,
+    pub permissions: Option<Permissions>,
+    pub resources: Option<Resources>,
+    pub code: String,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct UpdateFunctionRequest {
-        pub id: String,
-        pub name: Option<String>,
-        pub description: Option<String>,
-        pub trigger: Option<TriggerConfig>,
-        pub permissions: Option<Permissions>,
-        pub resources: Option<Resources>,
-        pub code: Option<String>,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct RegisterFunctionResponse {
+    pub metadata: Option<FunctionMetadata>,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct UpdateFunctionResponse {
-        pub metadata: Option<FunctionMetadata>,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct UpdateFunctionRequest {
+    pub id: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub trigger: Option<TriggerConfig>,
+    pub permissions: Option<Permissions>,
+    pub resources: Option<Resources>,
+    pub code: Option<String>,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct GetFunctionRequest {
-        pub id: String,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct UpdateFunctionResponse {
+    pub metadata: Option<FunctionMetadata>,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct GetFunctionResponse {
-        pub metadata: Option<FunctionMetadata>,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct GetFunctionRequest {
+    pub id: String,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct ListFunctionsRequest {
-        pub page_token: String,
-        pub page_size: u32,
-        pub trigger_type: String,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct GetFunctionResponse {
+    pub metadata: Option<FunctionMetadata>,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct ListFunctionsResponse {
-        pub functions: Vec<FunctionMetadata>,
-        pub next_page_token: String,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ListFunctionsRequest {
+    pub page_token: String,
+    pub page_size: u32,
+    pub trigger_type: String,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct DeleteFunctionRequest {
-        pub id: String,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ListFunctionsResponse {
+    pub functions: Vec<FunctionMetadata>,
+    pub next_page_token: String,
+}
 
-    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    pub struct DeleteFunctionResponse {
-        pub success: bool,
-    }
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DeleteFunctionRequest {
+    pub id: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DeleteFunctionResponse {
+    pub success: bool,
 }
 
 /// Function registry for managing user-provided JavaScript functions
@@ -1071,7 +1069,9 @@ impl ServiceRegistry {
         is_readonly: bool,
         signature: Option<&ServiceSignature>,
     ) -> Result<Value, String> {
-        use neo3::prelude::*;
+        use neo3::neo_clients::{HttpProvider, RpcClient};
+        use neo3::prelude::{ScriptHash, ContractParameter, ScriptBuilder, Wallet, StackItem, InvocationResult};
+        
         // Get the RPC URL based on the network
         let rpc_url = match network {
             "mainnet" => "http://seed1.neo.org:10332",
@@ -1080,8 +1080,8 @@ impl ServiceRegistry {
         };
 
         // Create a provider
-        let provider = HttpProvider::new(rpc_url);
-        let client = ProviderClient::new(provider);
+        let provider = HttpProvider::new(rpc_url).map_err(|e| format!("Failed to create Neo provider: {}", e))?;
+        let client = RpcClient::new(provider);
 
         // Parse the contract hash
         let contract_hash = contract_address
@@ -1090,17 +1090,18 @@ impl ServiceRegistry {
 
         // Execute the contract method based on whether it's read-only or not
         if is_readonly {
-            // Create a contract call for reading data
-            let call_builder = client.invoke_function(contract_hash, contract_method);
-
-            // Add parameters
-            let call_builder = add_neo_parameters(call_builder, parameters)?;
-
-            // Call the contract
-            match call_builder.test_invoke().await {
+            // For read-only operations, build a script to invoke
+            let params = self.convert_neo_parameters(parameters)?;
+            
+            // Build the script
+            let script = ScriptBuilder::build_script(contract_hash.clone(), contract_method.to_string(), params)
+                .map_err(|e| format!("Failed to build script: {}", e))?;
+            
+            // Invoke the script
+            match client.invoke_script(&script).await {
                 Ok(result) => {
                     // Parse the result
-                    parse_neo_result(&result)
+                    self.parse_neo_result(&result)
                 }
                 Err(e) => Err(format!("Failed to call Neo contract: {}", e)),
             }
@@ -1115,44 +1116,59 @@ impl ServiceRegistry {
             let wallet = Wallet::new_from_wif("your_wif_private_key")
                 .map_err(|e| format!("Failed to create Neo wallet: {}", e))?;
 
-            // Create a contract call for writing data
-            let call_builder = client.invoke_function(contract_hash, contract_method);
-
-            // Add parameters
-            let call_builder = add_neo_parameters(call_builder, parameters)?;
-
+            // For write operations, also build a script
+            let params = self.convert_neo_parameters(parameters)?;
+            
+            // Build the script
+            let script = ScriptBuilder::build_script(contract_hash, contract_method.to_string(), params)
+                .map_err(|e| format!("Failed to build script: {}", e))?;
+            
+            // Create a transaction
+            let tx = neo3::prelude::TransactionBuilder::new()
+                .script(script)
+                .signers(vec![wallet.get_account_signer()])
+                .build_with_client(&client)
+                .await
+                .map_err(|e| format!("Failed to build Neo transaction: {}", e))?;
+            
+            // Sign the transaction
+            let signed_tx = tx.sign_with_wallet(&wallet)
+                .map_err(|e| format!("Failed to sign Neo transaction: {}", e))?;
+            
             // Send the transaction
-            match call_builder.sign_and_invoke(&wallet).await {
-                Ok(result) => Ok(serde_json::json!({
-                    "tx_hash": result.tx_id.to_string()
+            match signed_tx.send(&client).await {
+                Ok(hash) => Ok(serde_json::json!({
+                    "tx_hash": hash.to_string()
                 })),
-                Err(e) => Err(format!("Failed to call Neo contract: {}", e)),
+                Err(e) => Err(format!("Failed to send Neo transaction: {}", e)),
             }
         }
     }
 
-    /// Add parameters to a Neo function call
-    fn add_neo_parameters(
-        mut builder: neo3::prelude::InvokeMethodBuilder,
+    /// Convert parameters to Neo contract parameters
+    fn convert_neo_parameters(
+        &self,
         parameters: &Value,
-    ) -> Result<neo3::prelude::InvokeMethodBuilder, String> {
-        if let Value::Object(params) = parameters {
-            for (key, value) in params {
+    ) -> Result<Vec<neo3::prelude::ContractParameter>, String> {
+        use neo3::prelude::ContractParameter;
+        
+        let mut params = Vec::new();
+        
+        if let Value::Object(param_map) = parameters {
+            for (_, value) in param_map {
                 match value {
                     Value::String(s) => {
-                        builder = builder.with_parameter_string(s);
+                        params.push(ContractParameter::String(s.clone()));
                     }
                     Value::Number(n) => {
                         if n.is_i64() {
-                            builder = builder.with_parameter_integer(n.as_i64().unwrap());
+                            params.push(ContractParameter::Integer(n.as_i64().unwrap()));
                         } else {
-                            return Err(
-                                "Only integer numbers are supported for Neo parameters".to_string()
-                            );
+                            return Err("Only integer numbers are supported for Neo parameters".to_string());
                         }
                     }
                     Value::Bool(b) => {
-                        builder = builder.with_parameter_bool(*b);
+                        params.push(ContractParameter::Boolean(*b));
                     }
                     Value::Array(_) => {
                         return Err("Array parameters are not supported".to_string());
@@ -1161,29 +1177,36 @@ impl ServiceRegistry {
                         return Err("Nested object parameters are not supported".to_string());
                     }
                     Value::Null => {
-                        builder = builder.with_parameter_null();
+                        params.push(ContractParameter::Any(None));
                     }
                 }
             }
         }
 
-        Ok(builder)
+        Ok(params)
     }
 
     /// Parse a Neo contract result
-    fn parse_neo_result(result: &neo3::prelude::InvokeResult) -> Result<Value, String> {
-        if !result.has_state_fault() {
+    fn parse_neo_result(&self, result: &neo3::prelude::InvocationResult) -> Result<Value, String> {
+        if result.state != "FAULT" {
             // Parse the stack items
-            if let Some(stack) = result.stack() {
-                if let Some(item) = stack.first() {
+            if !result.stack.is_empty() {
+                if let Some(item) = result.stack.first() {
                     match item {
                         neo3::prelude::StackItem::Integer(n) => {
                             Ok(serde_json::json!({ "result": n.to_string() }))
                         }
-                        neo3::prelude::StackItem::String(s) => {
-                            Ok(serde_json::json!({ "result": s }))
+                        neo3::prelude::StackItem::ByteString(bs) => {
+                            // Try to convert to a UTF-8 string if possible
+                            match String::from_utf8(bs.clone()) {
+                                Ok(s) => Ok(serde_json::json!({ "result": s })),
+                                Err(_) => {
+                                    // Use base64 encoding for binary data
+                                    Ok(serde_json::json!({ "result": base64::encode(bs) }))
+                                }
+                            }
                         }
-                        neo3::prelude::StackItem::Bool(b) => Ok(serde_json::json!({ "result": b })),
+                        neo3::prelude::StackItem::Boolean(b) => Ok(serde_json::json!({ "result": b })),
                         _ => Err("Unsupported Neo result type".to_string()),
                     }
                 } else {
@@ -1195,7 +1218,7 @@ impl ServiceRegistry {
         } else {
             Err(format!(
                 "Neo contract execution failed: {:?}",
-                result.exception()
+                result.exception
             ))
         }
     }

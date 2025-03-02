@@ -38,40 +38,35 @@ pub struct EIP712TypedData {
     /// The types
     pub types: HashMap<String, Vec<EIP712Type>>,
     /// The message
-    pub message: HashMap<String, serde_json::Value>,
+    pub message: serde_json::Value,
 }
 
-/// Meta Transaction EIP-712 Message
+/// Meta transaction message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetaTxMessage {
-    /// The sender address
+    pub chain_id: u64,
+    pub function: String,
     pub from: String,
-    /// The target contract address
     pub to: String,
-    /// The transaction data
     pub data: String,
-    /// The nonce
     pub nonce: u64,
-    /// The deadline timestamp
     pub deadline: u64,
-    /// The fee model
     pub fee_model: String,
-    /// The fee amount
     pub fee_amount: u64,
 }
 
 impl MetaTxMessage {
-    /// Create a new MetaTxMessage from a MetaTxRequest
-    pub fn from_request(request: &crate::meta_tx::types::MetaTxRequest) -> Self {
-        let target_contract = request.target_contract.clone().unwrap_or_default();
-
+    /// Create a MetaTxMessage from a MetaTxRequest
+    pub fn from_request(request: crate::meta_tx::types::MetaTxRequest) -> Self {
         Self {
+            chain_id: request.chain_id.unwrap_or(1),
+            function: request.function.unwrap_or_default(),
             from: request.sender.clone(),
-            to: target_contract,
+            to: request.target_address.clone(),
             data: request.tx_data.clone(),
             nonce: request.nonce,
             deadline: request.deadline,
-            fee_model: request.fee_model.clone(),
+            fee_model: request.fee_model.unwrap_or_default(),
             fee_amount: request.fee_amount,
         }
     }

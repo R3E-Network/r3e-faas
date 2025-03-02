@@ -1,34 +1,43 @@
 % This file should only be \input{} in a document that loads the tikz package
 % Do not compile this file directly with pdflatex
 
-\begin{figure}[h]
+\begin{figure}[ht]
 \centering
-\begin{tikzpicture}[node distance=3cm, auto, thick, font=\footnotesize]
-    % Define styles using tikzset instead of tikzstyle
-    \tikzset{
-        block/.style={rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em},
-        connection/.style={draw, -latex', shorten >=1pt}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    baseblock/.style={
+        rectangle, 
+        draw=black!70, 
+        rounded corners=3pt,
+        text width=3cm,
+        align=center,
+        minimum height=1cm,
+        fill=#1
+    },
+    annotation/.style={
+        font=\small\itshape,
+        text width=2.2cm,
+        align=center
     }
+]
+    \node[baseblock, fill=blue!15] (user) {User};
+    \node[baseblock, fill=green!15, right=3cm of user] (app) {DApp};
+    \node[baseblock, fill=orange!15, below=2cm of app] (gasbank) {Gas Bank Service};
     
-    % Place nodes with increased distances
-    \node [block] (user) {User};
-    \node [block, right of=user, node distance=6cm] (app) {Application};
-    \node [block, below of=app, node distance=3cm] (gas_bank) {Gas Bank Service};
-    \node [block, below of=gas_bank, node distance=3cm] (account) {Gas Bank Account};
-    \node [block, left of=account, node distance=6cm] (fee_model) {Fee Model};
-    \node [block, right of=account, node distance=6cm] (blockchain) {Neo N3 Blockchain};
+    \draw[connector] (user) -- node[annotation, above] {Deposit Funds} (app);
+    \draw[connector] (app) -- node[annotation, right] {Request Gas Payment} (gasbank);
+    \draw[connector] (gasbank) -- node[annotation, left] {Gas Receipt} (app);
+    \draw[connector] (app) -- node[annotation, below] {Transaction Confirmation} (user);
     
-    % Draw edges with adjusted label positions and width
-    \draw [connection] (user) -- node[text width=2.5cm, align=center, midway] {Interact} (app);
-    \draw [connection] (app) -- node[text width=2.5cm, align=center, midway] {Request} (gas_bank);
-    \draw [connection] (gas_bank) -- node[text width=2.5cm, align=center, midway] {Manage} (account);
-    \draw [connection] (fee_model) -- node[text width=2.5cm, align=center, midway] {Configure} (account);
-    \draw [connection] (account) -- node[text width=2.5cm, align=center, midway] {Pay Fees} (blockchain);
-    \draw [connection] (user) to [bend right=45] node[text width=2.5cm, align=center, below] {Deposit} (account);
-    \draw [connection] (account) to [bend right=45] node[text width=2.5cm, align=center, above] {Withdraw} (user);
-    \draw [connection] (blockchain) to [bend left] node[text width=2.5cm, align=center, above] {Confirm} (gas_bank);
-    
+    \node[annotation, below=0.5cm of gasbank] (note) {
+        \begin{itemize}
+        \item[] \footnotesize
+        \item Funds held in escrow
+        \item Auto-replenish threshold
+        \item Multi-chain support
+        \end{itemize}
+    };
 \end{tikzpicture}
-\caption{Gas Bank Operations in Neo Service Layer}
-\label{fig:gas-bank-operations}
+\caption{Gas Banking Operation Flow}
+\label{fig:gas-bank-flow}
 \end{figure}

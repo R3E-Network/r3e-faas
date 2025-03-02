@@ -26,7 +26,86 @@
     % Define arrow-text style for consistent text positioning
     arrow-text/.style={font=\footnotesize, text width=2.5cm, align=center},
     above-arrow-text/.style={above, arrow-text},
-    below-arrow-text/.style={below, arrow-text}
+    below-arrow-text/.style={below, arrow-text},
+    modern-box/.style={
+      rectangle, 
+      rounded corners=3pt, 
+      draw=gray!60, 
+      thick, 
+      fill=#1,
+      drop shadow={opacity=0.25, shadow xshift=1.5pt, shadow yshift=-1.5pt},
+      text width=2.8cm, 
+      align=center, 
+      minimum height=1.2cm
+    },
+    modern-arrow/.style={
+      -stealth, 
+      thick, 
+      draw=gray!70,
+      shorten >=2pt,
+      shorten <=2pt
+    },
+    modern-dashed/.style={
+      modern-arrow,
+      dashed
+    },
+    modern-text/.style={
+      font=\small,
+      text width=2.5cm,
+      align=center,
+      midway
+    },
+    primary-color/.style={fill=blue!10},
+    secondary-color/.style={fill=teal!10},
+    tertiary-color/.style={fill=orange!10},
+    highlight-color/.style={fill=red!10},
+    neutral-color/.style={fill=gray!10}
+}
+
+% Enhanced Figure Styling for Better Visual Appearance
+\tikzset{
+  % Modern node styles
+  modern-box/.style={
+    rectangle, 
+    rounded corners=3pt, 
+    draw=gray!60, 
+    thick, 
+    fill=#1,
+    drop shadow={opacity=0.25, shadow xshift=1.5pt, shadow yshift=-1.5pt},
+    text width=2.8cm, 
+    align=center, 
+    minimum height=1.2cm
+  },
+  
+  % Improved arrow styles
+  modern-arrow/.style={
+    -stealth, 
+    thick, 
+    draw=gray!70,
+    shorten >=2pt,
+    shorten <=2pt
+  },
+  
+  % Dashed arrow style for feedback/response flows
+  modern-dashed/.style={
+    modern-arrow,
+    dashed
+  },
+  
+  % Nicer text styling for annotations
+  modern-text/.style={
+    font=\small,
+    text width=2.5cm,
+    align=center,
+    midway
+  },
+  
+  % Color palette for consistent colors
+  primary-color/.style={fill=blue!10},
+  secondary-color/.style={fill=teal!10},
+  tertiary-color/.style={fill=orange!10},
+  highlight-color/.style={fill=red!10},
+  neutral-color/.style={fill=gray!10}
 }
 
 % Page geometry
@@ -107,8 +186,8 @@
 % Title information
 \title{\Huge Neo Service Layer\\
 \vspace{0.5cm}
-\Large Bridging Neo N3 Blockchain and Off-Chain Services}
-\author{R3E Team}
+\Large Bridging Blockchain and Off-Chain Services}
+\author{Neo Global Development}
 \date{\today}
 
 % Document begin
@@ -278,7 +357,7 @@ To prevent replay attacks, where a valid transaction is maliciously resubmitted,
 
 Blockchain smart contracts operate in a deterministic environment isolated from external data sources. This isolation ensures security and predictability but limits the types of applications that can be built using smart contracts alone. The Oracle Service bridges this gap by providing a secure and reliable way for smart contracts to access external data.
 
-\input{figures/neo-service-layer/oracle}
+\input{figures/neo-service-layer/oracle-elegant}
 
 \begin{definition}[Oracle Request]
 An Oracle Request is a query from a smart contract to an external data source, processed through the Oracle Service. Each request includes:
@@ -450,7 +529,7 @@ The Deno Core JavaScript runtime provides additional security features that enha
 
 The Trusted Execution Environment (TEE) service provides a secure and isolated environment for executing sensitive computations off-chain. This service is particularly valuable for applications that require privacy, high computational resources, or access to sensitive data that cannot be exposed on the public blockchain.
 
-\input{figures/neo-service-layer/tee}
+\input{figures/neo-service-layer/tee-elegant}
 
 \begin{definition}[Trusted Execution Environment]
 A Trusted Execution Environment is a secure area within a processor that ensures the confidentiality and integrity of code and data loaded inside it. TEEs provide hardware-level isolation, protecting sensitive operations from the host operating system and other applications.
@@ -878,7 +957,7 @@ The advanced cryptographic services in the Neo Service Layer enable powerful app
 By providing these advanced cryptographic capabilities, the Neo Service Layer enables a new generation of privacy-preserving and trust-minimized applications that maintain the benefits of blockchain transparency while protecting sensitive information.
 
 % Include the crypto relationships diagram
-\input{figures/neo-service-layer/crypto_relationships.tex}
+\input{figures/neo-service-layer/crypto-relationships-elegant}
 
 \section{Glossary of Technical Terms}
 \label{sec:glossary}

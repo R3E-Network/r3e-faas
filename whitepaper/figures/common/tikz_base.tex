@@ -1,0 +1,37 @@
+% Add to preamble of main document
+\usepackage{tikz, xcolor, tcolorbox}
+\usetikzlibrary{
+    positioning,
+    arrows.meta,
+    shadows,
+    shapes.geometric,
+    calc,
+    fit,
+    patterns,
+    backgrounds
+}
+
+\tikzset{
+    baseblock/.style = {
+        rectangle,
+        draw,
+        rounded corners=3pt,
+        minimum width=3cm,
+        minimum height=1.5cm,
+        align=center,
+        font=\small,
+        text width=2.8cm
+    },
+    connector/.style = {
+        -{Latex[length=3mm, width=2mm]},
+        thick,
+        shorten >=1pt,
+        shorten <=1pt
+    },
+    annotation/.style = {
+        font=\footnotesize\itshape,
+        text width=3.2cm,
+        align=center,
+        anchor=center
+    }
+} 

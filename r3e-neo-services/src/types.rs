@@ -1,8 +1,15 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use neo3::neo_types::{address::Address, script_hash::ScriptHash};
+// TODO: The internal modules from Neo3 are no longer accessible, we need to update
+// to use the proper public API when available
 use serde::{Deserialize, Serialize};
+
+/// Neo Address type (placeholder for now)
+pub type Address = String;
+
+/// Neo ScriptHash type (placeholder for now)
+pub type ScriptHash = String;
 
 /// Configuration for Neo N3 services
 #[derive(Debug, Clone, Serialize, Deserialize)]

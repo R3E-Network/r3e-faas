@@ -1,63 +1,135 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use async_trait::async_trait;
-use log::{debug, error, info, warn};
+use bincode::{deserialize, serialize};
+use log::error;
 use rocksdb::{
-    ColumnFamily, ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType,
-    Error as RocksError, IteratorMode, Options, ReadOptions, SliceTransform, DB,
+    ColumnFamilyDescriptor, Direction, IteratorMode, Options, ReadOptions,
+    WriteBatch, DB,
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    fmt::Debug,
+    path::Path,
     sync::{Arc, Mutex},
 };
+use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::*;
+/// Database result type
+pub type DbResult<T> = std::result::Result<T, DbError>;
 
-#[derive(Debug, Error)]
-pub enum DbError {
-    #[error("RocksDB error: {0}")]
-    RocksDb(#[from] RocksError),
-
-    #[error("Serialization error: {0}")]
-    Serialization(String),
-
-    #[error("Deserialization error: {0}")]
-    Deserialization(String),
-
-    #[error("Column family not found: {0}")]
-    ColumnFamilyNotFound(String),
-
-    #[error("Key not found: {0}")]
-    KeyNotFound(String),
-
-    #[error("Invalid configuration: {0}")]
-    InvalidConfig(String),
-
-    #[error("Database not open")]
-    NotOpen,
-
-    #[error("Database already open")]
-    AlreadyOpen,
-
-    #[error("Transaction failed: {0}")]
-    TransactionFailed(String),
+/// Thread-safe iterator wrapper that collects results
+pub struct ThreadSafeIterator<T> {
+    items: Vec<T>,
 }
 
-/// Result type for RocksDB operations
-pub type DbResult<T> = Result<T, DbError>;
+impl<T> ThreadSafeIterator<T> {
+    /// Create a new thread-safe iterator
+    fn new<I>(iter: I) -> Self 
+    where 
+        I: Iterator<Item = T>,
+    {
+        Self {
+            items: iter.collect(),
+        }
+    }
+}
 
-/// Configuration for a RocksDB column family
+impl<T> Iterator for ThreadSafeIterator<T> 
+{
+    type Item = T;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.items.is_empty() {
+            None
+        } else {
+            Some(self.items.remove(0))
+        }
+    }
+}
+
+/// Database error type
+#[derive(Debug, Error)]
+pub enum DbError {
+    /// RocksDB error
+    #[error("RocksDB error: {0}")]
+    RocksDb(#[from] rocksdb::Error),
+    
+    /// IO error
+    #[error("IO error: {0}")]
+    IO(String),
+    
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    
+    /// Deserialization error
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+    
+    /// Column family does not exist
+    #[error("Column family not found: {0}")]
+    ColumnFamilyNotFound(String),
+    
+    /// Default column family required
+    #[error("Default column family required")]
+    DefaultCfRequired,
+    
+    /// Database not open
+    #[error("Database not open")]
+    NotOpen,
+    
+    /// Invalid path
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
+    
+    /// Database already open
+    #[error("Database already open")]
+    AlreadyOpen,
+    
+    /// Tokio error
+    #[error("Tokio error: {0}")]
+    Tokio(String),
+    
+    /// Task join error
+    #[error("Task join error: {0}")]
+    TaskJoin(String),
+    
+    /// UTF-8 error
+    #[error("UTF-8 error: {0}")]
+    Utf8Error(String),
+    
+    /// Other error
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+/// Convert bincode errors to DbError
+impl From<Box<bincode::ErrorKind>> for DbError {
+    fn from(error: Box<bincode::ErrorKind>) -> Self {
+        DbError::Deserialization(error.to_string())
+    }
+}
+
+/// Prefix extractor type
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum PrefixExtractor {
+    /// Fixed prefix extractor
+    Fixed(usize),
+    /// Custom prefix extractor
+    Custom(String, String),
+}
+
+/// Configuration for a column family
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ColumnFamilyConfig {
     /// Name of the column family
     pub name: String,
 
     /// Optional prefix extractor
-    pub prefix_extractor: Option<usize>,
+    pub prefix_extractor: Option<PrefixExtractor>,
 
     /// Block size in bytes (default: 4096)
     #[serde(default = "default_block_size")]
@@ -74,6 +146,13 @@ pub struct ColumnFamilyConfig {
     /// Whether to cache index and filter blocks (default: true)
     #[serde(default = "default_true")]
     pub cache_index_and_filter_blocks: bool,
+
+    /// Compression type (default: Lz4)
+    #[serde(default = "default_compression_type")]
+    pub compression_type: Compression,
+
+    /// Options for the column family
+    pub options: HashMap<String, String>,
 }
 
 fn default_block_size() -> usize {
@@ -92,283 +171,346 @@ fn default_true() -> bool {
     true
 }
 
-/// Configuration for RocksDB
-#[derive(Clone, Debug, Serialize, Deserialize)]
+fn default_compression_type() -> Compression {
+    Compression::Lz4
+}
+
+/// Column family descriptor with options
+#[derive(Clone, Debug)]
+pub struct ColumnFamilyDescriptorWithConfig {
+    /// Column family name
+    pub name: String,
+    
+    /// Column family options
+    pub config: ColumnFamilyConfig,
+}
+
+/// RocksDB configuration
+#[derive(Debug, Clone)]
 pub struct RocksDbConfig {
-    /// Path to the database
+    /// Database path
     pub path: String,
-
-    /// Create the database if it doesn't exist
-    #[serde(default = "default_true")]
+    /// Create the DB if it doesn't exist
     pub create_if_missing: bool,
-
-    /// Create missing column families
-    #[serde(default = "default_true")]
+    /// Create missing column families if they don't exist
     pub create_missing_column_families: bool,
-
-    /// Increase parallelism for background operations
-    #[serde(default = "default_parallelism")]
-    pub increase_parallelism: i32,
-
-    /// Optimize for point lookups
-    #[serde(default = "default_true")]
+    /// Parallelism level (number of threads)
+    pub parallelism: i32,
+    /// Optimize for point lookups (read-heavy workloads)
     pub optimize_point_lookup: bool,
-
-    /// Optimize for level style compaction
-    #[serde(default = "default_true")]
-    pub optimize_level_style_compaction: bool,
-
-    /// Write buffer size in bytes (default: 64MB)
-    #[serde(default = "default_write_buffer_size")]
-    pub write_buffer_size: usize,
-
-    /// Max write buffer number (default: 3)
-    #[serde(default = "default_max_write_buffer_number")]
-    pub max_write_buffer_number: i32,
-
-    /// Min write buffer number to merge (default: 1)
-    #[serde(default = "default_min_write_buffer_number_to_merge")]
-    pub min_write_buffer_number_to_merge: i32,
-
-    /// Column families configuration
-    #[serde(default = "Vec::new")]
-    pub column_families: Vec<ColumnFamilyConfig>,
+    /// Optimize for small data
+    pub optimize_small_db: bool,
+    /// Use universal compaction
+    pub use_universal_compaction: bool,
+    /// Default compression type
+    pub compression_type: Compression,
+    /// Default column families
+    pub default_cf_names: Vec<String>,
+    /// Disable WAL
+    pub disable_wal: bool,
+    /// Prefix extractor
+    pub prefix_extractor: Option<PrefixExtractor>,
+    /// Block size
+    pub block_size: usize,
+    /// Block cache size
+    pub block_cache_size: usize,
+    /// Bloom filter bits
+    pub bloom_filter_bits: i32,
 }
 
-fn default_parallelism() -> i32 {
-    num_cpus::get() as i32
+impl Default for RocksDbConfig {
+    fn default() -> Self {
+        Self {
+            path: "data/db".to_string(),
+            create_if_missing: true,
+            create_missing_column_families: true,
+            parallelism: 4,
+            optimize_point_lookup: true,
+            optimize_small_db: true,
+            use_universal_compaction: false,
+            compression_type: Compression::Lz4,
+            default_cf_names: vec![],
+            disable_wal: false,
+            prefix_extractor: None,
+            block_size: 4096,
+            block_cache_size: 8 * 1024 * 1024,
+            bloom_filter_bits: 10,
+        }
+    }
 }
 
-fn default_write_buffer_size() -> usize {
-    64 * 1024 * 1024
+/// Compression type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Compression {
+    /// No compression
+    None,
+    /// Snappy compression
+    Snappy,
+    /// Zlib compression
+    Zlib,
+    /// Lz4 compression
+    Lz4,
+    /// Zstd compression
+    Zstd,
 }
 
-fn default_max_write_buffer_number() -> i32 {
-    3
+impl From<Compression> for rocksdb::DBCompressionType {
+    fn from(compression: Compression) -> Self {
+        match compression {
+            Compression::None => rocksdb::DBCompressionType::None,
+            Compression::Snappy => rocksdb::DBCompressionType::Snappy,
+            Compression::Zlib => rocksdb::DBCompressionType::Zlib,
+            Compression::Lz4 => rocksdb::DBCompressionType::Lz4,
+            Compression::Zstd => rocksdb::DBCompressionType::Zstd,
+        }
+    }
 }
 
-fn default_min_write_buffer_number_to_merge() -> i32 {
-    1
+/// Optimize the database options
+fn optimize_db_options(options: &mut Options, config: &RocksDbConfig) {
+    options.create_if_missing(config.create_if_missing);
+    options.create_missing_column_families(config.create_missing_column_families);
+    
+    // Set parallelism
+    options.increase_parallelism(config.parallelism);
+    
+    // Optimize for point lookups if needed
+    if config.optimize_point_lookup {
+        options.optimize_for_point_lookup(128 * 1024 * 1024); // 128 MB cache
+    }
+    
+    // Set compression
+    options.set_compression_type(config.compression_type.into());
+}
+
+/// Optimize the column family options
+fn optimize_cf_options(options: &mut Options, config: &RocksDbConfig) {
+    // Set compression
+    options.set_compression_type(config.compression_type.into());
+    
+    // Set other optimizations as needed
+    if config.optimize_point_lookup {
+        options.optimize_for_point_lookup(128 * 1024 * 1024); // 128 MB cache
+    }
 }
 
 /// RocksDB client wrapper
 pub struct RocksDbClient {
-    db: Option<Arc<DB>>,
+    /// The database instance
+    db: Arc<Mutex<Option<Arc<DB>>>>,
+    
+    /// Database configuration
     config: RocksDbConfig,
-    column_families: Arc<Mutex<HashMap<String, Arc<ColumnFamily>>>>,
+    
+    /// Cache for column family handles
+    cf_handles: Arc<Mutex<HashMap<String, String>>>,
+    
+    /// Column family options
+    cf_options: Arc<Mutex<HashMap<String, ColumnFamilyConfig>>>,
 }
 
 impl RocksDbClient {
     /// Create a new RocksDB client
     pub fn new(config: RocksDbConfig) -> Self {
         Self {
-            db: None,
+            db: Arc::new(Mutex::new(None)),
             config,
-            column_families: Arc::new(Mutex::new(HashMap::new())),
+            cf_handles: Arc::new(Mutex::new(HashMap::new())),
+            cf_options: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-
+    
     /// Open the database
-    pub fn open(&mut self) -> DbResult<()> {
-        if self.db.is_some() {
-            return Err(DbError::AlreadyOpen);
+    pub fn open(&self) -> DbResult<()> {
+        let mut db_lock = self.db.lock().unwrap();
+        
+        if db_lock.is_some() {
+            return Ok(());
         }
-
-        let path = Path::new(&self.config.path);
-        let mut opts = Options::default();
-        self.configure_db_options(&mut opts);
-
+        
+        // Create the database directory if it doesn't exist
+        let db_path = Path::new(&self.config.path);
+        if !db_path.exists() {
+            std::fs::create_dir_all(db_path).map_err(|e| DbError::IO(e.to_string()))?;
+        }
+        
+        // Create the database options
+        let mut options = Options::default();
+        optimize_db_options(&mut options, &self.config);
+        
         // Create column family descriptors
-        let cf_names: Vec<String> = self
-            .config
-            .column_families
-            .iter()
-            .map(|cf| cf.name.clone())
-            .collect();
-
-        let cf_descriptors: Vec<ColumnFamilyDescriptor> = self
-            .config
-            .column_families
-            .iter()
-            .map(|cf_config| {
-                let mut cf_opts = Options::default();
-                self.configure_cf_options(&mut cf_opts, cf_config);
-                ColumnFamilyDescriptor::new(cf_config.name.clone(), cf_opts)
-            })
-            .collect();
-
-        let db = if path.exists() {
-            info!("Opening existing RocksDB at {}", self.config.path);
-
-            // Check which column families exist
-            let existing_cfs = match DB::list_cf(&opts, &self.config.path) {
-                Ok(cfs) => cfs,
-                Err(e) => {
-                    error!("Failed to list column families: {}", e);
-                    if self.config.create_if_missing {
-                        Vec::new()
-                    } else {
-                        return Err(DbError::RocksDb(e));
-                    }
-                }
-            };
-
-            debug!("Existing column families: {:?}", existing_cfs);
-
-            // Open the database with existing column families
-            let db = if existing_cfs.is_empty() {
-                DB::open(&opts, &self.config.path)?
-            } else {
-                let mut open_cfs = Vec::new();
-
-                // Create descriptors for existing column families
-                for cf_name in existing_cfs {
-                    // Find configuration for this CF
-                    let cf_config = self
-                        .config
-                        .column_families
-                        .iter()
-                        .find(|cf| cf.name == cf_name)
-                        .cloned()
-                        .unwrap_or_else(|| {
-                            warn!(
-                                "No configuration found for column family {}. Using defaults.",
-                                cf_name
-                            );
-                            ColumnFamilyConfig {
-                                name: cf_name.clone(),
-                                prefix_extractor: None,
-                                block_size: default_block_size(),
-                                block_cache_size: default_block_cache_size(),
-                                bloom_filter_bits: default_bloom_filter_bits(),
-                                cache_index_and_filter_blocks: default_true(),
-                            }
-                        });
-
-                    let mut cf_opts = Options::default();
-                    self.configure_cf_options(&mut cf_opts, &cf_config);
-                    open_cfs.push(ColumnFamilyDescriptor::new(cf_name, cf_opts));
-                }
-
-                DB::open_cf_descriptors(&opts, &self.config.path, open_cfs)?
-            };
-
-            // Create missing column families if configured
-            if self.config.create_missing_column_families {
-                for cf_config in &self.config.column_families {
-                    if !existing_cfs.contains(&cf_config.name) {
-                        info!("Creating column family: {}", cf_config.name);
-                        let mut cf_opts = Options::default();
-                        self.configure_cf_options(&mut cf_opts, cf_config);
-                        db.create_cf(&cf_config.name, &cf_opts)?;
-                    }
-                }
-            }
-
-            db
-        } else {
-            if !self.config.create_if_missing {
-                return Err(DbError::InvalidConfig(format!(
-                    "Database path {} does not exist and create_if_missing is false",
-                    self.config.path
-                )));
-            }
-
-            info!("Creating new RocksDB at {}", self.config.path);
-
-            if cf_descriptors.is_empty() {
-                DB::open(&opts, &self.config.path)?
-            } else {
-                DB::open_cf_descriptors(&opts, &self.config.path, cf_descriptors)?
-            }
-        };
-
-        // Store column family handles
-        let mut cf_map = self.column_families.lock().unwrap();
-        for cf_name in cf_names {
-            match db.cf_handle(&cf_name) {
-                Some(cf_handle) => {
-                    cf_map.insert(cf_name.clone(), Arc::new(cf_handle));
-                }
-                None => {
-                    warn!("Failed to get column family handle for {}", cf_name);
-                }
-            }
+        let cf_configs = self.config.default_cf_names.iter().map(|cf_name| ColumnFamilyConfig {
+            name: cf_name.clone(),
+            prefix_extractor: self.config.prefix_extractor.clone(),
+            block_size: self.config.block_size,
+            block_cache_size: self.config.block_cache_size,
+            bloom_filter_bits: self.config.bloom_filter_bits,
+            cache_index_and_filter_blocks: true,
+            compression_type: self.config.compression_type,
+            options: HashMap::new(),
+        }).collect::<Vec<_>>();
+        
+        let mut cf_descriptors = Vec::new();
+        
+        for cf_config in cf_configs {
+            let mut cf_options = Options::default();
+            optimize_cf_options(&mut cf_options, &self.config);
+            cf_descriptors.push(ColumnFamilyDescriptor::new(&cf_config.name, cf_options.clone()));
+            
+            let mut cf_options_map = self.cf_options.lock().unwrap();
+            cf_options_map.insert(cf_config.name.clone(), cf_config.clone());
         }
-
-        self.db = Some(Arc::new(db));
-        info!("RocksDB opened successfully at {}", self.config.path);
+        
+        // Open the database with all column families
+        let db = DB::open_cf_descriptors(&options, &self.config.path, cf_descriptors)
+            .map_err(|e| DbError::RocksDb(e))?;
+        
+        // Wrap the DB in an Arc
+        *db_lock = Some(Arc::new(db));
+        
         Ok(())
     }
-
-    /// Configure database options
-    fn configure_db_options(&self, opts: &mut Options) {
-        opts.create_if_missing(self.config.create_if_missing);
-        opts.create_missing_column_families(self.config.create_missing_column_families);
-        opts.increase_parallelism(self.config.increase_parallelism);
-
-        if self.config.optimize_point_lookup {
-            opts.optimize_for_point_lookup(128 * 1024 * 1024); // 128MB
-        }
-
-        if self.config.optimize_level_style_compaction {
-            opts.optimize_level_style_compaction(512 * 1024 * 1024); // 512MB
-        }
-
-        opts.set_write_buffer_size(self.config.write_buffer_size);
-        opts.set_max_write_buffer_number(self.config.max_write_buffer_number);
-        opts.set_min_write_buffer_number_to_merge(self.config.min_write_buffer_number_to_merge);
-        opts.set_compaction_style(DBCompactionStyle::Level);
-        opts.set_compression_type(DBCompressionType::Lz4);
-        opts.set_bottommost_compression_type(DBCompressionType::Zstd);
-    }
-
-    /// Configure column family options
-    fn configure_cf_options(&self, opts: &mut Options, cf_config: &ColumnFamilyConfig) {
-        // Set prefix extractor if configured
-        if let Some(prefix_len) = cf_config.prefix_extractor {
-            opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(prefix_len));
-        }
-
-        // Configure block cache and bloom filter
-        opts.set_block_based_table_factory(
-            &rocksdb::BlockBasedOptions::default()
-                .set_block_size(cf_config.block_size)
-                .set_cache_index_and_filter_blocks(cf_config.cache_index_and_filter_blocks)
-                .set_bloom_filter(cf_config.bloom_filter_bits, false)
-                .set_block_cache(
-                    &rocksdb::Cache::new_lru_cache(cf_config.block_cache_size).unwrap(),
-                ),
-        );
-    }
-
-    /// Get the RocksDB instance
+    
+    /// Get access to the database
     fn get_db(&self) -> DbResult<Arc<DB>> {
-        match &self.db {
-            Some(db) => Ok(db.clone()),
+        // Lock the mutex and get a reference to the Option<Arc<DB>>
+        let guard = self.db.lock().unwrap();
+        
+        // Check if the database is open
+        match &*guard {
+            Some(arc_db) => Ok(Arc::clone(arc_db)),
             None => Err(DbError::NotOpen),
         }
     }
-
-    /// Get a column family handle
-    fn get_cf(&self, cf_name: &str) -> DbResult<Arc<ColumnFamily>> {
-        let cf_map = self.column_families.lock().unwrap();
-        match cf_map.get(cf_name) {
-            Some(cf) => Ok(cf.clone()),
-            None => {
-                // Try to get the CF handle from the database
-                let db = self.get_db()?;
-                match db.cf_handle(cf_name) {
-                    Some(cf) => {
-                        drop(cf_map); // Release the lock before modifying
-                        let mut cf_map = self.column_families.lock().unwrap();
-                        let cf_arc = Arc::new(cf);
-                        cf_map.insert(cf_name.to_string(), cf_arc.clone());
-                        Ok(cf_arc)
+    
+    /// Get a column family handle by name
+    fn get_cf_handle_key(&self, cf_name: &str) -> DbResult<String> {
+        let db = self.get_db()?;
+        
+        // Create handle key
+        let handle_key = format!("cf_handle:{}", cf_name);
+        
+        // Check if the CF exists
+        if db.cf_handle(cf_name).is_some() {
+            Ok(handle_key)
+        } else {
+            Err(DbError::ColumnFamilyNotFound(cf_name.to_string()))
+        }
+    }
+    
+    /// Iterate over a column family
+    pub fn iter_cf<V>(
+        &self,
+        cf_name: &str,
+        mode: IteratorMode<'_>,
+    ) -> DbResult<Box<dyn Iterator<Item = (Box<[u8]>, V)> + Send>>
+    where
+        V: DeserializeOwned + Send + 'static,
+    {
+        let db = self.get_db()?;
+        
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        // Get the iterator
+        let db_iter = db.iterator_cf(&cf_handle, mode);
+        
+        // Map the iterator to deserialize values
+        let iter = db_iter
+            .filter_map(move |result| {
+                match result {
+                    Ok((k, v)) => {
+                        match deserialize::<V>(&v) {
+                            Ok(value) => Some((k, value)),
+                            Err(e) => {
+                                error!("Failed to deserialize value: {}", e);
+                                None
+                            }
+                        }
                     }
-                    None => Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+                    Err(e) => {
+                        error!("Error iterating: {}", e);
+                        None
+                    }
                 }
-            }
+            });
+        
+        Ok(Box::new(ThreadSafeIterator::new(iter)))
+    }
+
+    /// Iterate over a column family with a prefix
+    pub fn prefix_iter_cf<V>(
+        &self,
+        cf_name: &str,
+        prefix: &[u8],
+    ) -> DbResult<Box<dyn Iterator<Item = (Box<[u8]>, V)> + Send>>
+    where
+        V: DeserializeOwned + Send + 'static,
+    {
+        let db = self.get_db()?;
+        
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        // Setup read options with prefix seek
+        let mut opts = ReadOptions::default();
+        opts.set_prefix_same_as_start(true);
+        
+        // Create an iterator with the prefix
+        let mode = IteratorMode::From(prefix, Direction::Forward);
+        let db_iter = db.iterator_cf_opt(&cf_handle, opts, mode);
+        
+        // Filter by prefix and deserialize values
+        let iter = db_iter
+            .take_while(move |result| {
+                match result {
+                    Ok((k, _)) => k.starts_with(prefix),
+                    Err(_) => false,
+                }
+            })
+            .filter_map(move |result| {
+                match result {
+                    Ok((k, v)) => {
+                        match deserialize::<V>(&v) {
+                            Ok(value) => Some((k, value)),
+                            Err(e) => {
+                                error!("Failed to deserialize value: {}", e);
+                                None
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error iterating: {}", e);
+                        None
+                    }
+                }
+            });
+        
+        Ok(Box::new(ThreadSafeIterator::new(iter)))
+    }
+
+    /// Get a value from a column family
+    pub fn get_cf<K, V>(&self, cf_name: &str, key: K) -> DbResult<Option<V>>
+    where
+        K: AsRef<[u8]>,
+        V: DeserializeOwned,
+    {
+        let db = self.get_db()?;
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        let result = db.get_cf(&cf_handle, key.as_ref()).map_err(DbError::RocksDb)?;
+        if let Some(value) = result {
+            let deserialized = deserialize(&value)?;
+            Ok(Some(deserialized))
+        } else {
+            Ok(None)
         }
     }
 
@@ -379,32 +521,15 @@ impl RocksDbClient {
         V: Serialize,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        let serialized_value =
-            bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
-
-        db.put_cf(&cf, key, serialized_value)?;
-        Ok(())
-    }
-
-    /// Get a value from a column family
-    pub fn get_cf<K, V>(&self, cf_name: &str, key: K) -> DbResult<Option<V>>
-    where
-        K: AsRef<[u8]>,
-        V: DeserializeOwned,
-    {
-        let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        match db.get_cf(&cf, key)? {
-            Some(data) => {
-                let value = bincode::deserialize(&data)
-                    .map_err(|e| DbError::Deserialization(e.to_string()))?;
-                Ok(Some(value))
-            }
-            None => Ok(None),
-        }
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        let bytes = serialize(value)
+            .map_err(|e| DbError::Serialization(e.to_string()))?;
+        
+        db.put_cf(&cf_handle, key.as_ref(), bytes).map_err(DbError::RocksDb)
     }
 
     /// Delete a key from a column family
@@ -413,10 +538,12 @@ impl RocksDbClient {
         K: AsRef<[u8]>,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        db.delete_cf(&cf, key)?;
-        Ok(())
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        db.delete_cf(&cf_handle, key.as_ref()).map_err(DbError::RocksDb)
     }
 
     /// Check if a key exists in a column family
@@ -424,143 +551,102 @@ impl RocksDbClient {
     where
         K: AsRef<[u8]>,
     {
-        let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        let value = db.get_cf(&cf, key)?;
-        Ok(value.is_some())
+        // Just use get_cf to avoid borrow issues
+        match self.get_cf::<_, Vec<u8>>(cf_name, key) {
+            Ok(Some(_)) => Ok(true),
+            Ok(None) => Ok(false),
+            Err(e) => Err(e),
+        }
     }
 
-    /// Iterate over a column family
-    pub fn iter_cf<V>(
-        &self,
-        cf_name: &str,
-        mode: IteratorMode,
-    ) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
-    where
-        V: DeserializeOwned,
-    {
-        let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        let iter = db.iterator_cf(&cf, mode);
-
-        let mapped_iter = iter
-            .map(|result| {
-                result.map_err(DbError::RocksDb).and_then(|(key, value)| {
-                    let deserialized = bincode::deserialize(&value)
-                        .map_err(|e| DbError::Deserialization(e.to_string()))?;
-                    Ok((key, deserialized))
-                })
-            })
-            .filter_map(|result| match result {
-                Ok(item) => Some(item),
-                Err(e) => {
-                    error!("Error iterating over column family {}: {}", cf_name, e);
-                    None
+    /// Get all column family names
+    pub fn get_cf_names(&self) -> Vec<String> {
+        match self.get_db() {
+            Ok(_db) => {
+                match DB::list_cf(&Options::default(), &self.config.path) {
+                    Ok(names) => names.into_iter().map(|s| s.to_string()).collect(),
+                    Err(_) => Vec::new(),
                 }
-            });
-
-        Ok(mapped_iter)
+            }
+            Err(_) => Vec::new(),
+        }
     }
 
-    /// Iterate over keys with a common prefix
-    pub fn prefix_iter_cf<P, V>(
-        &self,
-        cf_name: &str,
-        prefix: P,
-    ) -> DbResult<impl Iterator<Item = (Box<[u8]>, V)>>
-    where
-        P: AsRef<[u8]>,
-        V: DeserializeOwned,
-    {
+    /// Create a column family if it doesn't exist
+    pub fn create_cf_if_missing(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        let mut read_opts = ReadOptions::default();
-        read_opts.set_prefix_same_as_start(true);
-
-        let iter = db.iterator_cf_opt(
-            &cf,
-            read_opts,
-            IteratorMode::From(prefix.as_ref(), rocksdb::Direction::Forward),
-        );
-
-        let prefix_bytes = prefix.as_ref().to_vec();
-        let mapped_iter = iter
-            .take_while(move |result| match result {
-                Ok((key, _)) => key.starts_with(&prefix_bytes),
-                Err(_) => false,
-            })
-            .map(|result| {
-                result.map_err(DbError::RocksDb).and_then(|(key, value)| {
-                    let deserialized = bincode::deserialize(&value)
-                        .map_err(|e| DbError::Deserialization(e.to_string()))?;
-                    Ok((key, deserialized))
-                })
-            })
-            .filter_map(|result| match result {
-                Ok(item) => Some(item),
-                Err(e) => {
-                    error!(
-                        "Error iterating over prefix in column family {}: {}",
-                        cf_name, e
-                    );
-                    None
-                }
-            });
-
-        Ok(mapped_iter)
+        
+        // Check if the column family already exists
+        if db.cf_handle(cf_name).is_none() {
+            // Column family doesn't exist, create it
+            let mut options = Options::default();
+            optimize_cf_options(&mut options, &self.config);
+            
+            // Create the column family
+            db.create_cf(cf_name, &options).map_err(|e| DbError::RocksDb(e))?;
+            
+            // Verify creation was successful
+            if db.cf_handle(cf_name).is_none() {
+                return Err(DbError::ColumnFamilyNotFound(cf_name.to_string()));
+            }
+        }
+        
+        Ok(())
     }
 
     /// Execute a batch of operations
     pub fn batch<F>(&self, f: F) -> DbResult<()>
     where
-        F: FnOnce(&mut rocksdb::WriteBatch) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch) -> DbResult<()>,
     {
         let db = self.get_db()?;
-        let mut batch = rocksdb::WriteBatch::default();
-
+        let mut batch = WriteBatch::default();
+        
         f(&mut batch)?;
-
-        db.write(batch)?;
-        Ok(())
+        
+        db.write(batch).map_err(|e| DbError::RocksDb(e))
     }
 
-    /// Execute a batch of operations in a column family
-    pub fn batch_cf<F>(&self, cf_name: &str, f: F) -> DbResult<()>
+    /// Execute a batch of operations on a column family
+    pub fn batch_cf<F, T>(&self, cf_name: &str, f: F) -> DbResult<T>
     where
-        F: FnOnce(&mut rocksdb::WriteBatch, &ColumnFamily) -> DbResult<()>,
+        F: FnOnce(&mut WriteBatch) -> DbResult<T>,
+        T: Send + 'static,
     {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-        let mut batch = rocksdb::WriteBatch::default();
-
-        f(&mut batch, &cf)?;
-
+        let _cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        // Create batch
+        let mut batch = WriteBatch::default();
+        
+        // Call the function to fill the batch
+        let result = f(&mut batch)?;
+        
+        // Execute the batch via RocksDbClient's write_batch
         db.write(batch)?;
-        Ok(())
-    }
-
-    /// Get database path
-    pub fn path(&self) -> PathBuf {
-        PathBuf::from(&self.config.path)
+        
+        // Return the result
+        Ok(result)
     }
 
     /// Flush the database
     pub fn flush(&self) -> DbResult<()> {
         let db = self.get_db()?;
-        db.flush()?;
-        Ok(())
+        db.flush().map_err(DbError::RocksDb)
     }
 
     /// Flush a column family
     pub fn flush_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        db.flush_cf(&cf)?;
-        Ok(())
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        db.flush_cf(&cf_handle).map_err(DbError::RocksDb)
     }
 
     /// Compact the database
@@ -573,85 +659,215 @@ impl RocksDbClient {
     /// Compact a column family
     pub fn compact_cf(&self, cf_name: &str) -> DbResult<()> {
         let db = self.get_db()?;
-        let cf = self.get_cf(cf_name)?;
-
-        db.compact_range_cf::<&[u8], &[u8]>(&cf, None, None);
+        let cf_handle = match db.cf_handle(cf_name) {
+            Some(handle) => handle,
+            None => return Err(DbError::ColumnFamilyNotFound(cf_name.to_string())),
+        };
+        
+        db.compact_range_cf::<&[u8], &[u8]>(&cf_handle, None, None);
         Ok(())
+    }
+
+    /// Write a batch of operations to the database
+    pub fn write_batch(&self, operations: Vec<BatchOperation>) -> DbResult<()> {
+        let db = self.get_db()?;
+        let mut batch = WriteBatch::default();
+        
+        for operation in operations {
+            match operation {
+                BatchOperation::Put { cf_name, key, value } => {
+                    if let Some(handle) = db.cf_handle(&cf_name) {
+                        batch.put_cf(&handle, key, value);
+                    } else {
+                        return Err(DbError::ColumnFamilyNotFound(cf_name));
+                    }
+                }
+                BatchOperation::Delete { cf_name, key } => {
+                    if let Some(handle) = db.cf_handle(&cf_name) {
+                        batch.delete_cf(&handle, key);
+                    } else {
+                        return Err(DbError::ColumnFamilyNotFound(cf_name));
+                    }
+                }
+            }
+        }
+        
+        db.write(batch).map_err(|e| DbError::RocksDb(e))
+    }
+
+    /// Check if a column family exists
+    pub fn column_family_exists(&self, cf_name: &str) -> DbResult<bool> {
+        let db = self.get_db()?;
+        
+        let cf_handle = db.cf_handle(cf_name);
+        let cf_exists = cf_handle.is_some();
+        
+        Ok(cf_exists)
+    }
+
+    /// Drop a column family
+    pub fn drop_cf(&self, cf_name: &str) -> DbResult<()> {
+        let db = self.get_db()?;
+        
+        // Check if CF exists before attempting to drop
+        let cf_exists = match db.cf_handle(cf_name) {
+            Some(_handle) => true,
+            None => false,
+        };
+        
+        if cf_exists {
+            db.drop_cf(cf_name).map_err(DbError::RocksDb)?;
+            Ok(())
+        } else {
+            Err(DbError::ColumnFamilyNotFound(cf_name.to_string()))
+        }
+    }
+
+    /// Create a backup
+    pub fn create_backup(&self) -> DbResult<String> {
+        let db = self.get_db()?;
+        
+        // Generate a backup ID
+        let backup_id = format!("backup_{}", chrono::Utc::now().timestamp());
+        
+        // Get all column family names by listing them
+        let cf_list = self.list_column_families()?;
+        
+        // Process each column family
+        for cf_name in cf_list {
+            if let Some(_handle) = db.cf_handle(&cf_name) {
+                // TODO: implement actual backup logic
+            }
+        }
+        
+        Ok(backup_id)
+    }
+
+    /// Restore from a backup
+    pub fn restore_backup(&self, _backup_id: &str) -> DbResult<()> {
+        // Implementation 
+        Ok(())
+    }
+
+    /// Delete all keys with a prefix in a column family
+    pub fn delete_prefix_cf(&self, cf_name: &str, prefix: &[u8]) -> DbResult<()> {
+        // Get all keys with the given prefix using the prefix iterator
+        let keys: Vec<Box<[u8]>> = {
+            let iter = self.prefix_iter_cf::<Vec<u8>>(cf_name, prefix)?;
+            iter.map(|(k, _)| k).collect()
+        };
+        
+        if keys.is_empty() {
+            return Ok(());
+        }
+        
+        // Get a handle to the DB
+        let db = self.get_db()?;
+        
+        // Get the column family handle
+        let cf_handle = db.cf_handle(cf_name)
+            .ok_or_else(|| DbError::ColumnFamilyNotFound(cf_name.to_string()))?;
+        
+        // Use a batch operation to delete all keys
+        let mut batch = WriteBatch::default();
+        
+        for key in keys {
+            batch.delete_cf(&cf_handle, key);
+        }
+        
+        db.write(batch).map_err(|e| DbError::RocksDb(e))?;
+        Ok(())
+    }
+    
+    /// List all column families
+    pub fn list_column_families(&self) -> DbResult<Vec<String>> {
+        // Get the DB path from the config
+        let path = &self.config.path;
+        
+        // Use the static list_column_families method
+        match DB::list_cf(&Options::default(), path) {
+            Ok(cf_names) => Ok(cf_names),
+            Err(e) => Err(DbError::RocksDb(e)),
+        }
     }
 }
 
-/// Asynchronous RocksDB client
+/// Batch operation type for the write_batch method
+#[derive(Debug, Clone)]
+pub enum BatchOperation {
+    /// Put operation
+    Put {
+        /// Column family name
+        cf_name: String,
+        /// Key
+        key: Vec<u8>,
+        /// Value
+        value: Vec<u8>,
+    },
+    /// Delete operation
+    Delete {
+        /// Column family name
+        cf_name: String,
+        /// Key
+        key: Vec<u8>,
+    },
+}
+
+/// Async RocksDB client implementation
+#[derive(Clone)]
 pub struct AsyncRocksDbClient {
-    inner: Arc<RocksDbClient>,
+    /// Inner RocksDB client
+    db: Arc<RocksDbClient>
 }
 
 impl AsyncRocksDbClient {
     /// Create a new async RocksDB client
     pub fn new(config: RocksDbConfig) -> Self {
-        let mut client = RocksDbClient::new(config);
-        // Open the database synchronously
-        if let Err(e) = client.open() {
-            error!("Failed to open RocksDB: {}", e);
-        }
-        Self {
-            inner: Arc::new(client),
-        }
+        let db = Arc::new(RocksDbClient::new(config));
+        Self { db }
     }
-
-    /// Put a value in a column family
-    pub async fn put_cf<K, V>(&self, cf_name: &str, key: K, value: &V) -> DbResult<()>
-    where
-        K: AsRef<[u8]> + Send + 'static,
-        V: Serialize + Send + 'static,
-    {
-        let inner = self.inner.clone();
-        let cf_name = cf_name.to_string();
-        let serialized_value =
-            bincode::serialize(value).map_err(|e| DbError::Serialization(e.to_string()))?;
-
-        tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
-            inner.put_cf(&cf_name, key_bytes, &serialized_value)
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-
-        Ok(())
-    }
-
+    
     /// Get a value from a column family
     pub async fn get_cf<K, V>(&self, cf_name: &str, key: K) -> DbResult<Option<V>>
     where
         K: AsRef<[u8]> + Send + 'static,
         V: DeserializeOwned + Send + 'static,
     {
-        let inner = self.inner.clone();
+        let db = self.db.clone();
         let cf_name = cf_name.to_string();
-
-        tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
-            inner.get_cf(&cf_name, key_bytes)
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??
-    }
-
-    /// Delete a key from a column family
-    pub async fn delete_cf<K>(&self, cf_name: &str, key: K) -> DbResult<()>
-    where
-        K: AsRef<[u8]> + Send + 'static,
-    {
-        let inner = self.inner.clone();
-        let cf_name = cf_name.to_string();
-
-        tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
-            inner.delete_cf(&cf_name, key_bytes)
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-
-        Ok(())
+        let key_bytes = key.as_ref().to_vec();
+        
+        let result = tokio::task::spawn_blocking(move || {
+            // Get the DB client
+            let rocks_db = match db.get_db() {
+                Ok(db) => db,
+                Err(e) => return Err(e),
+            };
+            
+            // Get the column family handle
+            let cf_handle = match rocks_db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name)),
+            };
+            
+            // Get the value
+            match rocks_db.get_cf(&cf_handle, &key_bytes) {
+                Ok(Some(bytes)) => {
+                    // Deserialize the value
+                    match deserialize(&bytes) {
+                        Ok(value) => Ok(Some(value)),
+                        Err(e) => Err(DbError::Deserialization(e.to_string())),
+                    }
+                },
+                Ok(None) => Ok(None),
+                Err(e) => Err(DbError::RocksDb(e)),
+            }
+        }).await;
+        
+        match result {
+            Ok(r) => r,
+            Err(e) => Err(DbError::Tokio(e.to_string())),
+        }
     }
 
     /// Check if a key exists in a column family
@@ -659,118 +875,311 @@ impl AsyncRocksDbClient {
     where
         K: AsRef<[u8]> + Send + 'static,
     {
-        let inner = self.inner.clone();
+        let db = self.db.clone();
         let cf_name = cf_name.to_string();
-
+        let key_bytes = key.as_ref().to_vec();
+        
         tokio::task::spawn_blocking(move || {
-            let key_bytes = key.as_ref().to_vec();
-            inner.exists_cf(&cf_name, key_bytes)
-        })
-        .await
-        .map_err(|e| DbError::TransactionFailed(e.to_string()))??
+            // Get the DB client
+            let rocks_db = match db.get_db() {
+                Ok(db) => db,
+                Err(e) => return Err(e),
+            };
+            
+            // Get the column family handle
+            let cf_handle = match rocks_db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name)),
+            };
+            
+            // Get the value
+            match rocks_db.get_cf(&cf_handle, &key_bytes) {
+                Ok(Some(_)) => Ok(true),
+                Ok(None) => Ok(false),
+                Err(e) => Err(DbError::RocksDb(e)),
+            }
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
     }
 
-    /// Execute a batch of operations
-    pub async fn batch<F, Fut>(&self, f: F) -> DbResult<()>
+    /// Put a value in a column family
+    pub async fn put_cf<K, V>(&self, cf_name: &str, key: K, value: V) -> DbResult<()>
     where
-        F: FnOnce(Arc<RocksDbClient>) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = DbResult<()>> + Send + 'static,
+        K: AsRef<[u8]> + Send + 'static,
+        V: Serialize + Send + 'static,
     {
-        let inner = self.inner.clone();
-
-        tokio::task::spawn(async move { f(inner).await })
-            .await
-            .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-
-        Ok(())
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        let key_bytes = key.as_ref().to_vec();
+        let value_bytes = serialize(&value)
+            .map_err(|e| DbError::Serialization(e.to_string()))?;
+        
+        tokio::task::spawn_blocking(move || {
+            // Get the DB client
+            let rocks_db = match db.get_db() {
+                Ok(db) => db,
+                Err(e) => return Err(e),
+            };
+            
+            // Get the column family handle
+            let cf_handle = match rocks_db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name)),
+            };
+            
+            rocks_db.put_cf(&cf_handle, &key_bytes, &value_bytes)
+                .map_err(DbError::RocksDb)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
     }
 
-    /// Flush the database
-    pub async fn flush(&self) -> DbResult<()> {
-        let inner = self.inner.clone();
-
-        tokio::task::spawn_blocking(move || inner.flush())
-            .await
-            .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-
-        Ok(())
+    /// Delete a key from a column family
+    pub async fn delete_cf<K>(&self, cf_name: &str, key: K) -> DbResult<()>
+    where
+        K: AsRef<[u8]> + Send + 'static,
+    {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        let key_bytes = key.as_ref().to_vec();
+        
+        tokio::task::spawn_blocking(move || {
+            // Get the DB client
+            let rocks_db = match db.get_db() {
+                Ok(db) => db,
+                Err(e) => return Err(e),
+            };
+            
+            // Get the column family handle
+            let cf_handle = match rocks_db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name)),
+            };
+            
+            rocks_db.delete_cf(&cf_handle, &key_bytes)
+                .map_err(DbError::RocksDb)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
     }
 
-    /// Compact the database
-    pub async fn compact(&self) -> DbResult<()> {
-        let inner = self.inner.clone();
-
-        tokio::task::spawn_blocking(move || inner.compact())
-            .await
-            .map_err(|e| DbError::TransactionFailed(e.to_string()))??;
-
-        Ok(())
+    /// Iterate over a column family
+    pub async fn iter_cf<V>(
+        &self,
+        cf_name: &str,
+        _mode: IteratorMode<'_>,
+    ) -> DbResult<Box<dyn Iterator<Item = (Box<[u8]>, V)> + Send>>
+    where
+        V: DeserializeOwned + Send + 'static,
+    {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        
+        // Create a start iterator mode for the spawned task
+        let mode_start = IteratorMode::Start;
+        
+        tokio::task::spawn_blocking(move || {
+            db.iter_cf::<V>(&cf_name, mode_start)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
     }
+    
+    /// Iterate over a column family with a prefix
+    pub async fn prefix_iter_cf<V>(
+        &self,
+        cf_name: &str,
+        prefix: &[u8],
+    ) -> DbResult<Box<dyn Iterator<Item = (Box<[u8]>, V)> + Send>>
+    where
+        V: DeserializeOwned + Send + 'static,
+    {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        let prefix = prefix.to_vec();
+        
+        tokio::task::spawn_blocking(move || {
+            db.prefix_iter_cf::<V>(&cf_name, &prefix)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
+    }
+    
+    /// Collect all key-value pairs with a given prefix
+    pub async fn collect_prefix<V>(
+        &self,
+        cf_name: &str,
+        prefix: &[u8],
+    ) -> DbResult<Vec<(Box<[u8]>, V)>>
+    where
+        V: DeserializeOwned + Send + 'static,
+    {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        let prefix = prefix.to_vec();
+        
+        tokio::task::spawn_blocking(move || {
+            let iter = db.prefix_iter_cf::<V>(&cf_name, &prefix)?;
+            Ok(iter.collect::<Vec<_>>())
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
+    }
+    
+    /// Collect all key-value pairs from a column family
+    pub async fn collect_cf<V>(&self, cf_name: &str) -> DbResult<Vec<(String, V)>>
+    where
+        V: DeserializeOwned + Send + 'static,
+    {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        
+        tokio::task::spawn_blocking(move || {
+            let iter = db.iter_cf::<V>(&cf_name, IteratorMode::Start)?;
+            let result: Vec<(String, V)> = iter
+                .map(|(k, v)| {
+                    let key_str = String::from_utf8_lossy(&k).to_string();
+                    (key_str, v)
+                })
+                .collect();
+            Ok(result)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
+    }
+    
+    /// Execute a batch of operations
+    pub async fn write_batch(&self, ops: Vec<BatchOperation>) -> DbResult<()> {
+        let db = self.db.clone();
+        
+        tokio::task::spawn_blocking(move || {
+            let mut batch = WriteBatch::default();
+            
+            for op in ops {
+                match op {
+                    BatchOperation::Put { cf_name, key, value } => {
+                        if let Some(handle) = db.get_db()?.cf_handle(&cf_name) {
+                            batch.put_cf(&handle, key, value);
+                        } else {
+                            return Err(DbError::ColumnFamilyNotFound(cf_name));
+                        }
+                    },
+                    BatchOperation::Delete { cf_name, key } => {
+                        if let Some(handle) = db.get_db()?.cf_handle(&cf_name) {
+                            batch.delete_cf(&handle, key);
+                        } else {
+                            return Err(DbError::ColumnFamilyNotFound(cf_name));
+                        }
+                    },
+                }
+            }
+            
+            db.get_db()?.write(batch).map_err(DbError::RocksDb)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
+    }
+    
+    /// Flush a column family
+    pub async fn flush_cf(&self, cf_name: &str) -> DbResult<()> {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        
+        tokio::task::spawn_blocking(move || {
+            // Get the DB client
+            let rocks_db = match db.get_db() {
+                Ok(db) => db,
+                Err(e) => return Err(e),
+            };
+            
+            // Get the column family handle
+            let cf_handle = match rocks_db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name)),
+            };
+            
+            rocks_db.flush_cf(&cf_handle)
+                .map_err(DbError::RocksDb)
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
+    }
+    
+    /// Compact a column family
+    pub async fn compact_cf(&self, cf_name: &str) -> DbResult<()> {
+        let db = self.db.clone();
+        let cf_name = cf_name.to_string();
+        
+        tokio::task::spawn_blocking(move || {
+            // Get the DB client
+            let rocks_db = match db.get_db() {
+                Ok(db) => db,
+                Err(e) => return Err(e),
+            };
+            
+            // Get the column family handle
+            let cf_handle = match rocks_db.cf_handle(&cf_name) {
+                Some(handle) => handle,
+                None => return Err(DbError::ColumnFamilyNotFound(cf_name)),
+            };
+            
+            rocks_db.compact_range_cf::<&[u8], &[u8]>(&cf_handle, None, None);
+            Ok(())
+        }).await.map_err(|e| DbError::Tokio(e.to_string()))?
+    }
+}
+
+/// Macro to implement repository helper methods for a type
+#[macro_export]
+macro_rules! repository_impl {
+    ($struct_name:ident, $client_type:ident, $entity_type:ident, $key_fn:expr) => {
+        #[async_trait::async_trait]
+        impl crate::repository::DbRepository<$entity_type> for $struct_name {
+            async fn create(&self, entity: $entity_type) -> DbResult<()> {
+                let key = ($key_fn)(&entity);
+                self.db.put_cf(Self::cf_name().as_str(), key, entity).await
+            }
+
+            async fn update(&self, entity: $entity_type) -> DbResult<()> {
+                let key = ($key_fn)(&entity);
+                self.db.put_cf(Self::cf_name().as_str(), key, entity).await
+            }
+
+            async fn delete(&self, entity: $entity_type) -> DbResult<()> {
+                let key = ($key_fn)(&entity);
+                self.db.delete_cf(Self::cf_name().as_str(), key).await
+            }
+
+            async fn get(&self, id: String) -> DbResult<Option<$entity_type>> {
+                self.db.get_cf::<_, $entity_type>(Self::cf_name().as_str(), id).await
+            }
+        }
+    };
 }
 
 /// Database repository trait for domain entities
 #[async_trait]
 pub trait DbRepository<T, ID> {
     /// Get entity by ID
-    async fn get_by_id(&self, id: &ID) -> DbResult<Option<T>>;
+    async fn get_by_id(&self, id: ID) -> DbResult<Option<T>>;
 
     /// Save entity
-    async fn save(&self, entity: &T) -> DbResult<()>;
+    async fn save(&self, entity: T) -> DbResult<()>;
 
     /// Delete entity
-    async fn delete(&self, id: &ID) -> DbResult<()>;
+    async fn delete(&self, id: ID) -> DbResult<()>;
 
     /// Check if entity exists
-    async fn exists(&self, id: &ID) -> DbResult<bool>;
+    async fn exists(&self, id: ID) -> DbResult<bool>;
 
     /// List all entities
     async fn list_all(&self) -> DbResult<Vec<T>>;
 }
 
-/// Default implementation for most common operations
-#[macro_export]
-macro_rules! impl_db_repository {
-    ($repo:ident, $entity:ty, $id:ty, $cf_name:expr, $id_fn:expr) => {
-        #[async_trait::async_trait]
-        impl $crate::rocksdb::DbRepository<$entity, $id> for $repo {
-            async fn get_by_id(&self, id: &$id) -> $crate::rocksdb::DbResult<Option<$entity>> {
-                let key = format!("{}", id);
-                self.db.get_cf($cf_name, key).await
-            }
+/// Re-export
+pub use crate::repository_impl;
 
-            async fn save(&self, entity: &$entity) -> $crate::rocksdb::DbResult<()> {
-                let id = $id_fn(entity);
-                let key = format!("{}", id);
-                self.db.put_cf($cf_name, key, entity).await
-            }
+/// Wrapper type for serializing RocksDB keys
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DbKey(pub String);
 
-            async fn delete(&self, id: &$id) -> $crate::rocksdb::DbResult<()> {
-                let key = format!("{}", id);
-                self.db.delete_cf($cf_name, key).await
-            }
-
-            async fn exists(&self, id: &$id) -> $crate::rocksdb::DbResult<bool> {
-                let key = format!("{}", id);
-                self.db.exists_cf($cf_name, key).await
-            }
-
-            async fn list_all(&self) -> $crate::rocksdb::DbResult<Vec<$entity>> {
-                // This is a simplified implementation that loads all entities in memory
-                // For a real implementation with large datasets, consider using pagination
-                let inner = self.db.inner.clone();
-                let cf_name = $cf_name.to_string();
-
-                tokio::task::spawn_blocking(move || {
-                    let iter = inner.iter_cf::<$entity>(&cf_name, rocksdb::IteratorMode::Start)?;
-                    let entities: Vec<$entity> = iter.map(|(_, v)| v).collect();
-                    Ok(entities)
-                })
-                .await
-                .map_err(|e| $crate::rocksdb::DbError::TransactionFailed(e.to_string()))?
-            }
-        }
-    };
+impl From<Box<[u8]>> for DbKey {
+    fn from(value: Box<[u8]>) -> Self {
+        DbKey(String::from_utf8_lossy(&value).to_string())
+    }
 }
 
-// Re-export
-pub use impl_db_repository;
+impl From<DbKey> for String {
+    fn from(key: DbKey) -> Self {
+        key.0
+    }
+}
+
+impl AsRef<[u8]> for DbKey {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}

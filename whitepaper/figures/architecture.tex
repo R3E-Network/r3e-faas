@@ -24,9 +24,9 @@
     \node [layer, below of=api, node distance=3cm] (app) {Applications};
     
     % Place nodes - components in Integration Layer
-    \node [component, above of=integration, node distance=1.5cm, xshift=-4cm] (event) {Event System};
-    \node [component, above of=integration, node distance=1.5cm] (tx) {Transaction Manager};
-    \node [component, above of=integration, node distance=1.5cm, xshift=4cm] (state) {State Sync};
+    \node [component, above=1.5cm of integration, xshift=-4cm] (event) {Event System};
+    \node [component, above=1.5cm of integration] (tx) {Transaction Manager};
+    \node [component, above=1.5cm of integration, xshift=4cm] (state) {State Sync};
     
     % Place nodes - components in Service Layer
     \node [component, above of=service, node distance=1.5cm, xshift=-6cm] (gas) {Gas Bank};

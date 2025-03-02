@@ -11,6 +11,13 @@ use std::str::FromStr;
 const EIP712_DOMAIN_TYPEHASH: &str = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract,bytes32 salt)";
 const META_TX_TYPEHASH: &str = "MetaTransaction(address from,address to,bytes data,uint256 nonce,uint256 deadline,string fee_model,uint256 fee_amount)";
 
+/// EIP-712 typed data field
+#[derive(Debug, Clone)]
+pub struct EIP712Field {
+    pub name: String,
+    pub type_name: String,
+}
+
 /// Encode and hash the domain separator
 pub fn hash_domain(domain: &EIP712Domain) -> Result<[u8; 32], Error> {
     // Create a buffer to hold the encoded domain data
@@ -141,60 +148,62 @@ pub fn hash_structured_data(typed_data: &EIP712TypedData) -> Result<[u8; 32], Er
     Ok(keccak256(&buffer))
 }
 
-/// Extract a MetaTxMessage from EIP712TypedData
+/// Extract meta transaction message from EIP-712 typed data
 fn extract_meta_tx_message(typed_data: &EIP712TypedData) -> Result<MetaTxMessage, Error> {
-    // Extract the message fields
-    let from = typed_data
-        .message
-        .get("from")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::InvalidParameter("Missing 'from' field in message".to_string()))?
+    // Extract required fields from the message
+    let chain_id = typed_data.message.get("chainId")
+        .ok_or_else(|| Error::InvalidParameter("chainId field missing".to_string()))?
+        .as_u64()
+        .ok_or_else(|| Error::InvalidParameter("chainId must be a number".to_string()))?;
+    
+    let function = typed_data.message.get("function")
+        .ok_or_else(|| Error::InvalidParameter("function field missing".to_string()))?
+        .as_str()
+        .ok_or_else(|| Error::InvalidParameter("function must be a string".to_string()))?
         .to_string();
-
-    let to = typed_data
-        .message
-        .get("to")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::InvalidParameter("Missing 'to' field in message".to_string()))?
+    
+    let from = typed_data.message.get("from")
+        .ok_or_else(|| Error::InvalidParameter("from field missing".to_string()))?
+        .as_str()
+        .ok_or_else(|| Error::InvalidParameter("from must be a string".to_string()))?
         .to_string();
-
-    let data = typed_data
-        .message
-        .get("data")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::InvalidParameter("Missing 'data' field in message".to_string()))?
+    
+    let to = typed_data.message.get("to")
+        .ok_or_else(|| Error::InvalidParameter("to field missing".to_string()))?
+        .as_str()
+        .ok_or_else(|| Error::InvalidParameter("to must be a string".to_string()))?
         .to_string();
-
-    let nonce = typed_data
-        .message
-        .get("nonce")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| Error::InvalidParameter("Missing 'nonce' field in message".to_string()))?;
-
-    let deadline = typed_data
-        .message
-        .get("deadline")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            Error::InvalidParameter("Missing 'deadline' field in message".to_string())
-        })?;
-
-    let fee_model = typed_data
-        .message
-        .get("fee_model")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::InvalidParameter("Missing 'fee_model' field in message".to_string()))?
+    
+    let data = typed_data.message.get("data")
+        .ok_or_else(|| Error::InvalidParameter("data field missing".to_string()))?
+        .as_str()
+        .ok_or_else(|| Error::InvalidParameter("data must be a string".to_string()))?
         .to_string();
-
-    let fee_amount = typed_data
-        .message
-        .get("fee_amount")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            Error::InvalidParameter("Missing 'fee_amount' field in message".to_string())
-        })?;
-
+    
+    let nonce = typed_data.message.get("nonce")
+        .ok_or_else(|| Error::InvalidParameter("nonce field missing".to_string()))?
+        .as_u64()
+        .ok_or_else(|| Error::InvalidParameter("nonce must be a number".to_string()))?;
+    
+    let deadline = typed_data.message.get("deadline")
+        .ok_or_else(|| Error::InvalidParameter("deadline field missing".to_string()))?
+        .as_u64()
+        .ok_or_else(|| Error::InvalidParameter("deadline must be a number".to_string()))?;
+    
+    let fee_model = typed_data.message.get("feeModel")
+        .ok_or_else(|| Error::InvalidParameter("feeModel field missing".to_string()))?
+        .as_str()
+        .ok_or_else(|| Error::InvalidParameter("feeModel must be a string".to_string()))?
+        .to_string();
+    
+    let fee_amount = typed_data.message.get("feeAmount")
+        .ok_or_else(|| Error::InvalidParameter("feeAmount field missing".to_string()))?
+        .as_u64()
+        .ok_or_else(|| Error::InvalidParameter("feeAmount must be a number".to_string()))?;
+    
     Ok(MetaTxMessage {
+        chain_id,
+        function,
         from,
         to,
         data,
@@ -242,92 +251,105 @@ pub fn create_meta_tx_typed_data(
     domain: EIP712Domain,
     message: MetaTxMessage,
 ) -> Result<EIP712TypedData, Error> {
-    // Create the types map
+    // Define the MetaTransaction type
     let mut types = HashMap::new();
-
-    // Add the EIP712Domain type
-    let domain_type = vec![
-        EIP712Field {
-            name: "name".to_string(),
-            type_name: "string".to_string(),
-        },
-        EIP712Field {
-            name: "version".to_string(),
-            type_name: "string".to_string(),
-        },
-        EIP712Field {
-            name: "chainId".to_string(),
-            type_name: "uint256".to_string(),
-        },
-        EIP712Field {
-            name: "verifyingContract".to_string(),
-            type_name: "address".to_string(),
-        },
-    ];
-
-    // Add salt field if present
-    let domain_type = if domain.salt.is_some() {
-        let mut dt = domain_type;
-        dt.push(EIP712Field {
-            name: "salt".to_string(),
-            type_name: "bytes32".to_string(),
-        });
-        dt
-    } else {
-        domain_type
-    };
-
-    types.insert("EIP712Domain".to_string(), domain_type);
-
-    // Add the MetaTransaction type
-    let meta_tx_type = vec![
-        EIP712Field {
-            name: "from".to_string(),
-            type_name: "address".to_string(),
-        },
-        EIP712Field {
-            name: "to".to_string(),
-            type_name: "address".to_string(),
-        },
-        EIP712Field {
-            name: "value".to_string(),
-            type_name: "uint256".to_string(),
-        },
-        EIP712Field {
-            name: "gas".to_string(),
-            type_name: "uint256".to_string(),
-        },
-        EIP712Field {
-            name: "nonce".to_string(),
-            type_name: "uint256".to_string(),
-        },
-        EIP712Field {
-            name: "data".to_string(),
-            type_name: "bytes".to_string(),
-        },
-    ];
-    types.insert("MetaTransaction".to_string(), meta_tx_type);
-
-    // Create the message map
-    let mut message_map = serde_json::Map::new();
-    message_map.insert("from".to_string(), serde_json::Value::String(message.from));
-    message_map.insert("to".to_string(), serde_json::Value::String(message.to));
-    message_map.insert(
-        "value".to_string(),
-        serde_json::Value::String(message.value),
+    
+    // EIP712Domain type
+    types.insert(
+        "EIP712Domain".to_string(),
+        vec![
+            EIP712Type {
+                name: "name".to_string(),
+                r#type: "string".to_string(),
+            },
+            EIP712Type {
+                name: "version".to_string(),
+                r#type: "string".to_string(),
+            },
+            EIP712Type {
+                name: "chainId".to_string(),
+                r#type: "uint256".to_string(),
+            },
+            EIP712Type {
+                name: "verifyingContract".to_string(),
+                r#type: "address".to_string(),
+            },
+        ],
     );
-    message_map.insert("gas".to_string(), serde_json::Value::String(message.gas));
-    message_map.insert(
-        "nonce".to_string(),
-        serde_json::Value::String(message.nonce),
+    
+    // MetaTransaction type
+    types.insert(
+        "MetaTransaction".to_string(),
+        vec![
+            EIP712Type {
+                name: "chainId".to_string(),
+                r#type: "uint256".to_string(),
+            },
+            EIP712Type {
+                name: "from".to_string(),
+                r#type: "address".to_string(),
+            },
+            EIP712Type {
+                name: "function".to_string(),
+                r#type: "string".to_string(),
+            },
+            EIP712Type {
+                name: "to".to_string(),
+                r#type: "address".to_string(),
+            },
+            EIP712Type {
+                name: "data".to_string(),
+                r#type: "string".to_string(),
+            },
+            EIP712Type {
+                name: "nonce".to_string(),
+                r#type: "uint256".to_string(),
+            },
+            EIP712Type {
+                name: "deadline".to_string(),
+                r#type: "uint256".to_string(),
+            },
+            EIP712Type {
+                name: "feeModel".to_string(),
+                r#type: "string".to_string(),
+            },
+            EIP712Type {
+                name: "feeAmount".to_string(),
+                r#type: "uint256".to_string(),
+            },
+        ],
     );
-    message_map.insert("data".to_string(), serde_json::Value::String(message.data));
-
-    // Create the typed data
+    
+    // Create the message object
+    let mut message_obj = serde_json::Map::new();
+    message_obj.insert("chainId".to_string(), serde_json::Value::Number(serde_json::Number::from(message.chain_id)));
+    message_obj.insert("from".to_string(), serde_json::Value::String(message.from));
+    message_obj.insert("function".to_string(), serde_json::Value::String(message.function));
+    message_obj.insert("to".to_string(), serde_json::Value::String(message.to));
+    message_obj.insert("data".to_string(), serde_json::Value::String(message.data));
+    message_obj.insert("nonce".to_string(), serde_json::Value::Number(serde_json::Number::from(message.nonce)));
+    message_obj.insert(
+        "deadline".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(message.deadline)),
+    );
+    message_obj.insert("feeModel".to_string(), serde_json::Value::String(message.fee_model));
+    message_obj.insert(
+        "feeAmount".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(message.fee_amount)),
+    );
+    
     Ok(EIP712TypedData {
         domain,
         primary_type: "MetaTransaction".to_string(),
         types,
-        message: serde_json::Value::Object(message_map),
+        message: serde_json::Value::Object(message_obj),
     })
+}
+
+/// Get typed data (alias for create_meta_tx_typed_data)
+pub fn get_typed_data(
+    domain: EIP712Domain,
+    message: MetaTxMessage,
+) -> Result<EIP712TypedData, Error> {
+    create_meta_tx_typed_data(domain, message)
 }

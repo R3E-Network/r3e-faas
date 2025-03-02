@@ -1,0 +1,84 @@
+% This file should only be \input{} in a document that loads the tikz package
+% Do not compile this file directly with pdflatex
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    scale=0.95,
+    transform shape,
+    node distance=2.8cm,
+    % Define styles locally
+    modern-box/.style={
+      rectangle, 
+      rounded corners=3pt, 
+      draw=gray!60, 
+      thick, 
+      fill=#1,
+      drop shadow={opacity=0.25, shadow xshift=1.5pt, shadow yshift=-1.5pt},
+      text width=3.0cm,
+      align=center, 
+      minimum height=1.2cm
+    },
+    modern-arrow/.style={
+      -stealth, 
+      thick, 
+      draw=gray!70,
+      shorten >=2pt,
+      shorten <=2pt
+    },
+    modern-dashed/.style={
+      modern-arrow,
+      dashed
+    },
+    modern-text/.style={
+      font=\small,
+      text width=2.2cm,
+      align=center,
+      midway
+    }
+]
+    % Define the main cryptographic components with modern styling
+    \node[modern-box=blue!10, font=\bfseries, text width=3.0cm] (tee) at (0,4) {Trusted Execution Environment (TEE)};
+    \node[modern-box=teal!10, font=\bfseries, text width=3.0cm] (fhe) at (-3.5,0) {Fully Homomorphic Encryption (FHE)};
+    \node[modern-box=orange!10, font=\bfseries, text width=3.0cm] (zkp) at (3.5,0) {Zero-Knowledge Proofs (ZKP)};
+    
+    % Hybrid approaches with elegant styling
+    \node[modern-box=red!10, text width=2.6cm] (tee-fhe) at (-2.2,2) {TEE-FHE Hybrid};
+    \node[modern-box=red!10, text width=2.6cm] (tee-zkp) at (2.2,2) {TEE-ZKP Hybrid};
+    \node[modern-box=red!10, text width=2.6cm] (fhe-zkp) at (0,-2) {FHE-ZKP Hybrid};
+    
+    % Connect components with elegant arrows and better labels
+    \draw[modern-arrow] (tee) -- node[modern-text, left, font=\small] {Hardware\\Acceleration} (tee-fhe);
+    \draw[modern-arrow] (tee) -- node[modern-text, right, font=\small] {Secure Proof\\Generation} (tee-zkp);
+    
+    \draw[modern-arrow] (fhe) -- node[modern-text, above, font=\small] {Encrypted\\Computation} (tee-fhe);
+    \draw[modern-arrow] (fhe) -- node[modern-text, left, font=\small] {Verify\\Correctness} (fhe-zkp);
+    
+    \draw[modern-arrow] (zkp) -- node[modern-text, above, font=\small] {Private\\Verification} (tee-zkp);
+    \draw[modern-arrow] (zkp) -- node[modern-text, right, font=\small] {Prove\\Computation} (fhe-zkp);
+    
+    % Add descriptions for each approach
+    \node[text width=3.0cm, align=center, font=\small\itshape] at (0,5.8) {Hardware-protected secure execution with attestation};
+    \node[text width=3.0cm, align=center, font=\small\itshape] at (-5.2,0) {Compute on encrypted data without decryption};
+    \node[text width=3.0cm, align=center, font=\small\itshape] at (5.2,0) {Prove knowledge without revealing information};
+    
+    % Add hybrid descriptions
+    \node[text width=2.6cm, align=center, font=\footnotesize\itshape] at (-2.2,3.2) {Performance + Security};
+    \node[text width=2.6cm, align=center, font=\footnotesize\itshape] at (2.2,3.2) {Efficient Private Proofs};
+    \node[text width=2.6cm, align=center, font=\footnotesize\itshape] at (0,-3.2) {Verifiable Private Computation};
+    
+    % Add a title
+    \node[font=\bfseries\large, text width=8cm, align=center] at (0,-4.5) {Advanced Cryptographic Service Relationships};
+    
+    % Add a subtle background for the entire diagram
+    \begin{scope}[on background layer]
+        \fill[rounded corners=15pt, blue!5, opacity=0.3] (-6,-4) rectangle (6,5);
+        
+        % Add subtle connection areas
+        \fill[rounded corners=10pt, blue!10, opacity=0.2] (-3.0,1) -- (0,3.3) -- (3.0,1) -- cycle;
+        \fill[rounded corners=10pt, orange!10, opacity=0.2] (-3.0,-1) -- (0,-2.8) -- (3.0,-1) -- cycle;
+    \end{scope}
+\end{tikzpicture}
+\caption{Enhanced Relationships and Hybrid Approaches in Advanced Cryptography}
+\label{fig:crypto-relationships-elegant}
+\end{figure} 

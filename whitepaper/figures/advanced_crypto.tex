@@ -2,9 +2,11 @@
 \centering
 \begin{tikzpicture}[node distance=1.5cm, auto, thick]
     % Define styles
-    \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em]
-    \tikzstyle{line} = [draw, -latex']
-    \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+    \tikzset{
+        block/.style = [rectangle, draw, fill=blue!20, text width=8em, text centered, rounded corners, minimum height=3em],
+        line/.style = [draw, -latex', thick],
+        cloud/.style = [draw, ellipse, fill=red!20, minimum height=2em]
+    }
     
     % Place nodes
     \node [block] (service) {Neo Service Layer};

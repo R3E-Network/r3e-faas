@@ -5,13 +5,15 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 use crate::registry::{
-    function_registry_server::{
+    registry::function_registry_server::{
         FunctionRegistry as FunctionRegistryService, FunctionRegistryServer,
     },
-    DeleteFunctionRequest, DeleteFunctionResponse, FunctionRegistry, GetFunctionRequest,
+    DeleteFunctionRequest, DeleteFunctionResponse, GetFunctionRequest,
     GetFunctionResponse, ListFunctionsRequest, ListFunctionsResponse, RegisterFunctionRequest,
-    RegisterFunctionResponse, RegistryError, UpdateFunctionRequest, UpdateFunctionResponse,
+    RegisterFunctionResponse, UpdateFunctionRequest, UpdateFunctionResponse,
 };
+
+use crate::registry::{FunctionRegistry, RegistryError};
 
 /// gRPC service implementation for the function registry
 pub struct FunctionRegistryImpl {

@@ -3,8 +3,8 @@
 
 //! Examples of function registration for different use cases
 
-use crate::registry::proto::{
-    FunctionMetadata, Permissions, RegisterFunctionRequest, Resources, TriggerConfig,
+use crate::registry::{
+    Permissions, RegisterFunctionRequest, Resources, TriggerConfig,
 };
 
 /// Create a Neo block event handler function registration request
@@ -135,7 +135,7 @@ pub fn create_neo_contract_notification_handler() -> RegisterFunctionRequest {
             config: serde_json::json!({
                 "source": "Neo",
                 "event_type": "NeoContractNotification",
-                "filter": "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5" // Example NEP-17 token contract
+                "filter": "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5"
             }),
         }),
         permissions: Some(Permissions {
@@ -206,8 +206,10 @@ pub fn create_neo_oracle_service() -> RegisterFunctionRequest {
             trigger_type: "oracle".to_string(),
             config: serde_json::json!({
                 "type": "price",
-                "assets": ["NEO", "GAS"],
-                "providers": ["coinmarketcap", "coingecko"]
+                "config": {
+                    "assets": ["NEO", "GAS"],
+                    "providers": ["coinmarketcap", "coingecko"]
+                }
             }),
         }),
         permissions: Some(Permissions {

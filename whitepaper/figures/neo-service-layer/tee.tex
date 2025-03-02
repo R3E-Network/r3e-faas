@@ -5,32 +5,35 @@
 \centering
 \begin{tikzpicture}[
     box/.style={rectangle, draw, rounded corners, fill=white, 
-               minimum width=2cm, minimum height=1cm, text centered},
+               minimum width=2.5cm, minimum height=1.2cm, text centered},
     line/.style={-latex, thick}
 ]
-    % Nodes
-    \node[box, fill=blue!10] (app) at (0,4) {Application};
-    \node[box, fill=green!10] (enclave) at (0,2) {Trusted Enclave};
+    % Nodes - Increased vertical spacing and better alignment
+    \node[box, fill=blue!10] (app) at (0,8) {Application};
+    \node[box, fill=green!10] (enclave) at (0,4) {Trusted Enclave};
     \node[box, fill=red!10] (blockchain) at (0,0) {Blockchain};
     
-    % Components inside TEE
-    \node[box, fill=yellow!10, minimum width=1.5cm, minimum height=0.8cm] (processor) 
-         at (-1,2) {Secure Processor};
-    \node[box, fill=yellow!10, minimum width=1.5cm, minimum height=0.8cm] (memory) 
-         at (1,2) {Encrypted Memory};
+    % Components inside TEE - Increased horizontal spacing and size
+    \node[box, fill=yellow!10, minimum width=2cm, minimum height=1cm] (processor) 
+         at (-5,4) {Secure Processor};
+    \node[box, fill=yellow!10, minimum width=2cm, minimum height=1cm] (memory) 
+         at (5,4) {Encrypted Memory};
          
-    % Draw a box around TEE components
-    \draw[dashed] (-2.5,1) rectangle (2.5,3);
+    % Draw a box around TEE components - Further enlarged and styled
+    \draw[dashed, thick, rounded corners=5pt] (-6.5,2) rectangle (6.5,6);
     
-    % Connections
-    \draw[line] (app) -- node[above-arrow-text] {Encrypted Data} (enclave);
-    \draw[line] (enclave) -- node[above-arrow-text] {Verified Results} (blockchain);
-    \draw[line] (processor) -- node[above-arrow-text, right] {Secure Operations} (memory);
+    % Label for the TEE box
+    \node[font=\small\bfseries] at (0,5.7) {Trusted Execution Environment};
     
-    % Additional note
-    \draw[->] (3,2.5) -- (2.3,2.5);
-    \draw[->] (3,1.5) -- (2.3,1.5);
-    \node[above-arrow-text] at (2.8,3.5) {Hardware Protection};
+    % Data flow connections with clear labels
+    \draw[line] (app) -- node[above-arrow-text, right, pos=0.3] {Encrypted Data} (enclave);
+    \draw[line] (enclave) -- node[above-arrow-text, right, pos=0.7] {Verified Results} (blockchain);
+    \draw[line] (processor) -- node[above-arrow-text, pos=0.5] {Secure Operations} (memory);
+    
+    % Additional note - Adjusted position and styled for clarity
+    \draw[->, thick] (7.5,5) -- (6.8,5);
+    \draw[->, thick] (7.5,3) -- (6.8,3);
+    \node[above-arrow-text, align=center, text width=3cm] at (9,4) {\textbf{Hardware Protection \& Isolation}};
 \end{tikzpicture}
 \caption{Trusted Execution Environment Service}
 \label{fig:tee-service}

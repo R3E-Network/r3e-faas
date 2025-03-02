@@ -96,4 +96,7 @@ pub enum TriggerError {
 
     #[error("Storage error: {0}")]
     Storage(String),
+    
+    #[error("Callback execution error: {0}")]
+    CallbackExecution(String),
 }

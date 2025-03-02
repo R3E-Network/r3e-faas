@@ -1,0 +1,84 @@
+% This file should only be \input{} in a document that loads the tikz package
+% Do not compile this file directly with pdflatex
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    scale=1.0,
+    node distance=2cm,
+    % Define styles locally
+    modern-box/.style={
+      rectangle, 
+      rounded corners=3pt, 
+      draw=gray!60, 
+      thick, 
+      fill=#1,
+      drop shadow={opacity=0.25, shadow xshift=1.5pt, shadow yshift=-1.5pt},
+      text width=2.5cm,
+      align=center, 
+      minimum height=1.2cm
+    },
+    modern-arrow/.style={
+      -stealth, 
+      thick, 
+      draw=gray!70,
+      shorten >=2pt,
+      shorten <=2pt
+    },
+    modern-dashed/.style={
+      modern-arrow,
+      dashed
+    },
+    modern-text/.style={
+      font=\small,
+      text width=2.2cm,
+      align=center,
+      midway
+    }
+]
+    % Define the main components with modern styling
+    \node[modern-box=blue!10, font=\bfseries] (app) at (0,6) {Application};
+    \node[modern-box=red!10, font=\bfseries] (tee) at (0,3) {TEE Service};
+    \node[modern-box=teal!10] (blockchain) at (0,0) {Blockchain};
+    
+    % TEE platforms with consistent styling
+    \node[modern-box=orange!10] (sgx) at (-4,-2) {Intel SGX};
+    \node[modern-box=orange!10] (sev) at (-2,-2) {AMD SEV};
+    \node[modern-box=orange!10] (trustzone) at (0,-2) {ARM TrustZone};
+    \node[modern-box=orange!10] (nitro) at (2,-2) {AWS Nitro};
+    \node[modern-box=orange!10] (cloud) at (4,-2) {Cloud TEEs};
+    
+    % Secure computation node
+    \node[modern-box=gray!10, text width=4.5cm] (computation) at (0,-4) {Secure Computation Environment};
+    
+    % Connect components with elegant arrows
+    \draw[modern-arrow] (app) -- node[modern-text, left] {1. Request\\Computation} (tee);
+    \draw[modern-dashed] (tee) -- node[modern-text, right] {4. Verified\\Result} (app);
+    
+    % Connect TEE to platforms
+    \foreach \platform in {sgx, sev, trustzone, nitro, cloud} {
+        \draw[modern-arrow] (tee) -- node[modern-text, sloped, font=\footnotesize] {2. Execute} (\platform);
+        \draw[modern-arrow] (\platform) -- node[modern-text, sloped, font=\footnotesize] {Process} (computation);
+    }
+    
+    % Connect computation back to TEE
+    \draw[modern-dashed] (computation) -- node[modern-text, right] {3. Attestation\\Report} (tee);
+    
+    % Connect TEE to blockchain
+    \draw[modern-arrow] (tee) -- node[modern-text, left] {5. Verify\\On-Chain} (blockchain);
+    
+    % Add a title
+    \node[font=\bfseries\large, text width=7cm, align=center] at (0,7.5) {Trusted Execution Environment Service};
+    
+    % Add a decorative border around the TEE platforms
+    \draw[rounded corners=8pt, dashed, thick, draw=gray!60] 
+        (-4.8,-2.8) rectangle (4.8,-1.2) node[pos=0.5, below=1.5cm] {\textbf{Hardware Security Providers}};
+        
+    % Add a subtle background for the entire diagram
+    \begin{scope}[on background layer]
+        \fill[rounded corners=15pt, blue!5, opacity=0.3] (-5.5,-5) rectangle (5.5,6.5);
+    \end{scope}
+\end{tikzpicture}
+\caption{Enhanced Trusted Execution Environment Service Architecture}
+\label{fig:tee-service-elegant}
+\end{figure} 

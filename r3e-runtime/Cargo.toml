@@ -10,16 +10,16 @@ edition = "2021"
 r3e-core    = { path = "../r3e-core" }
 r3e-event   = { path = "../r3e-event" }
 
-deno_core   = "0.68.0"
-v8          = { version = "0.68.0", default-features = false }
-serde_v8    = "0.68.0"
+deno_core   = "0.230.0"
+v8          = { version = "0.74.3", default-features = false }
+serde_v8    = "0.230.0"
 
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
 
 tokio       = { version = "1", features = ["full"]}
 futures     = "0.3"
-bytes       = "1.2.1"
+bytes       = "1.6.0"
 
 anyhow      = "1.0"
 thiserror   = "1.0"

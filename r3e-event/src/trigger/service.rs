@@ -3,12 +3,20 @@
 
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::Arc;
+
+use chrono::{DateTime, Utc};
+use jsonpath_lib;
+use regex::Regex;
+use serde_json::Value;
+use uuid::Uuid;
 
 use crate::trigger::types::{
     BlockchainTriggerParams, CustomTriggerParams, MarketTriggerParams, TimeTriggerParams,
     TriggerCondition, TriggerError, TriggerSource,
 };
+use crate::trigger::function_service::FunctionService;
 
 /// Trigger service trait
 #[async_trait]
@@ -63,13 +71,16 @@ pub trait TriggerService: Send + Sync {
 pub struct TriggerServiceImpl {
     /// Trigger storage
     triggers: Arc<tokio::sync::RwLock<HashMap<String, (String, String, TriggerCondition)>>>,
+    /// Function service for executing callbacks
+    function_service: Arc<dyn FunctionService>,
 }
 
 impl TriggerServiceImpl {
     /// Create a new trigger service
-    pub fn new() -> Self {
+    pub fn new(function_service: Arc<dyn FunctionService>) -> Self {
         Self {
             triggers: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            function_service,
         }
     }
 
@@ -749,12 +760,15 @@ impl TriggerService for TriggerServiceImpl {
         // Log callback data
         log::debug!("Callback data: {}", callback_data);
 
+        // Clone callback_data before moving it
+        let callback_data_copy = callback_data.clone();
+
         // Use the function service to invoke the function
         let function_service = self.function_service.clone();
 
         // Execute the function with the callback data
         match function_service
-            .invoke_function(user_id, function_id, &callback_data)
+            .execute_function(user_id, function_id, callback_data)
             .await
         {
             Ok(result) => {
@@ -778,7 +792,7 @@ impl TriggerService for TriggerServiceImpl {
             serde_json::json!({
                 "status": "success",
                 "message": "Function executed successfully",
-                "data": callback_data,
+                "data": callback_data_copy,
             }),
             execution_time,
         );

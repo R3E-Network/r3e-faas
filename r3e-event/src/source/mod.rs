@@ -30,6 +30,9 @@ pub enum TaskError {
 
     #[error("task: error: {0}")]
     Error(String),
+    
+    #[error("task: event error: {0}")]
+    EventError(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -45,6 +48,7 @@ pub enum FuncError {
     Error(String),
 }
 
+#[derive(Debug, Clone)]
 pub struct Task {
     pub uid: u64,
     pub fid: u64,
@@ -97,13 +101,29 @@ impl TaskSource for TaskSourceClient {
             })?;
 
         let out = res.get_mut();
-        let Some(event) = out.event.as_mut().and_then(|x| x.event.take()) else {
+        if out.event.is_none() && out.event_data.is_empty() {
             return Err(TaskError::NoMoreTask(uid));
+        }
+        
+        let event = match &out.event {
+            Some(e) => e.event.clone(),
+            None => {
+                // Try to deserialize from event_data
+                if !out.event_data.is_empty() {
+                    match serde_json::from_slice(&out.event_data) {
+                        Ok(e) => e,
+                        Err(_) => event::Event::None,
+                    }
+                } else {
+                    event::Event::None
+                }
+            }
         };
+        
         Ok(Task {
             uid: out.uid,
             fid: out.fid,
-            event: event,
+            event,
         })
     }
 

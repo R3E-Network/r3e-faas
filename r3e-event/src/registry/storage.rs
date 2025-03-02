@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use crate::registry::proto::FunctionMetadata;
+use crate::registry::FunctionMetadata;
 use crate::registry::RegistryError;
 
 /// Storage interface for function metadata

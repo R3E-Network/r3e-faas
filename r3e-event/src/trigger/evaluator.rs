@@ -457,21 +457,25 @@ impl TriggerEvaluator for StandardTriggerEvaluator {
         condition: &TriggerCondition,
         event_data: &serde_json::Value,
     ) -> Result<bool, TriggerError> {
+        // Convert HashMap to serde_json::Value
+        let params_value = serde_json::to_value(&condition.params)
+            .map_err(|e| TriggerError::EvaluationError(format!("Failed to convert params: {}", e)))?;
+            
         match condition.source {
             TriggerSource::Blockchain => {
-                self.evaluate_blockchain_trigger(&condition.params, event_data)
+                self.evaluate_blockchain_trigger(&params_value, event_data)
                     .await
             }
             TriggerSource::Time => {
-                self.evaluate_time_trigger(&condition.params, event_data)
+                self.evaluate_time_trigger(&params_value, event_data)
                     .await
             }
             TriggerSource::Market => {
-                self.evaluate_market_trigger(&condition.params, event_data)
+                self.evaluate_market_trigger(&params_value, event_data)
                     .await
             }
             TriggerSource::Custom => {
-                self.evaluate_custom_trigger(&condition.params, event_data)
+                self.evaluate_custom_trigger(&params_value, event_data)
                     .await
             }
         }

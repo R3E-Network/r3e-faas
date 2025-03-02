@@ -9,16 +9,20 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-bytes = "1.2.1"
+bytes = "1.6.0"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
 log = "0.4"
+r3e-proc-macros = { path = "../r3e-proc-macros" }
+git-version = "0.3.5"
+compile-time = "0.2.0"
+signal-hook = "0.3.17"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1.4", features = ["v4", "serde"] }
-v8 = { version = "0.68.0", default-features = false }
+v8 = { version = "0.74.3", default-features = false }
 
 [dev-dependencies]
 tempfile = "3.8"

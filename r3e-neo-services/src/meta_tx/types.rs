@@ -16,6 +16,16 @@ pub enum BlockchainType {
     Ethereum,
 }
 
+impl BlockchainType {
+    /// Convert to chain ID
+    pub fn to_chain_id(&self) -> u64 {
+        match self {
+            BlockchainType::NeoN3 => 1, // Neo chain ID
+            BlockchainType::Ethereum => 1337, // Ethereum testnet chain ID
+        }
+    }
+}
+
 impl Default for BlockchainType {
     fn default() -> Self {
         BlockchainType::NeoN3
@@ -47,14 +57,14 @@ pub struct MetaTxRequest {
     pub tx_data: String,
     /// Sender address
     pub sender: String,
+    /// Target address (contract or account)
+    pub target_address: String,
     /// Signature
     pub signature: String,
     /// Nonce
     pub nonce: u64,
     /// Deadline (timestamp)
     pub deadline: u64,
-    /// Fee model
-    pub fee_model: FeeModel,
     /// Fee amount
     pub fee_amount: u64,
     /// Timestamp
@@ -67,6 +77,12 @@ pub struct MetaTxRequest {
     pub signature_curve: SignatureCurve,
     /// Target contract address
     pub target_contract: Option<String>,
+    /// Chain ID
+    pub chain_id: Option<u64>,
+    /// Function to call
+    pub function: Option<String>,
+    /// Fee model as string
+    pub fee_model: Option<String>,
 }
 
 /// Meta transaction response

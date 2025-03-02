@@ -130,20 +130,22 @@ impl EventFilter {
     /// Apply filter to an event
     pub fn apply(&self, event: &event::Event) -> bool {
         match event {
-            event::Event::None => false,
-            event::Event::NeoBlock(block) => self.filter_neo_block(block),
-            event::Event::NeoTransaction(tx) => self.filter_neo_transaction(tx),
-            event::Event::NeoContractEvent {
-                contract_address,
-                events,
-            } => self.filter_neo_contract_event(contract_address, events),
+            event::Event::Mock(mock_event) => self.filter_custom(&serde_json::json!(mock_event)),
+            event::Event::NeoBlock(block) => self.filter_neo_block(&serde_json::json!(block)),
+            event::Event::BtcBlock(block) => self.filter_custom(&serde_json::json!(block)),
+            event::Event::NeoApplicationLog(app_log) => self.filter_custom(&serde_json::json!(app_log)),
+            event::Event::NeoContractNotification(notification) => self.filter_custom(&serde_json::json!(notification)),
             event::Event::EthereumBlock(block) => self.filter_ethereum_block(block),
             event::Event::EthereumTransaction(tx) => self.filter_ethereum_transaction(tx),
-            event::Event::EthereumContractEvent {
-                contract_address,
-                events,
-            } => self.filter_ethereum_contract_event(contract_address, events),
-            event::Event::Custom(data) => self.filter_custom(data),
+            event::Event::EthereumContractEvent { contract_address, events } => 
+                self.filter_ethereum_contract_event(contract_address, events),
+            event::Event::NearBlock(_) |
+            event::Event::NearAccountChange(_) |
+            event::Event::NearTransaction(_) => {
+                // Currently not filtering NEAR events
+                true
+            },
+            event::Event::None => false,
         }
     }
 
@@ -360,7 +362,11 @@ impl EventFilter {
     }
 
     /// Filter Ethereum contract event
-    fn filter_ethereum_contract_event(&self, contract_address: &str, events: &Value) -> bool {
+    fn filter_ethereum_contract_event(
+        &self,
+        contract_address: &str,
+        events: &Vec<serde_json::Value>,
+    ) -> bool {
         // Check network
         if let Some(network) = &self.network {
             if network != "ethereum" {
@@ -384,25 +390,21 @@ impl EventFilter {
 
         // Check event name (topic)
         if let Some(event_name) = &self.event_name {
-            if let Some(events_array) = events.as_array() {
-                if !events_array.iter().any(|event| {
-                    event
-                        .get("topics")
-                        .and_then(|topics| topics.as_array())
-                        .map_or(false, |topics| {
-                            if topics.is_empty() {
-                                return false;
-                            }
+            if !events.iter().any(|event| {
+                event
+                    .get("topics")
+                    .and_then(|topics| topics.as_array())
+                    .map_or(false, |topics| {
+                        if topics.is_empty() {
+                            return false;
+                        }
 
-                            // The first topic is the event signature
-                            topics[0]
-                                .as_str()
-                                .map_or(false, |topic| topic == event_name)
-                        })
-                }) {
-                    return false;
-                }
-            } else {
+                        // The first topic is the event signature
+                        topics[0]
+                            .as_str()
+                            .map_or(false, |topic| topic == event_name)
+                    })
+            }) {
                 return false;
             }
         }

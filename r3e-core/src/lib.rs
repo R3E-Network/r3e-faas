@@ -42,7 +42,8 @@ pub fn v8_initialize() {
         let platform = make_v8_platform(&config);
         v8::V8::initialize_platform(platform.clone());
         v8::V8::initialize();
-        v8::cppgc::initalize_process(platform);
+        // cppgc module is not available in this version of v8
+        // v8::cppgc::initalize_process(platform);
     });
 }
 
@@ -50,7 +51,8 @@ pub fn v8_initialize() {
 pub fn v8_finalize() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        unsafe { v8::cppgc::shutdown_process() };
+        // cppgc module is not available in this version of v8
+        // unsafe { v8::cppgc::shutdown_process() };
         unsafe { v8::V8::dispose() };
         v8::V8::dispose_platform();
     })

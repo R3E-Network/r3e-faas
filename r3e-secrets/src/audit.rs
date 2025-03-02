@@ -95,7 +95,7 @@ impl AuditEvent {
 /// Audit logger trait
 pub trait AuditLogger: Send + Sync {
     /// Log an audit event
-    fn log_event(&self, event: AuditEvent);
+    fn log_event(&mut self, event: AuditEvent);
 }
 
 /// Memory-based audit logger
@@ -141,15 +141,13 @@ impl MemoryAuditLogger {
 }
 
 impl AuditLogger for MemoryAuditLogger {
-    fn log_event(&self, event: AuditEvent) {
-        let mut events = self.events.clone();
-        events.push(event);
+    fn log_event(&mut self, event: AuditEvent) {
+        self.events.push(event);
 
         // Keep only the last max_events
-        if events.len() > self.max_events {
-            events = events.split_off(events.len() - self.max_events);
+        if self.events.len() > self.max_events {
+            let new_start = self.events.len() - self.max_events;
+            self.events = self.events.split_off(new_start);
         }
-
-        self.events = events;
     }
 }

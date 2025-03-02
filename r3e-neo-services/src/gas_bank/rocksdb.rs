@@ -2,7 +2,8 @@
 // All Rights Reserved
 
 use async_trait::async_trait;
-use r3e_store::rocksdb::RocksDBStore;
+use r3e_store::RocksDBStore;
+use r3e_store::rocksdb::RocksDbConfig;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -23,14 +24,27 @@ pub struct RocksDBGasBankStorage {
 impl RocksDBGasBankStorage {
     /// Create a new RocksDB gas bank storage
     pub async fn new<P: AsRef<Path>>(db_path: P) -> Result<Self, Error> {
-        let db = RocksDBStore::new(db_path)
-            .map_err(|e| Error::Storage(format!("Failed to create RocksDB store: {}", e)))?;
-
+        let config = RocksDbConfig {
+            path: db_path.as_ref().to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        
+        let db = RocksDBStore::new(config);
+        
+        // Open the database
+        db.open().map_err(|e| Error::Storage(format!("Failed to open RocksDB store: {}", e)))?;
+        
         let accounts_cf = "gas_bank_accounts".to_string();
         let deposits_cf = "gas_bank_deposits".to_string();
         let withdrawals_cf = "gas_bank_withdrawals".to_string();
         let transactions_cf = "gas_bank_transactions".to_string();
         let contract_mappings_cf = "gas_bank_contract_mappings".to_string();
+        
+        // Create column families if they don't exist
+        for cf in [&accounts_cf, &deposits_cf, &withdrawals_cf, &transactions_cf, &contract_mappings_cf] {
+            db.create_cf_if_missing(cf)
+                .map_err(|e| Error::Storage(format!("Failed to create column family {}: {}", cf, e)))?;
+        }
 
         Ok(Self {
             db: Arc::new(db),
@@ -46,88 +60,76 @@ impl RocksDBGasBankStorage {
 #[async_trait]
 impl GasBankStorage for RocksDBGasBankStorage {
     async fn get_account(&self, address: &str) -> Result<Option<GasBankAccount>, Error> {
-        let key = address.as_bytes();
+        let key = address;
 
-        match self.db.get(&self.accounts_cf, key) {
-            Ok(value) => match serde_json::from_slice::<GasBankAccount>(&value) {
-                Ok(account) => Ok(Some(account)),
-                Err(e) => Err(Error::Storage(format!(
-                    "Failed to deserialize account: {}",
-                    e
-                ))),
-            },
-            Err(r3e_store::GetError::NoSuchKey) => Ok(None),
+        match self.db.get_cf::<_, Vec<u8>>(&self.accounts_cf, key) {
+            Ok(Some(value)) => {
+                let account = serde_json::from_slice::<GasBankAccount>(&value)
+                    .map_err(|e| Error::Storage(format!("Failed to deserialize account: {}", e)))?;
+                Ok(Some(account))
+            }
+            Ok(None) => Ok(None),
             Err(e) => Err(Error::Storage(format!("Failed to get account: {}", e))),
         }
     }
 
     async fn create_account(&self, account: GasBankAccount) -> Result<(), Error> {
-        let key = account.address.as_bytes();
+        let key = account.address.clone();
         let value = serde_json::to_vec(&account)
             .map_err(|e| Error::Storage(format!("Failed to serialize account: {}", e)))?;
 
-        let input = r3e_store::PutInput {
-            key,
-            value: &value,
-            if_not_exists: true,
-        };
-
-        match self.db.put(&self.accounts_cf, input) {
-            Ok(_) => Ok(()),
-            Err(r3e_store::PutError::AlreadyExists) => Err(Error::InvalidParameter(format!(
-                "Account already exists for address: {}",
-                account.address
-            ))),
-            Err(e) => Err(Error::Storage(format!("Failed to create account: {}", e))),
-        }
-    }
-
-    async fn update_account(&self, account: GasBankAccount) -> Result<(), Error> {
-        // Check if account exists
-        if self.get_account(&account.address).await?.is_none() {
-            return Err(Error::NotFound(format!(
-                "Account not found for address: {}",
+        // Check if the account already exists
+        if let Ok(Some(_)) = self.db.get_cf::<_, Vec<u8>>(&self.accounts_cf, &key) {
+            return Err(Error::Storage(format!(
+                "Account already exists: {}",
                 account.address
             )));
         }
 
-        let key = account.address.as_bytes();
+        self.db
+            .put_cf(&self.accounts_cf, key, &value)
+            .map_err(|e| Error::Storage(format!("Failed to store account: {}", e)))?;
+
+        Ok(())
+    }
+
+    async fn update_account(&self, account: GasBankAccount) -> Result<(), Error> {
+        let key = account.address.clone();
         let value = serde_json::to_vec(&account)
             .map_err(|e| Error::Storage(format!("Failed to serialize account: {}", e)))?;
 
-        let input = r3e_store::PutInput {
-            key,
-            value: &value,
-            if_not_exists: false,
-        };
+        // Check if the account exists
+        if let Ok(None) = self.db.get_cf::<_, Vec<u8>>(&self.accounts_cf, &key) {
+            return Err(Error::Storage(format!(
+                "Account does not exist: {}",
+                account.address
+            )));
+        }
 
         self.db
-            .put(&self.accounts_cf, input)
+            .put_cf(&self.accounts_cf, key, &value)
             .map_err(|e| Error::Storage(format!("Failed to update account: {}", e)))?;
 
         Ok(())
     }
 
     async fn get_deposits(&self, address: &str) -> Result<Vec<GasBankDeposit>, Error> {
-        let input = r3e_store::ScanInput {
-            start_key: &[],
-            start_exclusive: false,
-            end_key: &[],
-            end_inclusive: false,
-            max_count: 1000, // Reasonable limit
-        };
-
-        let output = self
-            .db
-            .scan(&self.deposits_cf, input)
+        let prefix = format!("{}:", address);
+        
+        // Create a prefix iterator and collect the results manually
+        let iter: Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + Send> = 
+            self.db.prefix_iter_cf(&self.deposits_cf, prefix.as_bytes())
             .map_err(|e| Error::Storage(format!("Failed to scan deposits: {}", e)))?;
-
+        
         let mut deposits = Vec::new();
-
-        for (_, value) in output.kvs {
-            let deposit = serde_json::from_slice::<GasBankDeposit>(&value)
+        
+        for (_, value_boxed) in iter {
+            let value_vec = value_boxed.to_vec();
+            
+            let deposit = serde_json::from_slice::<GasBankDeposit>(&value_vec)
                 .map_err(|e| Error::Storage(format!("Failed to deserialize deposit: {}", e)))?;
 
+            // Only add deposits for this address
             if deposit.address == address {
                 deposits.push(deposit);
             }
@@ -137,43 +139,34 @@ impl GasBankStorage for RocksDBGasBankStorage {
     }
 
     async fn add_deposit(&self, deposit: GasBankDeposit) -> Result<(), Error> {
-        let key = deposit.tx_hash.as_bytes();
+        let key = format!("{}:{}", deposit.address, deposit.tx_hash);
         let value = serde_json::to_vec(&deposit)
             .map_err(|e| Error::Storage(format!("Failed to serialize deposit: {}", e)))?;
 
-        let input = r3e_store::PutInput {
-            key,
-            value: &value,
-            if_not_exists: true,
-        };
-
         self.db
-            .put(&self.deposits_cf, input)
-            .map_err(|e| Error::Storage(format!("Failed to add deposit: {}", e)))?;
+            .put_cf(&self.deposits_cf, key, &value)
+            .map_err(|e| Error::Storage(format!("Failed to store deposit: {}", e)))?;
 
         Ok(())
     }
 
     async fn get_withdrawals(&self, address: &str) -> Result<Vec<GasBankWithdrawal>, Error> {
-        let input = r3e_store::ScanInput {
-            start_key: &[],
-            start_exclusive: false,
-            end_key: &[],
-            end_inclusive: false,
-            max_count: 1000, // Reasonable limit
-        };
-
-        let output = self
-            .db
-            .scan(&self.withdrawals_cf, input)
+        let prefix = format!("{}:", address);
+        
+        // Create a prefix iterator and collect the results manually
+        let iter: Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + Send> = 
+            self.db.prefix_iter_cf(&self.withdrawals_cf, prefix.as_bytes())
             .map_err(|e| Error::Storage(format!("Failed to scan withdrawals: {}", e)))?;
-
+        
         let mut withdrawals = Vec::new();
-
-        for (_, value) in output.kvs {
-            let withdrawal = serde_json::from_slice::<GasBankWithdrawal>(&value)
+        
+        for (_, value_boxed) in iter {
+            let value_vec = value_boxed.to_vec();
+            
+            let withdrawal = serde_json::from_slice::<GasBankWithdrawal>(&value_vec)
                 .map_err(|e| Error::Storage(format!("Failed to deserialize withdrawal: {}", e)))?;
 
+            // Only add withdrawals for this address
             if withdrawal.address == address {
                 withdrawals.push(withdrawal);
             }
@@ -183,43 +176,34 @@ impl GasBankStorage for RocksDBGasBankStorage {
     }
 
     async fn add_withdrawal(&self, withdrawal: GasBankWithdrawal) -> Result<(), Error> {
-        let key = withdrawal.tx_hash.as_bytes();
+        let key = format!("{}:{}", withdrawal.address, withdrawal.tx_hash);
         let value = serde_json::to_vec(&withdrawal)
             .map_err(|e| Error::Storage(format!("Failed to serialize withdrawal: {}", e)))?;
 
-        let input = r3e_store::PutInput {
-            key,
-            value: &value,
-            if_not_exists: true,
-        };
-
         self.db
-            .put(&self.withdrawals_cf, input)
-            .map_err(|e| Error::Storage(format!("Failed to add withdrawal: {}", e)))?;
+            .put_cf(&self.withdrawals_cf, key, &value)
+            .map_err(|e| Error::Storage(format!("Failed to store withdrawal: {}", e)))?;
 
         Ok(())
     }
 
     async fn get_transactions(&self, address: &str) -> Result<Vec<GasBankTransaction>, Error> {
-        let input = r3e_store::ScanInput {
-            start_key: &[],
-            start_exclusive: false,
-            end_key: &[],
-            end_inclusive: false,
-            max_count: 1000, // Reasonable limit
-        };
-
-        let output = self
-            .db
-            .scan(&self.transactions_cf, input)
+        let prefix = format!("{}:", address);
+        
+        // Create a prefix iterator and collect the results manually
+        let iter: Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + Send> = 
+            self.db.prefix_iter_cf(&self.transactions_cf, prefix.as_bytes())
             .map_err(|e| Error::Storage(format!("Failed to scan transactions: {}", e)))?;
-
+        
         let mut transactions = Vec::new();
-
-        for (_, value) in output.kvs {
-            let transaction = serde_json::from_slice::<GasBankTransaction>(&value)
+        
+        for (_, value_boxed) in iter {
+            let value_vec = value_boxed.to_vec();
+            
+            let transaction = serde_json::from_slice::<GasBankTransaction>(&value_vec)
                 .map_err(|e| Error::Storage(format!("Failed to deserialize transaction: {}", e)))?;
 
+            // Only add transactions for this address
             if transaction.address == address {
                 transactions.push(transaction);
             }
@@ -229,19 +213,13 @@ impl GasBankStorage for RocksDBGasBankStorage {
     }
 
     async fn add_transaction(&self, transaction: GasBankTransaction) -> Result<(), Error> {
-        let key = transaction.tx_hash.as_bytes();
+        let key = format!("{}:{}", transaction.address, transaction.tx_hash);
         let value = serde_json::to_vec(&transaction)
             .map_err(|e| Error::Storage(format!("Failed to serialize transaction: {}", e)))?;
 
-        let input = r3e_store::PutInput {
-            key,
-            value: &value,
-            if_not_exists: true,
-        };
-
         self.db
-            .put(&self.transactions_cf, input)
-            .map_err(|e| Error::Storage(format!("Failed to add transaction: {}", e)))?;
+            .put_cf(&self.transactions_cf, key, &value)
+            .map_err(|e| Error::Storage(format!("Failed to store transaction: {}", e)))?;
 
         Ok(())
     }
@@ -250,15 +228,9 @@ impl GasBankStorage for RocksDBGasBankStorage {
         &self,
         contract_hash: &str,
     ) -> Result<Option<String>, Error> {
-        let key = contract_hash.as_bytes();
-
-        match self.db.get(&self.contract_mappings_cf, key) {
-            Ok(value) => {
-                let address = String::from_utf8(value)
-                    .map_err(|e| Error::Storage(format!("Failed to deserialize address: {}", e)))?;
-                Ok(Some(address))
-            }
-            Err(r3e_store::GetError::NoSuchKey) => Ok(None),
+        match self.db.get_cf::<_, String>(&self.contract_mappings_cf, contract_hash) {
+            Ok(Some(address)) => Ok(Some(address)),
+            Ok(None) => Ok(None),
             Err(e) => Err(Error::Storage(format!(
                 "Failed to get contract mapping: {}",
                 e
@@ -271,17 +243,9 @@ impl GasBankStorage for RocksDBGasBankStorage {
         contract_hash: &str,
         address: &str,
     ) -> Result<(), Error> {
-        let key = contract_hash.as_bytes();
-        let value = address.as_bytes();
-
-        let input = r3e_store::PutInput {
-            key,
-            value,
-            if_not_exists: false, // Allow overwriting existing mappings
-        };
-
+        let address_string = address.to_string();
         self.db
-            .put(&self.contract_mappings_cf, input)
+            .put_cf(&self.contract_mappings_cf, contract_hash.to_string(), &address_string)
             .map_err(|e| Error::Storage(format!("Failed to set contract mapping: {}", e)))?;
 
         Ok(())

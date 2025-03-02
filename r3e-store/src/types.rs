@@ -3,8 +3,6 @@
 
 //! Type definitions for the store crate.
 
-use serde::{Deserialize, Serialize};
-
 /// Maximum table name size in bytes
 pub const MAX_TABLE_NAME_SIZE: usize = 128; // 128 bytes
 

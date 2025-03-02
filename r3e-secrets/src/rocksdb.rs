@@ -2,7 +2,8 @@
 // All Rights Reserved
 
 use async_trait::async_trait;
-use r3e_store::rocksdb::RocksDBStore;
+use r3e_store::RocksDBStore;
+use r3e_store::rocksdb::RocksDbConfig;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -18,10 +19,20 @@ pub struct RocksDBSecretStorage {
 impl RocksDBSecretStorage {
     /// Create a new RocksDB secret storage
     pub async fn new<P: AsRef<Path>>(db_path: P) -> Result<Self, SecretError> {
-        let db = RocksDBStore::new(db_path)
-            .map_err(|e| SecretError::Storage(format!("Failed to create RocksDB store: {}", e)))?;
-
+        let config = RocksDbConfig {
+            path: db_path.as_ref().to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        
+        let db = RocksDBStore::new(config);
+        
+        // Open the database
+        db.open().map_err(|e| SecretError::Storage(format!("Failed to open RocksDB store: {}", e)))?;
+        
+        // Create column family if it doesn't exist
         let secrets_cf = "secrets".to_string();
+        db.create_cf_if_missing(&secrets_cf)
+            .map_err(|e| SecretError::Storage(format!("Failed to create column family: {}", e)))?;
 
         Ok(Self {
             db: Arc::new(db),
@@ -38,20 +49,12 @@ impl RocksDBSecretStorage {
 #[async_trait]
 impl SecretStorage for RocksDBSecretStorage {
     async fn store_secret(&self, secret: EncryptedSecret) -> Result<(), SecretError> {
-        let key = Self::generate_key(&secret.user_id, &secret.function_id, &secret.id)
-            .as_bytes()
-            .to_vec();
+        let key = Self::generate_key(&secret.user_id, &secret.function_id, &secret.id);
         let value = serde_json::to_vec(&secret)
             .map_err(|e| SecretError::Storage(format!("Failed to serialize secret: {}", e)))?;
 
-        let input = r3e_store::PutInput {
-            key: &key,
-            value: &value,
-            if_not_exists: false,
-        };
-
         self.db
-            .put(&self.secrets_cf, input)
+            .put_cf(&self.secrets_cf, key, &value)
             .map_err(|e| SecretError::Storage(format!("Failed to store secret: {}", e)))?;
 
         Ok(())
@@ -63,18 +66,16 @@ impl SecretStorage for RocksDBSecretStorage {
         function_id: &str,
         secret_id: &str,
     ) -> Result<EncryptedSecret, SecretError> {
-        let key = Self::generate_key(user_id, function_id, secret_id)
-            .as_bytes()
-            .to_vec();
+        let key = Self::generate_key(user_id, function_id, secret_id);
 
-        match self.db.get(&self.secrets_cf, &key) {
-            Ok(value) => {
+        match self.db.get_cf::<_, Vec<u8>>(&self.secrets_cf, key) {
+            Ok(Some(value)) => {
                 let secret = serde_json::from_slice::<EncryptedSecret>(&value).map_err(|e| {
                     SecretError::Storage(format!("Failed to deserialize secret: {}", e))
                 })?;
                 Ok(secret)
             }
-            Err(r3e_store::GetError::NoSuchKey) => Err(SecretError::NotFound(format!(
+            Ok(None) => Err(SecretError::NotFound(format!(
                 "Secret not found: {}",
                 secret_id
             ))),
@@ -88,19 +89,17 @@ impl SecretStorage for RocksDBSecretStorage {
         function_id: &str,
         secret_id: &str,
     ) -> Result<(), SecretError> {
-        let key = Self::generate_key(user_id, function_id, secret_id)
-            .as_bytes()
-            .to_vec();
+        let key = Self::generate_key(user_id, function_id, secret_id);
 
         // Check if secret exists
-        match self.db.get(&self.secrets_cf, &key) {
-            Ok(_) => {
+        match self.db.get_cf::<_, Vec<u8>>(&self.secrets_cf, &key) {
+            Ok(Some(_)) => {
                 self.db
-                    .delete(&self.secrets_cf, &key)
+                    .delete_cf(&self.secrets_cf, &key)
                     .map_err(|e| SecretError::Storage(format!("Failed to delete secret: {}", e)))?;
                 Ok(())
             }
-            Err(r3e_store::GetError::NoSuchKey) => Err(SecretError::NotFound(format!(
+            Ok(None) => Err(SecretError::NotFound(format!(
                 "Secret not found: {}",
                 secret_id
             ))),
@@ -114,25 +113,28 @@ impl SecretStorage for RocksDBSecretStorage {
         function_id: &str,
     ) -> Result<Vec<EncryptedSecret>, SecretError> {
         let prefix = format!("{}:{}", user_id, function_id);
-        let prefix_bytes = prefix.as_bytes();
-
-        let input = r3e_store::ScanInput {
-            start_key: prefix_bytes,
-            start_exclusive: false,
-            end_key: &[],
-            end_inclusive: false,
-            max_count: 1000, // Reasonable limit
-        };
-
-        let output = self
-            .db
-            .scan(&self.secrets_cf, input)
+        
+        // Get an iterator for the prefix and manually iterate through it
+        let db = self.db.clone();
+        let cf_name = self.secrets_cf.clone();
+        
+        // Create a prefix iterator and collect the results manually
+        let iter: Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + Send> = 
+            db.prefix_iter_cf(&cf_name, prefix.as_bytes())
             .map_err(|e| SecretError::Storage(format!("Failed to scan secrets: {}", e)))?;
-
+        
         let mut secrets = Vec::new();
-
-        for (_, value) in output.kvs {
-            let secret = serde_json::from_slice::<EncryptedSecret>(&value).map_err(|e| {
+        
+        // Iterate through key-value pairs using an iterator
+        for pair in iter {
+            // Destructure the pair into key and value (as boxed slices)
+            let (_, value_boxed) = pair;
+            
+            // Convert boxed slice to Vec<u8> for use with serde_json
+            let value_vec = value_boxed.to_vec();
+            
+            // Deserialize the value
+            let secret = serde_json::from_slice::<EncryptedSecret>(&value_vec).map_err(|e| {
                 SecretError::Storage(format!("Failed to deserialize secret: {}", e))
             })?;
 

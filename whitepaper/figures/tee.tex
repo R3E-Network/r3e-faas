@@ -1,7 +1,7 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[
-    scale=0.9,
+    scale=1.2,
     box/.style={rectangle, draw=black!70, rounded corners=3pt, 
                fill=white, text width=3cm, align=center, minimum height=1cm,
                pattern=#1, pattern color=black!20,
@@ -11,39 +11,42 @@
 ]
 
 % TEE Components
-\node[box=north east lines] (contract) at (0,3) {Smart Contract};
+\node[box=north east lines] (contract) at (0,4) {Smart Contract};
 \node[box=crosshatch] (tee) at (0,0) {TEE Service};
 
-% TEE Platforms
-\node[box=dots, text width=2cm] (sgx) at (-4,-2) {Intel SGX};
-\node[box=dots, text width=2cm] (sev) at (-2,-2) {AMD SEV};
-\node[box=dots, text width=2cm] (trustzone) at (0,-2) {ARM TrustZone};
-\node[box=dots, text width=2cm] (nitro) at (2,-2) {AWS Nitro};
-\node[box=dots, text width=2cm] (cloud) at (4,-2) {Cloud TEEs};
+% TEE Platforms - Evenly spaced horizontally
+\node[box=dots, text width=2cm] (sgx) at (-8,-3) {Intel SGX};
+\node[box=dots, text width=2cm] (sev) at (-4,-3) {AMD SEV};
+\node[box=dots, text width=2cm] (trustzone) at (0,-3) {ARM TrustZone};
+\node[box=dots, text width=2cm] (nitro) at (4,-3) {AWS Nitro};
+\node[box=dots, text width=2cm] (cloud) at (8,-3) {Cloud TEEs};
 
-% Secure Computation
-\node[box=grid] (computation) at (0,-4) {Secure Computation};
+% Secure Computation - Moved down to avoid overlap
+\node[box=grid] (computation) at (0,-6.5) {Secure Computation};
 
-% Arrows
-\draw[arrow] (contract) -- node[above-arrow-text, left] {1. Request} (tee);
-\draw[dashed_arrow] (tee) -- node[above-arrow-text, right] {4. Verified Result} (contract);
+% Arrows with better spaced labels
+\draw[arrow] (contract) -- node[above-arrow-text, left, pos=0.3] {1. Request} (tee);
+\draw[dashed_arrow] (tee) -- node[above-arrow-text, right, pos=0.7] {4. Verified Result} (contract);
 
-\draw[arrow] (tee) -- node[above-arrow-text, left] {2. Execute} (sgx);
-\draw[arrow] (tee) -- (sev);
-\draw[arrow] (tee) -- (trustzone);
-\draw[arrow] (tee) -- (nitro);
-\draw[arrow] (tee) -- node[above-arrow-text, right] {2. Execute} (cloud);
+% Arrows to TEE platforms with angled paths to prevent crossing
+\draw[arrow] (tee) -- node[above-arrow-text, sloped, pos=0.3] {2. Execute} (sgx);
+\draw[arrow] (tee) -- node[above-arrow-text, sloped, pos=0.3] {2. Execute} (sev);
+\draw[arrow] (tee) -- node[above-arrow-text, sloped, pos=0.3] {2. Execute} (trustzone);
+\draw[arrow] (tee) -- node[above-arrow-text, sloped, pos=0.7] {2. Execute} (nitro);
+\draw[arrow] (tee) -- node[above-arrow-text, sloped, pos=0.7] {2. Execute} (cloud);
 
-\draw[arrow] (sgx) -- (computation);
-\draw[arrow] (sev) -- (computation);
-\draw[arrow] (trustzone) -- (computation);
-\draw[arrow] (nitro) -- (computation);
-\draw[arrow] (cloud) -- (computation);
+% Arrows to Secure Computation with better spacing
+\draw[arrow] (sgx) -- node[above-arrow-text, sloped, pos=0.7] {Process} (computation);
+\draw[arrow] (sev) -- node[above-arrow-text, sloped, pos=0.7] {Process} (computation);
+\draw[arrow] (trustzone) -- node[above-arrow-text, pos=0.7] {Process} (computation);
+\draw[arrow] (nitro) -- node[above-arrow-text, sloped, pos=0.7] {Process} (computation);
+\draw[arrow] (cloud) -- node[above-arrow-text, sloped, pos=0.7] {Process} (computation);
 
-\draw[dashed_arrow] (computation) -- node[above-arrow-text, right] {3. Attestation} (tee);
+% Attestation arrow with better label position
+\draw[dashed_arrow] (computation) -- node[above-arrow-text, right, pos=0.3] {3. Attestation} (tee);
 
-% Labels
-\node[text width=5cm, align=center] at (0,4.5) {Trusted Execution Environment Service};
+% Title moved up for clarity
+\node[text width=6cm, align=center, font=\bfseries] at (0,6.5) {Trusted Execution Environment Service};
 
 \end{tikzpicture}
 \caption{TEE Service Architecture}

@@ -1,9 +1,10 @@
 // Copyright @ 2023 - 2024, R3E Network
 // All Rights Reserved
 
-use crate::registry::proto::FunctionMetadata;
+use crate::registry::FunctionMetadata;
 use crate::registry::RegistryError;
 use r3e_store::RocksDBStore;
+use r3e_store::rocksdb::RocksDbConfig;
 use std::path::Path;
 
 /// RocksDB implementation of function storage
@@ -15,9 +16,21 @@ pub struct RocksDBFunctionStorage {
 impl RocksDBFunctionStorage {
     /// Create a new RocksDB function storage
     pub fn new<P: AsRef<Path>>(db_path: P) -> Result<Self, RegistryError> {
-        let db = RocksDBStore::new(db_path).map_err(|e| RegistryError::Storage(e.to_string()))?;
-
+        let config = RocksDbConfig {
+            path: db_path.as_ref().to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        
+        let db = RocksDBStore::new(config);
+        
+        // Open the database
+        db.open().map_err(|e| RegistryError::Storage(format!("Failed to open RocksDB store: {}", e)))?;
+        
         let cf_name = "functions".to_string();
+        
+        // Create column family if it doesn't exist
+        db.create_cf_if_missing(&cf_name)
+            .map_err(|e| RegistryError::Storage(format!("Failed to create column family: {}", e)))?;
 
         Ok(Self { db, cf_name })
     }
@@ -25,35 +38,27 @@ impl RocksDBFunctionStorage {
 
 impl crate::registry::FunctionStorage for RocksDBFunctionStorage {
     fn store_function(&mut self, metadata: &FunctionMetadata) -> Result<(), RegistryError> {
-        let key = metadata.id.as_bytes();
+        let key = &metadata.id;
         let value =
             serde_json::to_vec(metadata).map_err(|e| RegistryError::Storage(e.to_string()))?;
 
-        let input = r3e_store::PutInput {
-            key,
-            value: &value,
-            if_not_exists: false,
-        };
-
         self.db
-            .put(&self.cf_name, input)
+            .put_cf(&self.cf_name, key, &value)
             .map_err(|e| RegistryError::Storage(format!("Failed to store function: {}", e)))
     }
 
     fn get_function(&self, id: &str) -> Result<FunctionMetadata, RegistryError> {
-        let key = id.as_bytes();
-
-        match self.db.get(&self.cf_name, key) {
-            Ok(value) => {
+        match self.db.get_cf::<_, Vec<u8>>(&self.cf_name, id) {
+            Ok(Some(value)) => {
                 let metadata: FunctionMetadata = serde_json::from_slice(&value)
                     .map_err(|e| RegistryError::Storage(e.to_string()))?;
                 Ok(metadata)
             }
-            Err(r3e_store::GetError::NoSuchKey) => Err(RegistryError::NotFound(id.to_string())),
-            Err(e) => Err(RegistryError::Storage(format!(
-                "Failed to get function: {}",
-                e
+            Ok(None) => Err(RegistryError::NotFound(format!(
+                "Function not found: {}",
+                id
             ))),
+            Err(e) => Err(RegistryError::Storage(format!("Failed to get function: {}", e))),
         }
     }
 
@@ -63,63 +68,50 @@ impl crate::registry::FunctionStorage for RocksDBFunctionStorage {
         page_size: u32,
         trigger_type: String,
     ) -> Result<Vec<FunctionMetadata>, RegistryError> {
-        let input = r3e_store::ScanInput {
-            start_key: &[],
-            start_exclusive: false,
-            end_key: &[],
-            end_inclusive: false,
-            max_count: page_size,
-        };
-
-        let output = self
-            .db
-            .scan(&self.cf_name, input)
-            .map_err(|e| RegistryError::Storage(format!("Failed to list functions: {}", e)))?;
-
+        // Create a prefix iterator to collect the results
+        let iter: Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + Send> = 
+            self.db.prefix_iter_cf(&self.cf_name, b"")
+            .map_err(|e| RegistryError::Storage(format!("Failed to scan functions: {}", e)))?;
+        
         let mut functions = Vec::new();
-
-        for (_, value) in output.kvs {
-            let metadata: FunctionMetadata = serde_json::from_slice(&value)
-                .map_err(|e| RegistryError::Storage(e.to_string()))?;
-
-            // Filter by trigger type if specified
-            if !trigger_type.is_empty() {
-                if let Some(trigger) = &metadata.trigger {
-                    if trigger.trigger_type != trigger_type {
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
+        let mut count = 0;
+        
+        for (_, value_boxed) in iter {
+            if count >= page_size {
+                break;
             }
-
-            functions.push(metadata);
+            
+            let value_vec = value_boxed.to_vec();
+            
+            let metadata: FunctionMetadata = serde_json::from_slice(&value_vec)
+                .map_err(|e| RegistryError::Storage(e.to_string()))?;
+            
+            // If trigger_type is empty, include all functions
+            if trigger_type.is_empty() || metadata.trigger.as_ref().map_or(false, |t| t.trigger_type == trigger_type) {
+                functions.push(metadata);
+                count += 1;
+            }
         }
 
         Ok(functions)
     }
 
     fn delete_function(&mut self, id: &str) -> Result<bool, RegistryError> {
-        let key = id.as_bytes();
-
         // Check if function exists
-        let exists = match self.db.get(&self.cf_name, key) {
-            Ok(_) => true,
-            Err(r3e_store::GetError::NoSuchKey) => false,
-            Err(e) => {
-                return Err(RegistryError::Storage(format!(
-                    "Failed to check function existence: {}",
-                    e
-                )))
-            }
+        let exists = match self.db.get_cf::<_, Vec<u8>>(&self.cf_name, id) {
+            Ok(Some(_)) => true,
+            Ok(None) => false,
+            Err(e) => return Err(RegistryError::Storage(format!("Failed to get function: {}", e))),
         };
 
-        if exists {
-            self.db
-                .delete(&self.cf_name, key)
-                .map_err(|e| RegistryError::Storage(format!("Failed to delete function: {}", e)))?;
+        if !exists {
+            return Ok(false);
         }
 
-        Ok(exists)
+        self.db
+            .delete_cf(&self.cf_name, id)
+            .map_err(|e| RegistryError::Storage(format!("Failed to delete function: {}", e)))?;
+
+        Ok(true)
     }
 }

@@ -435,6 +435,9 @@ impl SecretVault {
             )));
         }
 
+        // Clone the previous_versions to avoid borrow issues
+        let previous_versions = metadata.previous_versions.clone();
+
         // Delete the secret
         self.storage
             .delete_secret(user_id, function_id, secret_id)
@@ -444,7 +447,7 @@ impl SecretVault {
         metadata_map.remove(secret_id);
 
         // Delete previous versions
-        for version_id in &metadata.previous_versions {
+        for version_id in &previous_versions {
             // Ignore errors when deleting previous versions
             let _ = self
                 .storage
@@ -748,8 +751,8 @@ impl VaultService for SecretVault {
     }
 
     async fn rotate_master_key(&self, new_master_key: [u8; 32]) -> Result<(), SecretError> {
-        // Clone self to get a mutable reference
-        let mut vault = self.clone();
+        // Use a regular variable instead of a mutable one since no mutation is happening
+        let vault = self.clone();
         vault.rotate_master_key(new_master_key).await
     }
 }

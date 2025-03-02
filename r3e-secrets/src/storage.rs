@@ -109,14 +109,10 @@ impl SecretStorage for MemorySecretStorage {
         function_id: &str,
     ) -> Result<Vec<EncryptedSecret>, SecretError> {
         let secrets = self.secrets.read().await;
-        let prefix = format!("{}:{}", user_id, function_id);
-
-        let function_secrets = secrets
+        Ok(secrets
             .values()
             .filter(|s| s.user_id == user_id && s.function_id == function_id)
             .cloned()
-            .collect();
-
-        Ok(function_secrets)
+            .collect())
     }
 }

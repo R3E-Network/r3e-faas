@@ -3,20 +3,33 @@
 
 \begin{figure}[ht]
 \centering
-\begin{tikzpicture}[font=\scriptsize, node distance=5.5cm]
-    % Define nodes using our consistent style
-    \node[block] (sources) {Data Sources};
-    \node[block, right of=sources, node distance=5.5cm] (providers) {Data Providers};
-    \node[block, right of=providers, node distance=5.5cm] (oracle) {Oracle Service};
-    \node[block, below of=oracle, node distance=3.5cm] (blockchain) {Neo Blockchain};
-    \node[block, left of=blockchain, node distance=5.5cm] (apps) {Applications};
+\begin{tikzpicture}[
+    font=\small, 
+    node distance=7cm,
+    block/.style={rectangle, draw, fill=blue!20, text width=3cm, 
+                 text centered, rounded corners, minimum height=2cm, drop shadow},
+    connector/.style={-latex, thick, draw=black}
+]
+    % Define nodes in a more orderly arrangement
+    \node[block] (sources) at (-7,0) {Data Sources};
+    \node[block] (providers) at (0,0) {Data Providers};
+    \node[block] (oracle) at (7,0) {Oracle Service};
+    \node[block] (blockchain) at (7,-5) {Neo Blockchain};
+    \node[block] (apps) at (-7,-5) {Applications};
     
-    % Connections with our consistent style
+    % Add labels to show the data flow direction clearly
+    \node[font=\bfseries] at (0,2.5) {Data Flow Pipeline};
+    
+    % Connections with clear directional arrows and non-overlapping labels
     \draw[connector] (sources) -- node[above-arrow-text] {Raw Data} (providers);
     \draw[connector] (providers) -- node[above-arrow-text] {Verified Data} (oracle);
-    \draw[connector] (oracle) -- node[above-arrow-text, right] {Price Feeds} (blockchain);
-    \draw[connector] (blockchain) -- node[above-arrow-text] {Data Access} (apps);
-    \draw[connector] (oracle) to[bend right=30] node[above-arrow-text, left] {Direct API} (apps);
+    
+    % Use curved paths for vertical and crossing connections to show flow better
+    \draw[connector] (oracle) to[out=270, in=90] node[above-arrow-text, right, pos=0.3] {Price Feeds} (blockchain);
+    \draw[connector] (blockchain) to[out=180, in=0] node[above-arrow-text, pos=0.5] {Data Access} (apps);
+    
+    % Use a different curve path to avoid crossings
+    \draw[connector] (oracle) to[out=225, in=45] node[above-arrow-text, pos=0.3] {Direct API} (apps);
 \end{tikzpicture}
 \caption{Oracle Service Architecture and Data Flow}
 \label{fig:oracle-architecture}

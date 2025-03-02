@@ -8,7 +8,7 @@
     
     % Place nodes
     \node [block] (blockchain) {Neo N3 Blockchain};
-    \node [block, below of=blockchain] (event) {Event System};
+    \node [block, below=of blockchain] (event) {Event System};
     \node [block, below of=event] (registry) {Event Registry};
     \node [block, left of=event, node distance=4cm] (trigger) {Trigger Evaluator};
     \node [block, right of=event, node distance=4cm] (processor) {Event Processor};
